@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npx prisma validate --schema packages/db/prisma/schema.prisma
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

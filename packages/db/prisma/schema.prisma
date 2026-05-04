@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Host org (future SaaS tenant)
+model Organization {
+  id        String       @id @default(uuid())
+  name      String
+  slug      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  memberships Membership[]
+  invites  Invite[]
+  properties Property[]
+  bookings Booking[]
+  blocks   AvailabilityBlock[]
+  expenses Expense[]
+  alerts   ConflictAlert[]
+  sections SiteSection[]
+  media    MediaAsset[]
+  guestReviews GuestReview[]
+}
+
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+}
+
+model Membership {
+  id             String           @id @default(uuid())
+  role           MembershipRole   @default(CARETAKER)
+  userId         String
+  organizationId String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  CARETAKER
+  STAFF_BLOCK
+}
+
+/// Pending membership invite / join link for org staff
+model Invite {
+  id              String           @id @default(uuid())
+  organizationId  String
+  email           String
+  role            MembershipRole   @default(CARETAKER)
+  token           String           @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  invitedByUserId String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, email])
+}
+
+/// Physical grouping (compound / farmhouse)
+model Property {
+  id             String         @id @default(uuid())
+  organizationId String
+  name           String
+  slug           String // unique per org enforced in application for now
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  units          RentableUnit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, slug])
+}
+
+enum RentableUnitKind {
+  WHOLE_HOME
+  ROOM
+  COTTAGE
+  DORM_BED
+}
+
+/// Smallest independently bookable SKU (whole villa or one room inside)
+model RentableUnit {
+  id                   String           @id @default(uuid())
+  propertyId           String
+  parentRentableUnitId String?
+  kind                 RentableUnitKind @default(WHOLE_HOME)
+  name                 String
+  slug                 String
+  compoundPolicyJson   Json?
+
+  property   Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  parent     RentableUnit?  @relation("UnitHierarchy", fields: [parentRentableUnitId], references: [id], onDelete: SetNull)
+  children   RentableUnit[] @relation("UnitHierarchy")
+
+  listingLinks         ListingLink[]
+  bookings             Booking[]
+  availabilityBlocks   AvailabilityBlock[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, slug])
+}
+
+/// Maps one rentable SKU to channels (OTA, direct funnel segment, etc.)
+model ListingLink {
+  id               String       @id @default(uuid())
+  rentableUnitId   String
+  channel          String
+  inboundIcalUrl   String?
+  outboundFeedSlug String       @unique
+  externalLabel       String?
+
+  lastIcalFetchedAt DateTime?
+  lastIcalFetchError String?
+
+  rentableUnit RentableUnit @relation(fields: [rentableUnitId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rentableUnitId, channel])
+}
+
+enum BookingSource {
+  DIRECT_WEB
+  PLATFORM
+  MANUAL
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model Booking {
+  id             String          @id @default(uuid())
+  organizationId String
+  rentableUnitId String
+
+  status         BookingStatus   @default(PENDING)
+  source         BookingSource   @default(PLATFORM)
+
+  guestName       String?
+  guestEmail      String?
+  guestPhone      String?
+
+  externalProvider String?
+  externalId       String?
+
+  checkInUtc  DateTime
+  checkOutUtc DateTime
+  timezone    String? @default("Asia/Kolkata")
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rentableUnit       RentableUnit        @relation(fields: [rentableUnitId], references: [id], onDelete: Restrict)
+  availabilityBlocks AvailabilityBlock[]
+
+  @@index([organizationId, checkInUtc, checkOutUtc])
+  @@index([externalProvider, externalId])
+}
+
+enum AvailabilityBlockReason {
+  BOOKING
+  PERSONAL_HOLD
+  MAINTENANCE
+}
+
+model AvailabilityBlock {
+  id               String                   @id @default(uuid())
+  organizationId   String
+  rentableUnitId   String
+
+  startsAtUtc DateTime
+  endsAtUtc   DateTime
+  reason      AvailabilityBlockReason
+  bookingId   String?
+
+  note          String?
+  createdByUserId String?
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rentableUnit RentableUnit @relation(fields: [rentableUnitId], references: [id], onDelete: Cascade)
+  booking      Booking?     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, rentableUnitId, startsAtUtc, endsAtUtc])
+}
+
+/// Phase 2: expense stubs (no AI)
+model Expense {
+  id             String       @id @default(uuid())
+  organizationId String
+  amountMinor    Int
+  currency       String       @default("INR")
+  receiptUrl     String?
+  merchant       String?
+  bookingId      String?
+  memo           String?
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model ConflictAlert {
+  id               String       @id @default(uuid())
+  organizationId   String
+  severity         String       @default("warning")
+  summary          String
+  detailJson       Json?
+  rentableUnitId   String?
+  dismissedAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, dismissedAt, createdAt])
+}
+
+model SiteSection {
+  id              String       @id @default(uuid())
+  organizationId  String
+  key             String
+  title           String
+  bodyMarkdown    String       @db.Text
+  sortOrder       Int          @default(0)
+  published       Boolean      @default(false)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, key])
+}
+
+model MediaAsset {
+  id             String @id @default(uuid())
+  organizationId String
+  key            String
+  publicUrl      String
+  alt            String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, key])
+}
+
+enum ReviewPlatform {
+  AIRBNB
+  GOOGLE
+  BOOKING_COM
+  DIRECT
+  OTHER
+}
+
+/// Guest reviews mirrored from OTAs / direct — curated for the public site.
+model GuestReview {
+  id               String         @id @default(uuid())
+  organizationId   String
+  platform         ReviewPlatform @default(OTHER)
+  rating           Int
+  ratingMax        Int            @default(5)
+  guestDisplayName String?
+  title            String?
+  body             String         @db.Text
+  reviewedAt       DateTime?
+  showOnLanding    Boolean        @default(true)
+  /// Lower numbers surface first on the homepage (e.g. 1–6), then others sort by rating.
+  pinnedOrder      Int            @default(1000)
+  externalId       String?
+  syncedAt         DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, showOnLanding])
+  @@index([organizationId, pinnedOrder, rating])
+}
