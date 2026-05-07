@@ -3,14 +3,15 @@
 ## Prerequisites
 
 - Node.js 20+
-- Docker Desktop (for Postgres, Redis, MinIO)
+- Docker Desktop (for local Postgres, Redis, MinIO) — **optional** if you use [hosted Postgres + cloud API](docs/deploy/cloud-lite.md) instead
 
 ## First run
 
 1. Copy environment: `Copy-Item .env.example .env` (or duplicate manually). Ensure `JWT_SECRET` is at least 32 characters.
 2. Start services: `npm run compose:up` (requires Docker running).
 3. Apply DB schema: `npm run db:migrate -w @mavu/db` (uses root `.env` via `dotenv-cli`).
-4. Dev servers: `npm run dev`  
+4. Bootstrap tenant (see curl below), then seed canonical inventory: `npm run db:seed` — creates property **mavu-farm** with units **full-farm**, **1bhk-villa**, **2bhk-villa** for org slug **mavu-days** (override with `SEED_ORG_SLUG` / `SEED_PROPERTY_SLUG` in `.env`).
+5. Dev servers: `npm run dev`  
    - API: [http://localhost:3001](http://localhost:3001)  
    - Web: [http://localhost:3000](http://localhost:3000)
 
@@ -24,6 +25,8 @@
 | `npm test` | `channels-ical` Vitest golden tests |
 | `npm run db:generate -w @mavu/db` | Regenerate Prisma client |
 | `npm run lint` | ESLint api + lint web |
+| `npm run db:seed` | Upsert default farm + 3 SKUs for registered org (see step 4) |
+| `npm run migrate:deploy:ci -w @mavu/db` | Apply migrations using `DATABASE_URL` from the environment (hosted DB / CI; no root `.env` required) |
 
 ### Bootstrap tenant (curl)
 
@@ -37,6 +40,8 @@ curl -X POST http://localhost:3001/auth/register ^
 
 Then `GET /me` with `Authorization: Bearer <token>`.
 
+Run `npm run db:seed` so admin inventory matches the marketing site: three rentable units whose slugs resolve to Full Farm / 1BHK / 2BHK for availability search (`landing-availability-matrix.ts`). Stay **cards** and **copy** on the homepage still come from `apps/web/lib/landing-content.ts` + CMS sections until wired to the API.
+
 Set `MOCK_PAYMENTS=true` in `.env` to auto-confirm direct-site bookings in dev.
 
 ### Key routes
@@ -46,7 +51,8 @@ Set `MOCK_PAYMENTS=true` in `.env` to auto-confirm direct-site bookings in dev.
 - ICS export: `/feeds/<outbound-feed-slug>.ics` (paste URL into Airbnb/Booking)
 - Webhooks (Phase 2): `/hooks/meta/whatsapp` · `/hooks/meta/instagram` (`FEATURE_PHASE2_MESSAGES`)
 
-See [docs/deploy/gcp-sketch.md](docs/deploy/gcp-sketch.md) for GCP cutover outline.
+- **No Docker / low disk:** [docs/deploy/cloud-lite.md](docs/deploy/cloud-lite.md) (Neon + hosted API + Vercel).
+- **GCP-oriented layout:** [docs/deploy/gcp-sketch.md](docs/deploy/gcp-sketch.md).
 
 ## Layout
 

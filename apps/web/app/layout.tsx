@@ -26,9 +26,9 @@ const site =
 export const metadata: Metadata = {
   metadataBase: new URL(site.endsWith('/') ? site.slice(0, -1) : site),
   icons: {
-    icon: '/favicon.png',
-    shortcut: '/favicon.png',
-    apple: '/favicon.png',
+    icon: '/mavu_days_favicon_transparent.svg',
+    shortcut: '/mavu_days_favicon_transparent.svg',
+    apple: '/mavu_days_favicon_transparent.svg',
   },
 };
 

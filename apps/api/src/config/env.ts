@@ -32,5 +32,13 @@ export function loadEnv(): Env {
     console.error('Invalid environment', parsed.error.flatten().fieldErrors);
     process.exit(1);
   }
-  return parsed.data;
+  const e = parsed.data;
+  // Railway, Render, Fly, etc. set PORT; prefer it over API_PORT for public binding.
+  if (process.env.PORT) {
+    const p = Number(process.env.PORT);
+    if (Number.isFinite(p)) {
+      return { ...e, API_PORT: p };
+    }
+  }
+  return e;
 }

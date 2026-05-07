@@ -16,6 +16,7 @@ export async function fetchPublicOrgContent(orgSlug: string): Promise<PublicCont
       sections: raw.sections ?? [],
       media: raw.media ?? [],
       reviews: raw.reviews ?? [],
+      offers: raw.offers ?? [],
     };
   } catch {
     return null;

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -14,6 +15,7 @@ type Booking = {
   guestName: string | null; guestEmail: string | null; guestPhone: string | null;
   guestCount: number | null; note: string | null;
   rentableUnit: { id: string; name: string; slug: string } | null;
+  offerSelections?: { landingOffer: { id: string; label: string } }[];
 };
 
 type GuestReview = {
@@ -23,10 +25,101 @@ type GuestReview = {
 };
 
 type SiteSection = { id: string; key: string; title: string; bodyMarkdown: string; sortOrder: number; published: boolean };
+type LandingOfferRow = {
+  id: string;
+  label: string;
+  sortOrder: number;
+  published: boolean;
+  rentableUnitId: string | null;
+};
 type MediaAsset  = { id: string; key: string; publicUrl: string; alt: string | null };
+type ListingProfileDto = {
+  id: string;
+  published: boolean;
+  sortOrder: number;
+  matrixRole: string;
+  cardTitle: string;
+  cardShort: string;
+  bestFor: unknown;
+  descriptionMarkdown: string;
+  highlights: unknown;
+  amenities: unknown;
+  ctaLabel: string | null;
+  weekdayPriceMinor: number | null;
+  fridayPriceMinor: number | null;
+  saturdayPriceMinor: number | null;
+  sundayPriceMinor: number | null;
+  longWeekendPriceMinor: number | null;
+  guestsHint: number | null;
+  bedroomsHint: number | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  detailHeroUrl: string | null;
+};
+type UnitListingBundle = {
+  propertySlug: string;
+  propertyName: string;
+  unit: { id: string; name: string; slug: string; kind: string };
+  listingProfile: ListingProfileDto | null;
+};
 type Alert       = { id: string; message: string; severity: string };
 type DashStats   = { upcoming: Booking[]; alerts: Alert[]; listingLinks: ListingLink[] };
 
+type ListingDraftState = {
+  published: boolean;
+  sortOrder: string;
+  matrixRole: string;
+  cardTitle: string;
+  cardShort: string;
+  bestForText: string;
+  descriptionMarkdown: string;
+  highlightsText: string;
+  amenitiesText: string;
+  ctaLabel: string;
+  weekday: string;
+  friday: string;
+  saturday: string;
+  sunday: string;
+  longWeekend: string;
+  guestsHint: string;
+  bedroomsHint: string;
+  seoTitle: string;
+  seoDescription: string;
+  detailHeroUrl: string;
+};
+
+function jsonStringArr(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === 'string');
+}
+
+function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
+  const lp = row.listingProfile;
+  return {
+    published: lp?.published ?? false,
+    sortOrder: String(lp?.sortOrder ?? 0),
+    matrixRole: lp?.matrixRole ?? 'NONE',
+    cardTitle: lp?.cardTitle ?? row.unit.name,
+    cardShort: lp?.cardShort ?? '',
+    bestForText: jsonStringArr(lp?.bestFor).join('\n'),
+    descriptionMarkdown: lp?.descriptionMarkdown ?? '',
+    highlightsText: jsonStringArr(lp?.highlights).join('\n'),
+    amenitiesText: jsonStringArr(lp?.amenities).join('\n'),
+    ctaLabel: lp?.ctaLabel ?? '',
+    weekday: lp?.weekdayPriceMinor != null ? String(lp.weekdayPriceMinor) : '',
+    friday: lp?.fridayPriceMinor != null ? String(lp.fridayPriceMinor) : '',
+    saturday: lp?.saturdayPriceMinor != null ? String(lp.saturdayPriceMinor) : '',
+    sunday: lp?.sundayPriceMinor != null ? String(lp.sundayPriceMinor) : '',
+    longWeekend: lp?.longWeekendPriceMinor != null ? String(lp.longWeekendPriceMinor) : '',
+    guestsHint: lp?.guestsHint != null ? String(lp.guestsHint) : '',
+    bedroomsHint: lp?.bedroomsHint != null ? String(lp.bedroomsHint) : '',
+    seoTitle: lp?.seoTitle ?? '',
+    seoDescription: lp?.seoDescription ?? '',
+    detailHeroUrl: lp?.detailHeroUrl ?? '',
+  };
+}
+
+const MATRIX_ROLE_OPTS = ['NONE', 'FULL_FARM', 'VILLA_1BHK', 'VILLA_2BHK'] as const;
 const PLATFORMS  = ['AIRBNB', 'GOOGLE', 'BOOKING_COM', 'DIRECT', 'OTHER'] as const;
 const PLT_LABEL: Record<string, string> = { AIRBNB: 'Airbnb', GOOGLE: 'Google', BOOKING_COM: 'Booking.com', DIRECT: 'Direct', OTHER: 'Other' };
 const ROLES = ['CARETAKER', 'STAFF_BLOCK', 'ADMIN'] as const;
@@ -96,9 +189,14 @@ export default function OrgAdminPage() {
   const [bookings, setBookings]   = useState<Booking[]>([]);
   const [reviews, setReviews]     = useState<GuestReview[]>([]);
   const [sections, setSections]   = useState<SiteSection[]>([]);
+  const [offers, setOffers]       = useState<LandingOfferRow[]>([]);
   const [media, setMedia]         = useState<MediaAsset[]>([]);
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null);
   const [busy, setBusy]           = useState(false);
+  const [homepageKind, setHomepageKind] = useState<'LISTING_GRID' | 'MATRIX_THREE_SKU'>('LISTING_GRID');
+  const [unitBundles, setUnitBundles] = useState<UnitListingBundle[]>([]);
+  const [listingEditUnitId, setListingEditUnitId] = useState<string | null>(null);
+  const [listingDraft, setListingDraft] = useState<ListingDraftState | null>(null);
 
   const tok = () => localStorage.getItem('mavu_token') ?? '';
   const ah  = (extra?: Record<string, string>) => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json', ...extra });
@@ -135,12 +233,24 @@ export default function OrgAdminPage() {
   const loadBk    = useCallback(async () => { const d = await apiFetch<{ bookings: Booking[] }>(`${base}/bookings`); if (d) setBookings(d.bookings); }, [slug]);
   const loadRev   = useCallback(async () => { const d = await apiFetch<{ reviews: GuestReview[] }>(`${base}/cms/reviews`); if (d) setReviews(d.reviews); }, [slug]);
   const loadCms   = useCallback(async () => {
-    const [s, m] = await Promise.all([
+    const [s, m, o] = await Promise.all([
       apiFetch<{ sections: SiteSection[] }>(`${base}/cms/sections`),
       apiFetch<{ media: MediaAsset[] }>(`${base}/cms/media`),
+      apiFetch<{ offers: LandingOfferRow[] }>(`${base}/cms/offers`),
     ]);
     if (s) setSections(s.sections);
     if (m) setMedia(m.media);
+    if (o) setOffers(o.offers);
+  }, [slug]);
+
+  const loadUnitListings = useCallback(async () => {
+    const d = await apiFetch<{ units: UnitListingBundle[] }>(`${base}/cms/unit-listings`);
+    if (d) setUnitBundles(d.units);
+  }, [slug]);
+
+  const loadSiteSettings = useCallback(async () => {
+    const d = await apiFetch<{ homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' }>(`${base}/cms/site-settings`);
+    if (d?.homepageKind) setHomepageKind(d.homepageKind);
   }, [slug]);
 
   useEffect(() => {
@@ -150,6 +260,8 @@ export default function OrgAdminPage() {
     void loadBk();
     void loadRev();
     void loadCms();
+    void loadUnitListings();
+    void loadSiteSettings();
   }, [slug]);
 
   // Flat list of all units across all properties (for dropdowns)
@@ -216,6 +328,14 @@ export default function OrgAdminPage() {
   const TabProperties = (
     <>
       {/* Add property */}
+      <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
+        <strong>Landing site alignment:</strong> the homepage “Full Farm / 1BHK / 2BHK” booking grid resolves units by{' '}
+        <strong>slug</strong> (see API <code style={{fontSize:'0.78rem'}}>landing-availability-matrix.ts</code>). Canonical slugs are{' '}
+        <code style={{fontSize:'0.78rem'}}>full-farm</code>, <code style={{fontSize:'0.78rem'}}>1bhk-villa</code>,{' '}
+        <code style={{fontSize:'0.78rem'}}>2bhk-villa</code> — run <code style={{fontSize:'0.78rem'}}>npm run db:seed</code> after register to create them.
+        Stay cards, detail pages, and pricing are edited under <strong>CMS → Stay listings</strong>. Generic homepage copy lives in{' '}
+        <strong>Text Sections</strong> &amp; <strong>Media</strong>; run <code style={{fontSize:'0.78rem'}}>npm run db:seed</code> after register to preload Mavu-style content when the DB is empty.
+      </div>
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
         <div className="adm-card-header"><h2 className="adm-card-title">Add Property</h2></div>
         <div className="adm-card-body">
@@ -323,8 +443,13 @@ export default function OrgAdminPage() {
 
   /* ─── Bookings ─── */
   const [bkForm, setBkForm] = useState({ unitId:'', checkIn:'', checkOut:'', guestName:'', guestEmail:'', guestPhone:'', note:'' });
+  const [bkOfferIds, setBkOfferIds] = useState<string[]>([]);
   const [blkForm, setBlkForm] = useState({ unitId:'', start:'', end:'', reason:'PERSONAL_HOLD', note:'' });
   const [bkSubTab, setBkSubTab] = useState<'list'|'add'|'block'>('list');
+
+  useEffect(() => {
+    setBkOfferIds([]);
+  }, [bkForm.unitId]);
 
   const TabBookings = (
     <>
@@ -347,7 +472,11 @@ export default function OrgAdminPage() {
                       <td>
                         <strong>{b.guestName??'Guest'}</strong>
                         {b.guestEmail ? <><br/><span style={{fontSize:'0.78rem',color:'#6B7280'}}>{b.guestEmail}</span></> : null}
-                        {b.guestPhone ? <><br/><span style={{fontSize:'0.78rem',color:'#6B7280'}}>{b.guestPhone}</span></> : null}
+                        {b.offerSelections?.length ? (
+                          <><br/><span style={{fontSize:'0.75rem',color:'#059669'}}>
+                            Offers: {b.offerSelections.map((s) => s.landingOffer.label).join(' · ')}
+                          </span></>
+                        ) : null}
                       </td>
                       <td><span className="adm-badge adm-badge-gray">{b.rentableUnit?.name??'—'}</span></td>
                       <td>{fmtDate(b.checkInUtc)}</td>
@@ -376,10 +505,12 @@ export default function OrgAdminPage() {
                 checkOutUtc:new Date(bkForm.checkOut).toISOString(),
                 guestName:bkForm.guestName||undefined, guestEmail:bkForm.guestEmail||undefined,
                 guestPhone:bkForm.guestPhone||undefined, note:bkForm.note||undefined,
+                offerIds: bkOfferIds.length ? bkOfferIds : undefined,
               })});
               setBusy(false);
               if(!r) return;
               setBkForm({unitId:'',checkIn:'',checkOut:'',guestName:'',guestEmail:'',guestPhone:'',note:''});
+              setBkOfferIds([]);
               await loadBk(); await loadDash(); notify('Booking created!'); setBkSubTab('list');
             }}>
               <div className="adm-form-grid">
@@ -418,6 +549,23 @@ export default function OrgAdminPage() {
                   <label className="adm-label">Internal Note (optional)</label>
                   <textarea className="adm-textarea" rows={2} value={bkForm.note} onChange={e=>setBkForm(s=>({...s,note:e.target.value}))}/>
                 </div>
+                {bkForm.unitId ? (
+                  offers.filter(o=>o.published && (!o.rentableUnitId || o.rentableUnitId===bkForm.unitId)).length > 0 ? (
+                    <div className="adm-field adm-field-full">
+                      <label className="adm-label">Offers guest asked for (optional)</label>
+                      <div style={{display:'flex',flexDirection:'column',gap:'0.35rem'}}>
+                        {offers.filter(o=>o.published && (!o.rentableUnitId || o.rentableUnitId===bkForm.unitId)).map(o=>(
+                          <label key={o.id} className="adm-toggle-row">
+                            <input type="checkbox" checked={bkOfferIds.includes(o.id)} onChange={()=>{
+                              setBkOfferIds(ids=>ids.includes(o.id)?ids.filter(x=>x!==o.id):[...ids,o.id]);
+                            }}/>
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null
+                ) : null}
               </div>
               <button className="adm-btn adm-btn-primary" style={{marginTop:'1rem'}} disabled={busy||!allUnits.length} type="submit">Create Booking</button>
             </form>
@@ -571,22 +719,201 @@ export default function OrgAdminPage() {
   );
 
   /* ─── CMS ─── */
-  const [cmsSubTab, setCmsSubTab] = useState<'sections'|'media'>('sections');
+  const [cmsSubTab, setCmsSubTab] = useState<'sections'|'media'|'offers'|'listings'|'site'>('sections');
   const [secForm, setSecForm] = useState({key:'',title:'',bodyMarkdown:'',published:true});
   const [editSec, setEditSec] = useState<string|null>(null);
   const [editSecPatch, setEditSecPatch] = useState({title:'',bodyMarkdown:'',published:true});
   const [mediaForm, setMediaForm] = useState({key:'',publicUrl:'',alt:''});
+  const [editOffer, setEditOffer] = useState<string|null>(null);
+  const [editOfferPatch, setEditOfferPatch] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
+  const [offerForm, setOfferForm] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
+
+  const optionalInt = (s: string) => {
+    const t = s.trim();
+    if (!t) return null;
+    const n = parseInt(t, 10);
+    return Number.isFinite(n) ? n : null;
+  };
 
   const TabCms = (
     <>
-      <div style={{display:'flex',gap:'0.5rem',marginBottom:'1.5rem'}}>
-        {([['sections','Text Sections'],['media','Media / Images']] as const).map(([k,l])=>(
+      <div style={{display:'flex',gap:'0.5rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
+        {([
+          ['sections','Text sections'],
+          ['media','Media / images'],
+          ['listings','Stay listings'],
+          ['site','Homepage layout'],
+          ['offers','Landing offers'],
+        ] as const).map(([k,l])=>(
           <button key={k} className={`adm-btn ${cmsSubTab===k?'adm-btn-primary':'adm-btn-ghost'}`} onClick={()=>setCmsSubTab(k)} type="button">{l}</button>
         ))}
       </div>
 
+      {cmsSubTab==='site' && (
+        <div className="adm-card" style={{marginBottom:'1.25rem'}}>
+          <div className="adm-card-header"><h2 className="adm-card-title">Public homepage layout</h2></div>
+          <div className="adm-card-body">
+            <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0,lineHeight:1.55}}>
+              <strong>Listing grid</strong> shows every published unit as a card (good for multiple properties).{' '}
+              <strong>Three-SKU matrix</strong> matches Full Farm / 1BHK / 2BHK availability like the current Mavu Days flow.
+            </p>
+            <div className="adm-field adm-field-full">
+              <label className="adm-label">Layout</label>
+              <select className="adm-select" value={homepageKind} onChange={(e)=>setHomepageKind(e.target.value as 'LISTING_GRID'|'MATRIX_THREE_SKU')}>
+                <option value="LISTING_GRID">Listing grid (multi-property)</option>
+                <option value="MATRIX_THREE_SKU">Three-SKU matrix (single compound)</option>
+              </select>
+            </div>
+            <button className="adm-btn adm-btn-primary" type="button" disabled={busy} onClick={async()=>{
+              setBusy(true);
+              const r = await apiFetch(`${base}/cms/site-settings`,{method:'PATCH',body:JSON.stringify({homepageKind})});
+              setBusy(false);
+              if (!r) return;
+              notify('Homepage layout saved.');
+            }}>Save layout</button>
+          </div>
+        </div>
+      )}
+
+      {cmsSubTab==='listings' && (
+        <>
+          <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
+            These fields power the marketing <strong>stay cards</strong>, <strong>/stays/…</strong> detail heroes, and (when prices are set) rate hints. Published listings appear on the public site immediately after save.
+          </div>
+          {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
+          {unitBundles.map((row)=>{
+            const isOpen = listingEditUnitId===row.unit.id && listingDraft;
+            return (
+              <div key={row.unit.id} className="adm-card" style={{marginBottom:'1.25rem'}}>
+                <div className="adm-card-header" style={{alignItems:'center'}}>
+                  <div>
+                    <h2 className="adm-card-title" style={{margin:0}}>{row.unit.name}</h2>
+                    <span className="adm-badge adm-badge-gray" style={{marginTop:'0.35rem'}}>{row.propertyName} · {row.unit.slug}</span>
+                    {row.listingProfile?.published ? (
+                      <span className="adm-badge adm-badge-green" style={{marginLeft:'0.35rem'}}>Published</span>
+                    ) : (
+                      <span className="adm-badge adm-badge-yellow" style={{marginLeft:'0.35rem'}}>Draft / hidden</span>
+                    )}
+                  </div>
+                  <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={()=>{
+                    if (isOpen) {
+                      setListingEditUnitId(null);
+                      setListingDraft(null);
+                    } else {
+                      setListingEditUnitId(row.unit.id);
+                      setListingDraft(listingDraftFromRow(row));
+                    }
+                  }}>{isOpen ? 'Close' : 'Edit'}</button>
+                </div>
+                {isOpen && listingDraft ? (
+                  <div className="adm-card-body" style={{display:'flex',flexDirection:'column',gap:'0.85rem'}}>
+                    <label className="adm-toggle-row">
+                      <input type="checkbox" checked={listingDraft.published} onChange={(e)=>setListingDraft((d)=>d ? {...d,published:e.target.checked}: d)}/>
+                      Published on marketing site
+                    </label>
+                    <div className="adm-form-grid">
+                      <div className="adm-field"><label className="adm-label">Sort order</label><input className="adm-input" value={listingDraft.sortOrder} onChange={(e)=>setListingDraft((d)=>d?{...d,sortOrder:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Matrix role (three-SKU mode)</label>
+                        <select className="adm-select" value={listingDraft.matrixRole} onChange={(e)=>setListingDraft((d)=>d?{...d,matrixRole:e.target.value}:d)}>
+                          {MATRIX_ROLE_OPTS.map((r)=><option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">Card title</label><input className="adm-input" value={listingDraft.cardTitle} onChange={(e)=>setListingDraft((d)=>d?{...d,cardTitle:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">Card subtitle</label><textarea className="adm-textarea" rows={2} value={listingDraft.cardShort} onChange={(e)=>setListingDraft((d)=>d?{...d,cardShort:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">Best for (one per line)</label><textarea className="adm-textarea" rows={3} value={listingDraft.bestForText} onChange={(e)=>setListingDraft((d)=>d?{...d,bestForText:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">Detail page copy (markdown)</label><textarea className="adm-textarea" rows={8} value={listingDraft.descriptionMarkdown} onChange={(e)=>setListingDraft((d)=>d?{...d,descriptionMarkdown:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">Highlights (one per line)</label><textarea className="adm-textarea" rows={4} value={listingDraft.highlightsText} onChange={(e)=>setListingDraft((d)=>d?{...d,highlightsText:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">Amenities (one per line)</label><textarea className="adm-textarea" rows={4} value={listingDraft.amenitiesText} onChange={(e)=>setListingDraft((d)=>d?{...d,amenitiesText:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">CTA button label</label><input className="adm-input" value={listingDraft.ctaLabel} onChange={(e)=>setListingDraft((d)=>d?{...d,ctaLabel:e.target.value}:d)} placeholder="e.g. Book 1BHK Villa"/></div>
+                    </div>
+                    <div className="adm-form-grid">
+                      {(['weekday','friday','saturday','sunday','longWeekend'] as const).map((k)=>(
+                        <div key={k} className="adm-field"><label className="adm-label">{k} (INR / night)</label><input className="adm-input" value={listingDraft[k]} onChange={(e)=>setListingDraft((d)=>d?{...d,[k]:e.target.value}:d)} placeholder="optional"/></div>
+                      ))}
+                    </div>
+                    <div className="adm-form-grid">
+                      <div className="adm-field"><label className="adm-label">Guests hint</label><input className="adm-input" value={listingDraft.guestsHint} onChange={(e)=>setListingDraft((d)=>d?{...d,guestsHint:e.target.value}:d)} placeholder="e.g. 6"/></div>
+                      <div className="adm-field"><label className="adm-label">Bedrooms hint</label><input className="adm-input" value={listingDraft.bedroomsHint} onChange={(e)=>setListingDraft((d)=>d?{...d,bedroomsHint:e.target.value}:d)} placeholder="e.g. 2"/></div>
+                    </div>
+                    <div className="adm-form-grid">
+                      <div className="adm-field adm-field-full"><label className="adm-label">SEO title</label><input className="adm-input" value={listingDraft.seoTitle} onChange={(e)=>setListingDraft((d)=>d?{...d,seoTitle:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">SEO description</label><textarea className="adm-textarea" rows={2} value={listingDraft.seoDescription} onChange={(e)=>setListingDraft((d)=>d?{...d,seoDescription:e.target.value}:d)}/></div>
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Detail hero image URL</label>
+                        <input className="adm-input" value={listingDraft.detailHeroUrl} onChange={(e)=>setListingDraft((d)=>d?{...d,detailHeroUrl:e.target.value}:d)} placeholder="https://… or /photo.jpg"/>
+                        {listingDraft.detailHeroUrl.trim() ? (
+                          <div style={{marginTop:'0.5rem',maxWidth:280,borderRadius:8,overflow:'hidden',border:'1px solid #E5E7EB'}}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={listingDraft.detailHeroUrl.trim()} alt="" style={{width:'100%',display:'block',maxHeight:140,objectFit:'cover'}} />
+                          </div>
+                        ):null}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
+                      <button type="button" className="adm-btn adm-btn-primary" disabled={busy} onClick={async()=>{
+                        if(!listingDraft) return;
+                        const bf = listingDraft.bestForText.split('\n').map((l)=>l.trim()).filter(Boolean);
+                        const hi = listingDraft.highlightsText.split('\n').map((l)=>l.trim()).filter(Boolean);
+                        const am = listingDraft.amenitiesText.split('\n').map((l)=>l.trim()).filter(Boolean);
+                        const sortOrder = parseInt(listingDraft.sortOrder,10);
+                        setBusy(true);
+                        const r = await apiFetch(`${base}/rentable-units/${row.unit.id}/listing-profile`,{method:'PUT',body:JSON.stringify({
+                          published:listingDraft.published,
+                          sortOrder:Number.isFinite(sortOrder)?sortOrder:0,
+                          matrixRole:listingDraft.matrixRole,
+                          cardTitle:listingDraft.cardTitle.trim(),
+                          cardShort:listingDraft.cardShort.trim(),
+                          bestFor:bf,
+                          descriptionMarkdown:listingDraft.descriptionMarkdown.trim(),
+                          highlights:hi,
+                          amenities:am,
+                          ctaLabel:listingDraft.ctaLabel.trim()||null,
+                          weekdayPriceMinor:optionalInt(listingDraft.weekday),
+                          fridayPriceMinor:optionalInt(listingDraft.friday),
+                          saturdayPriceMinor:optionalInt(listingDraft.saturday),
+                          sundayPriceMinor:optionalInt(listingDraft.sunday),
+                          longWeekendPriceMinor:optionalInt(listingDraft.longWeekend),
+                          guestsHint:optionalInt(listingDraft.guestsHint),
+                          bedroomsHint:optionalInt(listingDraft.bedroomsHint),
+                          seoTitle:listingDraft.seoTitle.trim()||null,
+                          seoDescription:listingDraft.seoDescription.trim()||null,
+                          detailHeroUrl:listingDraft.detailHeroUrl.trim()||null,
+                        })});
+                        setBusy(false);
+                        if(!r) return;
+                        notify('Stay listing saved.');
+                        setListingEditUnitId(null);
+                        setListingDraft(null);
+                        await loadUnitListings();
+                      }}>Save stay listing</button>
+                      <button type="button" className="adm-btn adm-btn-ghost" onClick={()=>{setListingEditUnitId(null);setListingDraft(null);}}>Cancel</button>
+                    </div>
+                  </div>
+                ):null}
+              </div>
+            );
+          })}
+        </>
+      )}
+
       {cmsSubTab==='sections' && (
         <>
+          <details className="adm-card" style={{marginBottom:'1.25rem'}}>
+            <summary style={{cursor:'pointer',padding:'1rem 1.5rem',fontWeight:600,color:'#1a1a2e'}}>Section key reference (public landing page)</summary>
+            <div className="adm-card-body" style={{paddingTop:0}}>
+              <p style={{fontSize:'0.84rem',color:'#6B7280',lineHeight:1.55,marginTop:0}}>
+                Published rows override built-in defaults. Use <strong>Markdown</strong> for long prose. For JSON-driven blocks paste a valid JSON array in the section body{' '}
+                (why blocks / house rules: objects with <code>title</code> and <code>text</code>; who cards: <code>title</code> and <code>body</code>; FAQs: <code>q</code> and <code>a</code>).
+              </p>
+              <p style={{fontSize:'0.78rem',color:'#6B7280',wordBreak:'break-all',marginBottom:'0.35rem'}}>
+                Keys: {[...new Set(Object.values(SECTION_KEY) as string[])].sort().join(', ')}
+              </p>
+              <p style={{fontSize:'0.78rem',color:'#6B7280',margin:0}}>
+                Hero image key: <code>{MEDIA_KEY.heroCover}</code>. Gallery: <code>{MEDIA_KEY.galleryPrefix}01</code> … <code>{MEDIA_KEY.galleryPrefix}08</code>.
+              </p>
+            </div>
+          </details>
           <div className="adm-card" style={{marginBottom:'1.5rem'}}>
             <div className="adm-card-header"><h2 className="adm-card-title">Site Text Sections ({sections.length})</h2></div>
             {sections.length===0
@@ -666,19 +993,124 @@ export default function OrgAdminPage() {
           <div className="adm-card">
             <div className="adm-card-header"><h2 className="adm-card-title">Register Media URL</h2></div>
             <div className="adm-card-body">
-              <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Register a public image URL (e.g. from Cloudinary, S3, or any CDN) with a key that the landing page can reference.</p>
+              <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Use a full HTTPS URL or a root-relative path served by your site (e.g. <code>/hero.jpg</code>). Hero key:{' '}
+                <code>{MEDIA_KEY.heroCover}</code>; gallery: <code>{MEDIA_KEY.galleryPrefix}01</code> … <code>{MEDIA_KEY.galleryPrefix}08</code>.</p>
               <form onSubmit={async e=>{
                 e.preventDefault(); setBusy(true);
-                const r = await apiFetch(`${base}/cms/media`,{method:'POST',body:JSON.stringify({key:mediaForm.key,publicUrl:mediaForm.publicUrl,alt:mediaForm.alt||undefined})});
+                const r = await apiFetch(`${base}/cms/media`,{method:'POST',body:JSON.stringify({key:mediaForm.key,publicUrl:mediaForm.publicUrl.trim(),alt:mediaForm.alt||undefined})});
                 setBusy(false); if(!r) return;
                 setMediaForm({key:'',publicUrl:'',alt:''}); await loadCms(); notify('Media registered.');
               }}>
                 <div className="adm-form-grid">
                   <div className="adm-field"><label className="adm-label">Key</label><input className="adm-input" required pattern="[a-z0-9-]+" placeholder="e.g. landing-hero-cover" value={mediaForm.key} onChange={e=>setMediaForm(s=>({...s,key:e.target.value}))}/></div>
                   <div className="adm-field"><label className="adm-label">Alt Text</label><input className="adm-input" placeholder="Describe the image" value={mediaForm.alt} onChange={e=>setMediaForm(s=>({...s,alt:e.target.value}))}/></div>
-                  <div className="adm-field adm-field-full"><label className="adm-label">Public URL</label><input className="adm-input" type="url" required placeholder="https://…" value={mediaForm.publicUrl} onChange={e=>setMediaForm(s=>({...s,publicUrl:e.target.value}))}/></div>
+                  <div className="adm-field adm-field-full"><label className="adm-label">Public URL or path</label><input className="adm-input" required placeholder="https://cdn…/photo.jpg or /hero.jpg" value={mediaForm.publicUrl} onChange={e=>setMediaForm(s=>({...s,publicUrl:e.target.value}))}/></div>
                 </div>
                 <button className="adm-btn adm-btn-primary" style={{marginTop:'1rem'}} disabled={busy} type="submit">Register</button>
+              </form>
+            </div>
+          </div>
+        </>
+      )}
+
+      {cmsSubTab==='offers' && (
+        <>
+          <div className="adm-card" style={{marginBottom:'1.5rem'}}>
+            <div className="adm-card-header"><h2 className="adm-card-title">Ticker lines ({offers.length})</h2></div>
+            <p style={{fontSize:'0.84rem',color:'#6B7280',margin:'0 1.5rem 1rem'}}>
+              Short promo messages for guests booking online: everyone sees lines scoped to &quot;All units&quot;; lines tied to a
+              specific unit appear only when that unit is booked. Only &quot;All units&quot; offers appear on the homepage ticker.
+            </p>
+            {offers.length===0
+              ? <div className="adm-empty"><EditI size={28}/>No offers yet — add one below.</div>
+              : offers.map(o=>(
+                  <div key={o.id} style={{borderBottom:'1px solid #F3F4F6',padding:'1rem 1.5rem'}}>
+                    {editOffer===o.id ? (
+                      <div style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
+                        <input className="adm-input" value={editOfferPatch.label} onChange={e=>setEditOfferPatch(x=>({...x,label:e.target.value}))} placeholder="Offer text" maxLength={500}/>
+                        <div className="adm-form-grid">
+                          <div className="adm-field"><label className="adm-label">Sort order</label><input className="adm-input" type="number" value={editOfferPatch.sortOrder} onChange={e=>setEditOfferPatch(x=>({...x,sortOrder:e.target.value}))}/></div>
+                        </div>
+                        <label className="adm-toggle-row"><input type="checkbox" checked={editOfferPatch.published} onChange={e=>setEditOfferPatch(x=>({...x,published:e.target.checked}))}/>Published on landing</label>
+                        <div className="adm-field adm-field-full">
+                          <label className="adm-label">Applies to</label>
+                          <select className="adm-select" value={editOfferPatch.rentableUnitId} onChange={e=>setEditOfferPatch(x=>({...x,rentableUnitId:e.target.value}))}>
+                            <option value="">All units + homepage ticker</option>
+                            {allUnits.map(u=>(
+                              <option key={u.id} value={u.id}>{u.propertyName} — {u.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
+                          <button className="adm-btn adm-btn-primary adm-btn-sm" type="button" onClick={async()=>{
+                            const sortOrder = parseInt(editOfferPatch.sortOrder,10);
+                            if (Number.isNaN(sortOrder)) { notify('Sort order must be a number.',false); return; }
+                            await apiFetch(`${base}/cms/offers/${encodeURIComponent(o.id)}`,{method:'PATCH',body:JSON.stringify({
+                              label:editOfferPatch.label.trim(),
+                              sortOrder,
+                              published:editOfferPatch.published,
+                              rentableUnitId: editOfferPatch.rentableUnitId === '' ? null : editOfferPatch.rentableUnitId,
+                            })});
+                            setEditOffer(null); await loadCms(); notify('Offer saved.');
+                          }}>Save</button>
+                          <button className="adm-btn adm-btn-ghost adm-btn-sm" type="button" onClick={()=>setEditOffer(null)}>Cancel</button>
+                          <button className="adm-btn adm-btn-ghost adm-btn-sm" style={{color:'#B91C1C'}} type="button" onClick={async()=>{
+                            if (!confirm('Delete this offer?')) return;
+                            await apiFetch(`${base}/cms/offers/${encodeURIComponent(o.id)}`,{method:'DELETE'});
+                            setEditOffer(null); await loadCms(); notify('Offer deleted.');
+                          }}>Delete</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'1rem'}}>
+                        <div>
+                          <strong style={{fontSize:'0.95rem'}}>{o.label}</strong>
+                          {!o.published&&<span className="adm-badge adm-badge-yellow" style={{marginLeft:'0.5rem'}}>Hidden</span>}
+                          <p style={{margin:'0.35rem 0 0',fontSize:'0.84rem',color:'#6B7280'}}>
+                            Sort: {o.sortOrder}
+                            {' · '}
+                            <span style={{color:o.rentableUnitId?'#4B5563':'#059669'}}>
+                              {o.rentableUnitId ? (allUnits.find(u=>u.id===o.rentableUnitId)?.name ?? 'Unit') : 'All units'}
+                            </span>
+                          </p>
+                        </div>
+                        <button className="adm-btn adm-btn-ghost adm-btn-sm" type="button" onClick={()=>{setEditOffer(o.id);setEditOfferPatch({label:o.label,sortOrder:String(o.sortOrder),published:o.published,rentableUnitId:o.rentableUnitId??''});}}>Edit</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+          </div>
+          <div className="adm-card">
+            <div className="adm-card-header"><h2 className="adm-card-title">Add offer</h2></div>
+            <div className="adm-card-body">
+              <form onSubmit={async e=>{
+                e.preventDefault(); setBusy(true);
+                const sortOrder = parseInt(offerForm.sortOrder,10);
+                if (Number.isNaN(sortOrder)) { setBusy(false); notify('Sort order must be a number.',false); return; }
+                const r = await apiFetch(`${base}/cms/offers`,{method:'POST',body:JSON.stringify({
+                  label:offerForm.label.trim(),
+                  sortOrder,
+                  published:offerForm.published,
+                  rentableUnitId: offerForm.rentableUnitId === '' ? null : offerForm.rentableUnitId,
+                })});
+                setBusy(false); if(!r) return;
+                setOfferForm({label:'',sortOrder:String(offers.length),published:true,rentableUnitId:''}); await loadCms(); notify('Offer added.');
+              }}>
+                <div className="adm-form-grid">
+                  <div className="adm-field adm-field-full"><label className="adm-label">Ticker text</label><input className="adm-input" required maxLength={500} placeholder="e.g. Mon–Thu: 15% off on direct bookings" value={offerForm.label} onChange={e=>setOfferForm(s=>({...s,label:e.target.value}))}/></div>
+                  <div className="adm-field"><label className="adm-label">Sort order</label><input className="adm-input" type="number" required value={offerForm.sortOrder} onChange={e=>setOfferForm(s=>({...s,sortOrder:e.target.value}))}/></div>
+                  <div className="adm-field adm-field-full">
+                    <label className="adm-label">Applies to</label>
+                    <select className="adm-select" value={offerForm.rentableUnitId} onChange={e=>setOfferForm(s=>({...s,rentableUnitId:e.target.value}))}>
+                      <option value="">All units + homepage ticker</option>
+                      {allUnits.map(u=>(
+                        <option key={u.id} value={u.id}>{u.propertyName} — {u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="adm-field adm-field-full"><label className="adm-toggle-row"><input type="checkbox" checked={offerForm.published} onChange={e=>setOfferForm(s=>({...s,published:e.target.checked}))}/>Published on landing</label></div>
+                </div>
+                <button className="adm-btn adm-btn-primary" style={{marginTop:'1rem'}} disabled={busy} type="submit">Add offer</button>
               </form>
             </div>
           </div>

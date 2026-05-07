@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { listingUrlPath } from '@/lib/landing-content';
 import { loadLandingPayload } from '@/lib/landing-data';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { RevealSection, RevealBlock } from '@/components/landing/reveal-section';
@@ -8,9 +9,17 @@ type Props = { slug: string };
 
 const STAY_IMAGE: Record<string, string> = {
   '1bhk': '/1bhk.jpg',
+  '1bhk-villa': '/1bhk.jpg',
   '2bhk': '/2bhk.jpg',
+  '2bhk-villa': '/2bhk.jpg',
   'full-farm': '/full-farm.jpg',
 };
+
+import type { ListingCard } from '@/lib/landing-content';
+
+function resolveListingSlug(slug: string, listings: readonly ListingCard[]) {
+  return listings.find((l) => listingUrlPath(l) === slug || l.id === slug);
+}
 
 function fmt(n: number) {
   return '₹' + n.toLocaleString('en-IN');
@@ -19,15 +28,16 @@ function fmt(n: number) {
 export async function StayDetailView({ slug }: Props) {
   const { merged, orgName } = await loadLandingPayload();
   const t = merged.texts;
-  const listing = t.listings.find((l) => l.id === slug);
+  const listing = resolveListingSlug(slug, t.listings);
 
   if (!listing) notFound();
 
   const phone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.replace(/\D/g, '') ?? '';
   const waHref = whatsappHref(phone, whatsappBookingMessage('2'));
-  const imgSrc = STAY_IMAGE[slug] ?? '/hero.jpg';
+  const imgSrc = listing.detailHeroUrl?.trim() || STAY_IMAGE[slug] || STAY_IMAGE[listing.id] || '/hero.jpg';
 
-  const otherListings = t.listings.filter((l) => l.id !== slug);
+  const pathSeg = listingUrlPath(listing);
+  const otherListings = t.listings.filter((l) => listingUrlPath(l) !== pathSeg && l.id !== listing.id);
 
   return (
     <div className="md-page-premium" style={{ background: 'var(--ivory)' }}>
@@ -35,7 +45,13 @@ export async function StayDetailView({ slug }: Props) {
       {/* ─── Navbar ─── */}
       <header className="md-bar md-bar-premium">
         <div className="md-bar-inner">
-          {/* Left — nav links */}
+          <div className="md-bar-logo-col">
+            <Link className="md-logo" href="/" aria-label={orgName}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt={orgName} className="md-logo-img" />
+            </Link>
+          </div>
+
           <div className="md-bar-nav-col">
             <nav className="md-nav" aria-label="Page sections">
               <Link href="/#about">About</Link>
@@ -45,14 +61,6 @@ export async function StayDetailView({ slug }: Props) {
               <Link href="/#faqs">FAQs</Link>
               <Link href="/#footer">Contact</Link>
             </nav>
-          </div>
-
-          {/* Center — logo */}
-          <div className="md-bar-logo-col">
-            <Link className="md-logo" href="/" aria-label={orgName}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.svg" alt={orgName} className="md-logo-img" />
-            </Link>
           </div>
 
           {/* Right — CTA */}
@@ -222,16 +230,19 @@ export async function StayDetailView({ slug }: Props) {
             </header>
             <div className="md-stay-grid">
               {otherListings.map((L, idx) => (
-                <RevealBlock key={L.id} delayIndex={idx} className="md-stay-card">
+                <RevealBlock key={listingUrlPath(L)} delayIndex={idx} className="md-stay-card">
                   <div className="md-stay-card-visual">
-                    {STAY_IMAGE[L.id] ? (
+                    {STAY_IMAGE[listingUrlPath(L)] || STAY_IMAGE[L.id] ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={STAY_IMAGE[L.id]}
+                        src={STAY_IMAGE[listingUrlPath(L)] || STAY_IMAGE[L.id]}
                         alt={`${L.title} at ${orgName}`}
                         className="md-stay-card-img"
                         loading="lazy"
                       />
+                    ) : L.detailHeroUrl?.trim() ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={L.detailHeroUrl.trim()} alt={`${L.title} at ${orgName}`} className="md-stay-card-img" loading="lazy" />
                     ) : (
                       <div className={`md-stay-card-img md-stay-ph-${(idx % 3) + 1}`} style={{ height: 200 }} role="img" aria-label={L.title} />
                     )}
@@ -246,7 +257,7 @@ export async function StayDetailView({ slug }: Props) {
                       </div>
                     ) : null}
                     <p className="md-stay-desc">{L.short}</p>
-                    <Link href={`/stays/${L.id}`} className="md-btn md-btn-primary md-btn-block">
+                    <Link href={`/stays/${listingUrlPath(L)}`} className="md-btn md-btn-primary md-btn-block">
                       View Details
                     </Link>
                   </div>

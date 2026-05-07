@@ -3,31 +3,30 @@ import {
   BookingSource,
   BookingStatus,
   MembershipRole,
+  type Prisma,
   type PrismaClient,
 } from '@prisma/client';
 import type { NotificationPublisher } from '../notifications/publisher.js';
 import { conflictingUnitFootprint, detectAvailabilityConflicts } from '../services/availability.js';
 
 async function upsertBookingBlock(
-  prisma: PrismaClient,
+  tx: Prisma.TransactionClient,
   bookingId: string,
   organizationId: string,
   rentableUnitId: string,
   checkInUtc: Date,
   checkOutUtc: Date,
 ) {
-  await prisma.$transaction(async (tx) => {
-    await tx.availabilityBlock.deleteMany({ where: { bookingId } });
-    await tx.availabilityBlock.create({
-      data: {
-        organizationId,
-        rentableUnitId,
-        bookingId,
-        reason: AvailabilityBlockReason.BOOKING,
-        startsAtUtc: checkInUtc,
-        endsAtUtc: checkOutUtc,
-      },
-    });
+  await tx.availabilityBlock.deleteMany({ where: { bookingId } });
+  await tx.availabilityBlock.create({
+    data: {
+      organizationId,
+      rentableUnitId,
+      bookingId,
+      reason: AvailabilityBlockReason.BOOKING,
+      startsAtUtc: checkInUtc,
+      endsAtUtc: checkOutUtc,
+    },
   });
 }
 
@@ -47,6 +46,7 @@ export async function upsertConfirmedBooking(
     guestPhone?: string | null;
     note?: string | null;
     sendCaretakerNotifications: boolean;
+    landingOfferIds?: string[];
   },
 ) {
   const footprintIds = await conflictingUnitFootprint(prisma, params.rentableUnitId);
@@ -83,38 +83,51 @@ export async function upsertConfirmedBooking(
     return { ok: false as const, clash };
   }
 
-  const booking = existingBooking
-    ? await prisma.booking.update({
-        where: { id: existingBooking.id },
-        data: {
-          checkInUtc: params.checkInUtc,
-          checkOutUtc: params.checkOutUtc,
-          guestName: params.guestName,
-          guestEmail: params.guestEmail,
-          guestPhone: params.guestPhone,
-          note: params.note,
-          rentableUnitId: params.rentableUnitId,
-          status: BookingStatus.CONFIRMED,
-        },
-      })
-    : await prisma.booking.create({
-        data: {
-          organizationId: params.organizationId,
-          rentableUnitId: params.rentableUnitId,
-          checkInUtc: params.checkInUtc,
-          checkOutUtc: params.checkOutUtc,
-          source: params.source,
-          status: BookingStatus.CONFIRMED,
-          externalProvider: params.externalProvider ?? undefined,
-          externalId: params.externalId ?? undefined,
-          guestName: params.guestName,
-          guestEmail: params.guestEmail,
-          guestPhone: params.guestPhone,
-          note: params.note,
-        },
-      });
+  const booking = await prisma.$transaction(async (tx) => {
+    const b = existingBooking
+      ? await tx.booking.update({
+          where: { id: existingBooking.id },
+          data: {
+            checkInUtc: params.checkInUtc,
+            checkOutUtc: params.checkOutUtc,
+            guestName: params.guestName,
+            guestEmail: params.guestEmail,
+            guestPhone: params.guestPhone,
+            note: params.note,
+            rentableUnitId: params.rentableUnitId,
+            status: BookingStatus.CONFIRMED,
+          },
+        })
+      : await tx.booking.create({
+          data: {
+            organizationId: params.organizationId,
+            rentableUnitId: params.rentableUnitId,
+            checkInUtc: params.checkInUtc,
+            checkOutUtc: params.checkOutUtc,
+            source: params.source,
+            status: BookingStatus.CONFIRMED,
+            externalProvider: params.externalProvider ?? undefined,
+            externalId: params.externalId ?? undefined,
+            guestName: params.guestName,
+            guestEmail: params.guestEmail,
+            guestPhone: params.guestPhone,
+            note: params.note,
+          },
+        });
 
-  await upsertBookingBlock(prisma, booking.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
+    await upsertBookingBlock(tx, b.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
+
+    if (!existingBooking && params.landingOfferIds?.length) {
+      await tx.bookingOfferSelection.createMany({
+        data: params.landingOfferIds.map((landingOfferId) => ({
+          bookingId: b.id,
+          landingOfferId,
+        })),
+      });
+    }
+
+    return b;
+  });
 
   const isFresh = !existingBooking;
   if (params.sendCaretakerNotifications && isFresh) {
@@ -131,6 +144,7 @@ export async function createPendingBooking(
     rentableUnitId: string;
     checkInUtc: Date;
     checkOutUtc: Date;
+    landingOfferIds?: string[];
   },
 ) {
   const footprintIds = await conflictingUnitFootprint(prisma, params.rentableUnitId);
@@ -144,18 +158,31 @@ export async function createPendingBooking(
     return { ok: false as const, clash };
   }
 
-  const booking = await prisma.booking.create({
-    data: {
-      organizationId: params.organizationId,
-      rentableUnitId: params.rentableUnitId,
-      source: BookingSource.DIRECT_WEB,
-      status: BookingStatus.PENDING,
-      checkInUtc: params.checkInUtc,
-      checkOutUtc: params.checkOutUtc,
-    },
-  });
+  const booking = await prisma.$transaction(async (tx) => {
+    const b = await tx.booking.create({
+      data: {
+        organizationId: params.organizationId,
+        rentableUnitId: params.rentableUnitId,
+        source: BookingSource.DIRECT_WEB,
+        status: BookingStatus.PENDING,
+        checkInUtc: params.checkInUtc,
+        checkOutUtc: params.checkOutUtc,
+      },
+    });
 
-  await upsertBookingBlock(prisma, booking.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
+    await upsertBookingBlock(tx, b.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
+
+    if (params.landingOfferIds?.length) {
+      await tx.bookingOfferSelection.createMany({
+        data: params.landingOfferIds.map((landingOfferId) => ({
+          bookingId: b.id,
+          landingOfferId,
+        })),
+      });
+    }
+
+    return b;
+  });
 
   return { ok: true as const, booking };
 }
@@ -195,12 +222,21 @@ export async function confirmPendingBooking(
   });
   if (!booking) return null;
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: { status: BookingStatus.CONFIRMED },
-  });
+  await prisma.$transaction(async (tx) => {
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: { status: BookingStatus.CONFIRMED },
+    });
 
-  await upsertBookingBlock(prisma, bookingId, booking.organizationId, booking.rentableUnitId, booking.checkInUtc, booking.checkOutUtc);
+    await upsertBookingBlock(
+      tx,
+      bookingId,
+      booking.organizationId,
+      booking.rentableUnitId,
+      booking.checkInUtc,
+      booking.checkOutUtc,
+    );
+  });
 
   await notifyCaretakersBooking(prisma, notify, booking.organizationId, bookingId);
 

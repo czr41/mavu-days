@@ -66,6 +66,10 @@ html {
   --md-butter:       var(--yellow-soft);
   --md-body-bg:      var(--ivory);
   --md-olive:        var(--sage);
+
+  /* Page grid — one width + gutter so navbar, hero, and sections line up */
+  --md-content-max: 1180px;
+  --md-page-pad-x: clamp(20px, 4vw, 48px);
 }
 
 body {
@@ -86,12 +90,69 @@ body {
 
 .md-page-premium { position: relative; }
 
+/* ——— Landing offers ticker (below navbar) ——— */
+.md-offers-ticker {
+  width: 100%;
+  background: linear-gradient(90deg, var(--deep-green), #3d5238);
+  color: var(--yellow-soft);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.md-offers-ticker-track {
+  overflow: hidden;
+}
+
+.md-offers-ticker-marquee {
+  display: flex;
+  width: max-content;
+  animation: md-offers-marquee 48s linear infinite;
+}
+
+.md-offers-ticker-text {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0.55rem 2.5rem 0.55rem 0;
+}
+
+@keyframes md-offers-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-offers-ticker-marquee {
+    animation: none;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 0.5rem var(--md-page-pad-x);
+  }
+
+  .md-offers-ticker-text {
+    white-space: normal;
+    text-align: center;
+    padding: 0.25rem 0;
+  }
+
+  .md-offers-ticker-text:last-child {
+    display: none;
+  }
+}
+
 /* Container */
 .md-wrap,
 .md-container {
-  max-width: 1180px;
+  max-width: var(--md-content-max);
   margin: 0 auto;
-  padding: 0 clamp(20px, 4vw, 48px);
+  padding: 0 var(--md-page-pad-x);
 }
 
 /* ——— Navbar ——— */
@@ -113,30 +174,30 @@ body {
   border-bottom: 1px solid rgba(49, 69, 45, 0.10);
 }
 
-/* 3-column layout: nav-left | logo-center | cta-right */
+/* Row: logo (leftmost) | nav links | CTA (right) */
 .md-bar-inner {
-  max-width: 1200px;
+  max-width: var(--md-content-max);
   margin: 0 auto;
-  padding: 0 clamp(20px, 4vw, 48px);
+  padding: 0 var(--md-page-pad-x);
   height: 72px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 1rem;
+  gap: clamp(1rem, 3vw, 2rem);
 }
 
-/* Center logo column */
+/* Logo — flush left column */
 .md-bar-logo-col {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
 }
 
-/* Left nav column */
 .md-bar-nav-col {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  min-width: 0;
 }
 
 /* Right CTA column */
@@ -174,7 +235,7 @@ body {
   .md-nav {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 0.25rem;
   }
 }
@@ -324,9 +385,9 @@ body {
 .md-hero-content {
   position: relative;
   z-index: 2;
-  max-width: 1180px;
+  max-width: var(--md-content-max);
   margin: 0 auto;
-  padding: 0 clamp(20px, 4vw, 48px);
+  padding: 0 var(--md-page-pad-x);
   padding-top: 80px;
   padding-bottom: 60px;
   width: 100%;
@@ -411,9 +472,9 @@ body {
 }
 
 .md-feature-strip-inner {
-  max-width: 1180px;
+  max-width: var(--md-content-max);
   margin: 0 auto;
-  padding: 0 clamp(20px, 4vw, 48px);
+  padding: 0 var(--md-page-pad-x);
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0.65rem 1rem;
@@ -659,6 +720,109 @@ p.md-eyebrow-line {
 .md-table td:first-child { font-weight: 600; color: var(--heading); }
 
 .md-booking-hint { margin-top: 1rem; }
+
+.md-success { color: #166534; font-weight: 500; }
+
+.md-booking-direct-stack {
+  margin-top: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.md-booking-direct-intro {
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.md-booking-direct-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.md-booking-direct-card-muted {
+  opacity: 0.88;
+  background: var(--cream);
+}
+
+.md-booking-direct-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.md-booking-direct-title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--heading);
+}
+
+.md-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+}
+
+.md-tag-open {
+  background: var(--sage-soft);
+  color: var(--deep-green);
+}
+
+.md-tag-busy {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.md-offer-fieldset {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.85rem;
+  margin: 0 0 0.85rem;
+}
+
+.md-offer-legend {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding: 0 0.35rem;
+}
+
+.md-offer-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.88rem;
+  margin-top: 0.35rem;
+  cursor: pointer;
+}
+
+.md-offer-row input {
+  margin-top: 0.2rem;
+}
+
+.md-booking-direct-fields {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: 1fr;
+  margin-bottom: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .md-booking-direct-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 
 .md-link {
   color: var(--sage);
@@ -2062,6 +2226,7 @@ img { max-width: 100%; }
 
 .adm-alert-error { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
 .adm-alert-success { background: #F0FDF4; color: #166534; border-color: #BBF7D0; }
+.adm-alert-info { background: #EFF6FF; color: #1E40AF; border-color: #BFDBFE; }
 
 /* Divider */
 .adm-divider {
@@ -2107,9 +2272,9 @@ img { max-width: 100%; }
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 1180px;
+  max-width: var(--md-content-max);
   margin: 0 auto;
-  padding: 2.5rem clamp(20px, 4vw, 48px);
+  padding: 2.5rem var(--md-page-pad-x);
 }
 
 .md-stay-back-link {

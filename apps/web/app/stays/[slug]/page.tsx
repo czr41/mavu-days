@@ -1,41 +1,33 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { StayDetailView } from '@/components/landing/stay-detail-view';
-import { DEFAULT_LANDING } from '@/lib/landing-content';
+import type { ListingCard } from '@/lib/landing-content';
+import { listingUrlPath } from '@/lib/landing-content';
+import { loadLandingPayload } from '@/lib/landing-data';
 
 type Props = { params: Promise<{ slug: string }> };
 
-const VALID_SLUGS = DEFAULT_LANDING.listings.map((l) => l.id);
+export const dynamic = 'force-dynamic';
 
-export async function generateStaticParams() {
-  return VALID_SLUGS.map((slug) => ({ slug }));
+function findListing(slug: string, listings: readonly ListingCard[]) {
+  return listings.find((l) => listingUrlPath(l) === slug || l.id === slug);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const listing = DEFAULT_LANDING.listings.find((l) => l.id === slug);
+  const { merged } = await loadLandingPayload();
+  const listing = findListing(slug, merged.texts.listings);
   if (!listing) return {};
 
-  const titles: Record<string, string> = {
-    'full-farm': 'Full Farm Stay | Mavu Days — Private Mango Farm Near Bangalore',
-    '1bhk': '1BHK Villa Stay | Mavu Days — Private Mango Farm Near Bangalore',
-    '2bhk': '2BHK Villa Stay | Mavu Days — Private Mango Farm Near Bangalore',
-  };
+  const title = listing.seoTitle?.trim() || `${listing.title} | ${merged.texts.seoTitle.split('|')[0]?.trim() ?? 'Stay'}`;
+  const description = listing.seoDescription?.trim() || listing.short;
 
-  const descriptions: Record<string, string> = {
-    'full-farm': 'Book the entire Mavu Days mango farm near Bangalore. Exclusive use of both villas, open lawns, pool, and all spaces for up to 12 guests.',
-    '1bhk': 'A cosy 1BHK private villa tucked into the mango grove at Mavu Days, near Bangalore. Perfect for couples and small families.',
-    '2bhk': 'Spacious 2BHK private villa at Mavu Days, a mango farm stay near Bangalore. Ideal for families and small groups.',
-  };
-
-  return {
-    title: titles[slug] ?? `${listing.title} | Mavu Days`,
-    description: descriptions[slug] ?? listing.short,
-  };
+  return { title, description };
 }
 
 export default async function StayPage({ params }: Props) {
   const { slug } = await params;
-  if (!VALID_SLUGS.includes(slug)) notFound();
+  const { merged } = await loadLandingPayload();
+  if (!findListing(slug, merged.texts.listings)) notFound();
   return <StayDetailView slug={slug} />;
 }

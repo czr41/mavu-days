@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { listingUrlPath } from '@/lib/landing-content';
 import { loadLandingPayload } from '@/lib/landing-data';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { AvailabilitySearch } from '@/components/landing/availability-search';
 import { HeroReveal } from '@/components/landing/hero-reveal';
 import { FeatureGlyph, WhoGlyph } from '@/components/landing/landing-glyphs';
+import { OffersTicker } from '@/components/landing/offers-ticker';
 import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
 
@@ -25,7 +27,19 @@ function galleryFallbackSlots(count = 8) {
 
 /** Full marketing homepage */
 export async function LandingView({ path }: { path: Path }) {
-  const { orgSlug, merged, orgName, landingReviews } = await loadLandingPayload();
+  const { orgSlug, merged, orgName, landingReviews, landingOffers } = await loadLandingPayload();
+  const stayOptions =
+    merged.homepageKind === 'MATRIX_THREE_SKU'
+      ? [
+          { value: 'all', label: 'Show all available options' },
+          { value: 'fullFarm', label: 'Full Farm' },
+          { value: 'villa1bhk', label: '1BHK Villa' },
+          { value: 'villa2bhk', label: '2BHK Villa' },
+        ]
+      : [
+          { value: 'all', label: 'Show all available options' },
+          ...merged.texts.listings.map((L) => ({ value: listingUrlPath(L), label: L.title })),
+        ];
   const hasImportedReviews = landingReviews.length > 0;
   const t = merged.texts;
   const phone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.replace(/\D/g, '') ?? '';
@@ -42,11 +56,21 @@ export async function LandingView({ path }: { path: Path }) {
   // Limit gallery to 8 for the 4×2 grid
   const galleryGrid = galleryItems.slice(0, 8);
 
-  const defaultReviews = [
-    { quote: 'A perfect weekend escape! The place is beautiful, peaceful and well-maintained. We loved the pool and the bonfire nights.', name: 'Priya & Karthik', loc: 'Bangalore' },
-    { quote: 'Our family had an amazing time. Kids enjoyed the open space and we enjoyed the calm. Highly recommended!', name: 'Ramesh Family', loc: 'Bangalore' },
-    { quote: 'The villa was clean, cosy and the host was super helpful. We will definitely visit again soon.', name: 'Ananya Sharma', loc: 'Bangalore' },
-  ];
+  const fallbackReviewAuthors = ['Priya & Karthik', 'Ramesh Family', 'Ananya Sharma'];
+  const defaultReviews =
+    t.reviewQuotes.length > 0
+      ? t.reviewQuotes.slice(0, 6).map((quote, i) => ({
+          quote,
+          name: fallbackReviewAuthors[i % fallbackReviewAuthors.length] ?? 'Guest',
+          loc: 'Bangalore',
+        }))
+      : [
+          { quote: 'A perfect weekend escape! The place is beautiful, peaceful and well-maintained. We loved the pool and the bonfire nights.', name: 'Priya & Karthik', loc: 'Bangalore' },
+          { quote: 'Our family had an amazing time. Kids enjoyed the open space and we enjoyed the calm. Highly recommended!', name: 'Ramesh Family', loc: 'Bangalore' },
+          { quote: 'The villa was clean, cosy and the host was super helpful. We will definitely visit again soon.', name: 'Ananya Sharma', loc: 'Bangalore' },
+        ];
+
+  const heroChips = t.chips.length ? t.chips : ['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay'];
 
   return (
     <>
@@ -63,7 +87,14 @@ export async function LandingView({ path }: { path: Path }) {
         {/* ─── Navbar ─── */}
         <header className="md-bar md-bar-premium">
           <div className="md-bar-inner">
-            {/* Left — nav links */}
+            {/* Left — logo */}
+            <div className="md-bar-logo-col">
+              <Link className="md-logo" href="#md-top" aria-label={orgName}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.svg" alt={orgName} className="md-logo-img" />
+              </Link>
+            </div>
+
             <div className="md-bar-nav-col">
               <nav className="md-nav" aria-label="Page sections">
                 <a href="#about">About</a>
@@ -75,14 +106,6 @@ export async function LandingView({ path }: { path: Path }) {
               </nav>
             </div>
 
-            {/* Center — logo */}
-            <div className="md-bar-logo-col">
-              <Link className="md-logo" href="#md-top" aria-label={orgName}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.svg" alt={orgName} className="md-logo-img" />
-              </Link>
-            </div>
-
             {/* Right — CTA */}
             <div className="md-bar-cta-col">
               <a className="md-btn-primary-nav" href="#booking">
@@ -91,6 +114,8 @@ export async function LandingView({ path }: { path: Path }) {
             </div>
           </div>
         </header>
+
+        <OffersTicker offers={landingOffers} />
 
         {/* ─── Hero ─── */}
         <section className="md-hero-premium" aria-labelledby="hero-heading">
@@ -123,7 +148,7 @@ export async function LandingView({ path }: { path: Path }) {
                   </a>
                 </div>
                 <div className="md-hero-strip">
-                  {['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay'].map((item) => (
+                  {heroChips.map((item) => (
                     <div key={item} className="md-hero-strip-item">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <polyline points="20 6 9 17 4 12" />
@@ -140,19 +165,27 @@ export async function LandingView({ path }: { path: Path }) {
         {/* ─── Quick Feature Strip ─── */}
         <div className="md-feature-strip" id="about">
           <div className="md-feature-strip-inner">
-            {[
-              { icon: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75 M9 3a4 4 0 100 8 4 4 0 000-8z', label: 'Up to 12 Guests' },
-              { icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10', label: '1BHK, 2BHK & Full Farm' },
-              { icon: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z M12 7a3 3 0 100 6 3 3 0 000-6z', label: '65 km from Bangalore' },
-              { icon: 'M3 17l3-3 4 4 4-4 4 4 M3 7l3 3 4-4 4 4 4-4', label: '2-Acre Mango Farm' },
-            ].map((item) => (
-              <div key={item.label} className="md-strip-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d={item.icon} />
-                </svg>
-                {item.label}
-              </div>
-            ))}
+            {(
+              t.featureStripLabels.length
+                ? t.featureStripLabels
+                : ['Up to 12 Guests', '1BHK, 2BHK & Full Farm', '65 km from Bangalore', '2-Acre Mango Farm']
+            ).map((label, idx) => {
+              const paths = [
+                'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75 M9 3a4 4 0 100 8 4 4 0 000-8z',
+                'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10',
+                'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z M12 7a3 3 0 100 6 3 3 0 000-6z',
+                'M3 17l3-3 4 4 4-4 4 4 M3 7l3 3 4-4 4 4 4-4',
+              ];
+              const icon = paths[idx % paths.length];
+              return (
+                <div key={`${label}-${idx}`} className="md-strip-item">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d={icon} />
+                  </svg>
+                  {label}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -162,6 +195,8 @@ export async function LandingView({ path }: { path: Path }) {
           availabilityTitle={t.availabilityTitle}
           availabilitySubtitle={t.availabilitySubtitle}
           whatsappDigits={phone}
+          homepageKind={merged.homepageKind}
+          stayOptions={stayOptions}
         />
 
         {/* ─── Choose Your Stay ─── */}
@@ -174,18 +209,27 @@ export async function LandingView({ path }: { path: Path }) {
             </header>
             <div className="md-stay-grid">
               {t.listings.map((L, idx) => {
+                const pathSeg = listingUrlPath(L);
                 // Use specific property photos; fall back to CMS gallery or placeholder
                 const staticImg =
-                  L.id === '1bhk' ? '/1bhk.jpg' :
-                  L.id === '2bhk' ? '/2bhk.jpg' :
-                  L.id === 'full-farm' ? '/full-farm.jpg' :
-                  null;
+                  pathSeg === '1bhk' || pathSeg === '1bhk-villa'
+                    ? '/1bhk.jpg'
+                    : pathSeg === '2bhk' || pathSeg === '2bhk-villa'
+                      ? '/2bhk.jpg'
+                      : pathSeg === 'full-farm'
+                        ? '/full-farm.jpg'
+                        : null;
                 const cover = galleryItems[idx] ?? galleryItems[0];
-                const imgSrc = staticImg ?? cover?.url;
+                const imgSrc = L.detailHeroUrl?.trim() || staticImg || cover?.url;
                 return (
-                  <RevealArticle key={L.id} delayIndex={idx} className="md-stay-card md-stay-card-linked">
+                  <RevealArticle key={pathSeg} delayIndex={idx} className="md-stay-card md-stay-card-linked">
                     <div className="md-stay-card-visual">
-                      <Link href={`/stays/${L.id}`} className="md-stay-card-cover-link" aria-label={`View ${L.title} details`} tabIndex={-1} />
+                      <Link
+                        href={`/stays/${pathSeg}`}
+                        className="md-stay-card-cover-link"
+                        aria-label={`View ${L.title} details`}
+                        tabIndex={-1}
+                      />
                       {imgSrc ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -231,7 +275,7 @@ export async function LandingView({ path }: { path: Path }) {
                           </div>
                         </>
                       ) : null}
-                      <Link href={`/stays/${L.id}`} className="md-btn md-btn-primary md-btn-block">
+                      <Link href={`/stays/${pathSeg}`} className="md-btn md-btn-primary md-btn-block">
                         {L.cta || 'View Details'}
                       </Link>
                     </div>
@@ -430,6 +474,7 @@ export async function LandingView({ path }: { path: Path }) {
             <header className="md-section-head md-section-head-center">
               <p className="md-eyebrow-line md-section-label">What&#39;s Included</p>
               <h2 className="md-h2">{t.amenitiesTitle || 'All You Need, Ready for You'}</h2>
+              {t.amenitiesIntroDefault ? <p className="md-lead">{t.amenitiesIntroDefault}</p> : null}
             </header>
             <div className="md-amenities-scroll">
               <div className="md-amenities md-amenities-row">
@@ -496,6 +541,9 @@ export async function LandingView({ path }: { path: Path }) {
             <header className="md-section-head md-section-head-center">
               <p className="md-eyebrow-line md-section-label">Guest Love</p>
               <h2 className="md-h2">{t.reviewsTitle || 'What Our Guests Say'}</h2>
+              {t.reviewsIntroDefault ? (
+                <p className="md-lead">{t.reviewsIntroDefault}</p>
+              ) : null}
             </header>
             <div className="md-review-grid">
               {hasImportedReviews

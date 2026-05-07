@@ -6,11 +6,14 @@ import {
   BookingSource,
   BookingStatus,
   MembershipRole,
+  OrgHomepageKind,
   RentableUnitKind,
+  RentableUnitMatrixRole,
   ReviewPlatform,
 } from '@prisma/client';
 import { getMembership, requireUser } from '../lib/org-access.js';
 import { confirmPendingBooking, upsertConfirmedBooking } from '../services/booking-flow.js';
+import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 
 const adminRoles: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
 const opsRoles: MembershipRole[] = [...adminRoles];
@@ -263,7 +266,10 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       where: { organizationId: m.organizationId },
       orderBy: { checkInUtc: 'desc' },
       take: 200,
-      include: { rentableUnit: true },
+      include: {
+        rentableUnit: true,
+        offerSelections: { include: { landingOffer: { select: { id: true, label: true } } } },
+      },
     });
     return reply.send({ bookings: rows });
   });
@@ -280,9 +286,23 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         guestEmail: z.string().email().optional(),
         guestPhone: z.string().optional(),
         note: z.string().optional(),
+        offerIds: z.array(z.string().uuid()).max(24).optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const unitOk = await app.prisma.rentableUnit.count({
+      where: { id: body.data.rentableUnitId, property: { organizationId: m.organizationId } },
+    });
+    if (!unitOk) return reply.status(404).send({ error: 'Unit not found' });
+
+    const offerCheck = await validateOffersForBookingUnit(
+      app.prisma,
+      m.organizationId,
+      body.data.rentableUnitId,
+      body.data.offerIds,
+    );
+    if (!offerCheck.ok) return reply.status(400).send({ error: offerCheck.error });
 
     const res = await upsertConfirmedBooking(app.prisma, app.notify, {
       organizationId: m.organizationId,
@@ -295,6 +315,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       guestPhone: body.data.guestPhone,
       note: body.data.note,
       sendCaretakerNotifications: true,
+      landingOfferIds: offerCheck.ids,
     });
     if (!res.ok) return reply.status(409).send({ conflict: true, clash: res.clash });
     return reply.send({ booking: res.booking });
@@ -371,6 +392,127 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   });
 
   /* --- CMS --- */
+  app.get('/orgs/:orgSlug/cms/site-settings', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, careRoles);
+    if (!m) return;
+    const row = await app.prisma.orgSiteSettings.findUnique({ where: { organizationId: m.organizationId } });
+    return reply.send({ homepageKind: row?.homepageKind ?? OrgHomepageKind.LISTING_GRID });
+  });
+
+  app.patch('/orgs/:orgSlug/cms/site-settings', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const body = z.object({ homepageKind: z.nativeEnum(OrgHomepageKind) }).safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    await app.prisma.orgSiteSettings.upsert({
+      where: { organizationId: m.organizationId },
+      create: { organizationId: m.organizationId, homepageKind: body.data.homepageKind },
+      update: { homepageKind: body.data.homepageKind },
+    });
+    return reply.send({ ok: true, homepageKind: body.data.homepageKind });
+  });
+
+  app.get('/orgs/:orgSlug/cms/unit-listings', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, careRoles);
+    if (!m) return;
+    const props = await app.prisma.property.findMany({
+      where: { organizationId: m.organizationId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        units: { orderBy: { slug: 'asc' }, include: { listingProfile: true } },
+      },
+    });
+    const units = props.flatMap((p) =>
+      p.units.map((u) => ({
+        propertySlug: p.slug,
+        propertyName: p.name,
+        unit: u,
+        listingProfile: u.listingProfile,
+      })),
+    );
+    return reply.send({ units });
+  });
+
+  const listingProfileUpsertBody = z.object({
+    published: z.boolean().optional(),
+    sortOrder: z.number().int().optional(),
+    matrixRole: z.nativeEnum(RentableUnitMatrixRole).optional(),
+    cardTitle: z.string().min(1),
+    cardShort: z.string().max(4000),
+    bestFor: z.array(z.string()).optional(),
+    descriptionMarkdown: z.string().min(1),
+    highlights: z.array(z.string()).optional(),
+    amenities: z.array(z.string()).optional(),
+    ctaLabel: z.union([z.string(), z.null()]).optional(),
+    weekdayPriceMinor: z.union([z.number().int(), z.null()]).optional(),
+    fridayPriceMinor: z.union([z.number().int(), z.null()]).optional(),
+    saturdayPriceMinor: z.union([z.number().int(), z.null()]).optional(),
+    sundayPriceMinor: z.union([z.number().int(), z.null()]).optional(),
+    longWeekendPriceMinor: z.union([z.number().int(), z.null()]).optional(),
+    guestsHint: z.union([z.number().int(), z.null()]).optional(),
+    bedroomsHint: z.union([z.number().int(), z.null()]).optional(),
+    seoTitle: z.union([z.string(), z.null()]).optional(),
+    seoDescription: z.union([z.string(), z.null()]).optional(),
+    detailHeroUrl: z
+      .union([
+        z.string().url(),
+        z.string().regex(/^\/[^\s]+$/),
+        z.literal(''),
+        z.null(),
+      ])
+      .optional(),
+  });
+
+  app.put('/orgs/:orgSlug/rentable-units/:unitId/listing-profile', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const unitId = (req.params as { unitId: string }).unitId;
+    const parsed = listingProfileUpsertBody.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() });
+
+    const unit = await app.prisma.rentableUnit.findFirst({
+      where: { id: unitId, property: { organizationId: m.organizationId } },
+      select: { id: true },
+    });
+    if (!unit) return reply.status(404).send({ error: 'Unit not found' });
+
+    const d = parsed.data;
+    const detailHeroUrl =
+      d.detailHeroUrl === undefined || d.detailHeroUrl === null || d.detailHeroUrl === ''
+        ? null
+        : d.detailHeroUrl;
+
+    const payload = {
+      published: d.published ?? true,
+      sortOrder: d.sortOrder ?? 0,
+      matrixRole: d.matrixRole ?? RentableUnitMatrixRole.NONE,
+      cardTitle: d.cardTitle.trim(),
+      cardShort: d.cardShort.trim(),
+      bestFor: d.bestFor ?? [],
+      descriptionMarkdown: d.descriptionMarkdown,
+      highlights: d.highlights ?? [],
+      amenities: d.amenities ?? [],
+      ctaLabel: d.ctaLabel === undefined ? null : d.ctaLabel,
+      weekdayPriceMinor: d.weekdayPriceMinor ?? null,
+      fridayPriceMinor: d.fridayPriceMinor ?? null,
+      saturdayPriceMinor: d.saturdayPriceMinor ?? null,
+      sundayPriceMinor: d.sundayPriceMinor ?? null,
+      longWeekendPriceMinor: d.longWeekendPriceMinor ?? null,
+      guestsHint: d.guestsHint ?? null,
+      bedroomsHint: d.bedroomsHint ?? null,
+      seoTitle: d.seoTitle ?? null,
+      seoDescription: d.seoDescription ?? null,
+      detailHeroUrl,
+    };
+
+    const listing = await app.prisma.rentableUnitListing.upsert({
+      where: { rentableUnitId: unitId },
+      create: { rentableUnitId: unitId, ...payload },
+      update: payload,
+    });
+    return reply.send({ listingProfile: listing });
+  });
+
   app.get('/orgs/:orgSlug/cms/sections', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
@@ -444,7 +586,13 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     const body = z
       .object({
         key: z.string().min(1).regex(/^[a-z0-9-]+$/),
-        publicUrl: z.string().url(),
+        publicUrl: z
+          .string()
+          .min(1)
+          .refine(
+            (s) => /^https?:\/\/.+/i.test(s) || /^\/[^\s]+$/.test(s),
+            'Use an http(s) URL or a root-relative path like /hero.jpg',
+          ),
         alt: z.string().optional(),
       })
       .safeParse(req.body);
@@ -462,6 +610,98 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     } catch {
       return reply.status(409).send({ error: 'Media key exists' });
     }
+  });
+
+  app.get('/orgs/:orgSlug/cms/offers', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, careRoles);
+    if (!m) return;
+    const rows = await app.prisma.landingOffer.findMany({
+      where: { organizationId: m.organizationId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return reply.send({ offers: rows });
+  });
+
+  app.post('/orgs/:orgSlug/cms/offers', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const body = z
+      .object({
+        label: z.string().min(1).max(500),
+        sortOrder: z.number().int().optional(),
+        published: z.boolean().optional(),
+        rentableUnitId: z.union([z.string().uuid(), z.null()]).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const unitRef = body.data.rentableUnitId;
+    if (unitRef) {
+      const okUnit = await app.prisma.rentableUnit.count({
+        where: { id: unitRef, property: { organizationId: m.organizationId } },
+      });
+      if (!okUnit) return reply.status(400).send({ error: 'Unit not found' });
+    }
+
+    const row = await app.prisma.landingOffer.create({
+      data: {
+        organizationId: m.organizationId,
+        label: body.data.label.trim(),
+        sortOrder: body.data.sortOrder ?? 0,
+        published: body.data.published ?? true,
+        rentableUnitId: unitRef === undefined ? null : unitRef,
+      },
+    });
+    return reply.send({ offer: row });
+  });
+
+  app.patch('/orgs/:orgSlug/cms/offers/:offerId', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const offerId = (req.params as { offerId: string }).offerId;
+    const patch = z
+      .object({
+        label: z.string().min(1).max(500).optional(),
+        sortOrder: z.number().int().optional(),
+        published: z.boolean().optional(),
+        rentableUnitId: z.union([z.string().uuid(), z.null()]).optional(),
+      })
+      .safeParse(req.body);
+    if (!patch.success) return reply.status(400).send({ error: patch.error.flatten() });
+    const exists = await app.prisma.landingOffer.findFirst({
+      where: { id: offerId, organizationId: m.organizationId },
+    });
+    if (!exists) return reply.status(404).send({ error: 'Offer not found' });
+
+    if (patch.data.rentableUnitId) {
+      const okUnit = await app.prisma.rentableUnit.count({
+        where: { id: patch.data.rentableUnitId, property: { organizationId: m.organizationId } },
+      });
+      if (!okUnit) return reply.status(400).send({ error: 'Unit not found' });
+    }
+
+    const nextLabel = patch.data.label != null ? patch.data.label.trim() : undefined;
+    const offer = await app.prisma.landingOffer.update({
+      where: { id: offerId },
+      data: {
+        ...(nextLabel != null ? { label: nextLabel } : {}),
+        ...(patch.data.sortOrder !== undefined ? { sortOrder: patch.data.sortOrder } : {}),
+        ...(patch.data.published !== undefined ? { published: patch.data.published } : {}),
+        ...(patch.data.rentableUnitId !== undefined ? { rentableUnitId: patch.data.rentableUnitId } : {}),
+      },
+    });
+    return reply.send({ offer });
+  });
+
+  app.delete('/orgs/:orgSlug/cms/offers/:offerId', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const offerId = (req.params as { offerId: string }).offerId;
+    const res = await app.prisma.landingOffer.deleteMany({
+      where: { id: offerId, organizationId: m.organizationId },
+    });
+    if (res.count === 0) return reply.status(404).send({ error: 'Offer not found' });
+    return reply.send({ ok: true });
   });
 
   const guestReviewCreate = z

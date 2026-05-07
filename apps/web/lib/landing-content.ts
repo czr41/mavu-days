@@ -4,7 +4,9 @@
  * — Prefer `bodyMarkdown` for paragraphs; either field can hold a short headline.
  */
 
-import type { PublicContentPayload, SiteSectionDto } from './public-types';
+import type { PublicContentPayload, PublicSitePayload, SiteSectionDto } from './public-types';
+
+export type LandingMergePayload = PublicSitePayload | PublicContentPayload | null;
 
 export function sectionText(sec: SiteSectionDto | undefined, fallback: string): string {
   if (!sec) return fallback;
@@ -18,21 +20,42 @@ export const SECTION_KEY = {
   heroH1: 'landing-hero-h1',
   heroSub: 'landing-hero-sub',
   brandLine: 'landing-brand-line',
+  heroChips: 'landing-hero-chips',
+  featureStripLabels: 'landing-about-strip-labels',
+  availabilityTitle: 'landing-availability-title',
   availabilityIntro: 'landing-availability-intro',
+  staysTitle: 'landing-stays-title',
   staysIntro: 'landing-stays-intro',
+  whyTitle: 'landing-why-title',
   whyIntro: 'landing-why-intro',
+  whyBlocksJson: 'landing-why-blocks',
+  experienceTitle: 'landing-experience-title',
   experienceBody: 'landing-experience-body',
+  experienceTiles: 'landing-experience-tiles',
+  galleryTitle: 'landing-gallery-title',
   galleryIntro: 'landing-gallery-intro',
+  whoTitle: 'landing-who-title',
   whoForIntro: 'landing-who-for-intro',
+  whoCardsJson: 'landing-who-cards',
+  locationTitle: 'landing-location-title',
   locationBody: 'landing-location-body',
+  locationBullets: 'landing-location-bullets',
+  amenitiesTitle: 'landing-amenities-title',
   amenitiesIntro: 'landing-amenities-intro',
   amenitiesList: 'landing-amenities-list',
   bannerTitle: 'landing-banner-title',
   bannerCopy: 'landing-banner-copy',
+  houseRulesTitle: 'landing-house-rules-title',
   houseRulesIntro: 'landing-house-rules-intro',
+  houseRulesJson: 'landing-house-rules',
+  reviewsTitle: 'landing-reviews-title',
   reviewsIntro: 'landing-reviews-intro',
+  reviewQuotes: 'landing-review-quotes',
+  faqTitle: 'landing-faq-title',
+  faqsJson: 'landing-faqs',
   seoTitle: 'landing-seo-title',
   seoBlock: 'landing-seo-block',
+  footerNote: 'landing-footer-note',
 } as const;
 
 export const MEDIA_KEY = {
@@ -50,6 +73,8 @@ export type ListingPricing = {
 
 export type ListingCard = {
   id: string;
+  /** Canonical URL segment for `/stays/...` when different from legacy `id`. */
+  slug?: string;
   title: string;
   short: string;
   bestFor: readonly string[];
@@ -60,6 +85,9 @@ export type ListingCard = {
   highlights?: readonly string[];
   pricing?: ListingPricing;
   amenities?: readonly string[];
+  detailHeroUrl?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 };
 
 export type LandingTexts = {
@@ -68,6 +96,8 @@ export type LandingTexts = {
   heroSub: string;
   brandLine: string;
   chips: readonly string[];
+  /** Labels for the horizontal icon strip directly under the hero */
+  featureStripLabels: readonly string[];
   availabilityTitle: string;
   availabilitySubtitle: string;
   staysTitle: string;
@@ -117,6 +147,12 @@ export const DEFAULT_LANDING: LandingTexts = {
     'Near Bangalore',
     'Private Villa Stay',
     'Ideal for Families & Groups',
+  ],
+  featureStripLabels: [
+    'Up to 12 Guests',
+    '1BHK, 2BHK & Full Farm',
+    '65 km from Bangalore',
+    '2-Acre Mango Farm',
   ],
   availabilityTitle: 'Check Your Dates',
   availabilitySubtitle: 'Tell us when you’d like to visit—we’ll match you to Full Farm, 1BHK, or 2BHK openings.',
@@ -311,20 +347,154 @@ function parseLineList(text: string, fallback: readonly string[]): string[] {
   return lines.length ? lines : [...fallback];
 }
 
+function parseWhyBlocks(
+  raw: string | undefined,
+  fallback: readonly { title: string; text: string }[],
+): { title: string; text: string }[] {
+  if (!raw?.trim()) return [...fallback];
+  try {
+    const v = JSON.parse(raw.trim()) as unknown;
+    if (!Array.isArray(v)) return [...fallback];
+    const out: { title: string; text: string }[] = [];
+    for (const item of v) {
+      if (item && typeof item === 'object' && 'title' in item && 'text' in item) {
+        out.push({
+          title: String((item as { title: unknown }).title),
+          text: String((item as { text: unknown }).text),
+        });
+      }
+    }
+    return out.length ? out : [...fallback];
+  } catch {
+    return [...fallback];
+  }
+}
+
+function parseWhoCards(
+  raw: string | undefined,
+  fallback: readonly { title: string; body: string }[],
+): { title: string; body: string }[] {
+  if (!raw?.trim()) return [...fallback];
+  try {
+    const v = JSON.parse(raw.trim()) as unknown;
+    if (!Array.isArray(v)) return [...fallback];
+    const out: { title: string; body: string }[] = [];
+    for (const item of v) {
+      if (item && typeof item === 'object' && 'title' in item && 'body' in item) {
+        out.push({
+          title: String((item as { title: unknown }).title),
+          body: String((item as { body: unknown }).body),
+        });
+      }
+    }
+    return out.length ? out : [...fallback];
+  } catch {
+    return [...fallback];
+  }
+}
+
+function parseHouseRules(
+  raw: string | undefined,
+  fallback: readonly { title: string; text: string }[],
+): { title: string; text: string }[] {
+  return parseWhyBlocks(raw, fallback);
+}
+
+function parseFaqs(
+  raw: string | undefined,
+  fallback: readonly { q: string; a: string }[],
+): { q: string; a: string }[] {
+  if (!raw?.trim()) return [...fallback];
+  try {
+    const v = JSON.parse(raw.trim()) as unknown;
+    if (!Array.isArray(v)) return [...fallback];
+    const out: { q: string; a: string }[] = [];
+    for (const item of v) {
+      if (item && typeof item === 'object' && 'q' in item && 'a' in item) {
+        out.push({
+          q: String((item as { q: unknown }).q),
+          a: String((item as { a: unknown }).a),
+        });
+      }
+    }
+    return out.length ? out : [...fallback];
+  } catch {
+    return [...fallback];
+  }
+}
+
 export type MergedLanding = {
   texts: LandingTexts;
   merged: Record<string, string>;
   heroImageUrl?: string | null;
   gallery: { url: string; alt: string; key: string }[];
+  homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU';
 };
+
+export function listingUrlPath(L: ListingCard): string {
+  return L.slug ?? L.id;
+}
 
 function cloneDefault(): LandingTexts {
   return JSON.parse(JSON.stringify(DEFAULT_LANDING)) as LandingTexts;
 }
 
-function buildGallery(
-  payload: PublicContentPayload | null,
-): { url: string; alt: string; key: string }[] {
+type UnitListingNonNull = NonNullable<
+  PublicSitePayload['properties'][number]['units'][number]['listing']
+>;
+
+function pricingFromPayload(lp: UnitListingNonNull): ListingPricing | undefined {
+  const { weekday, friday, saturday, sunday, longWeekend } = lp.pricing;
+  if (
+    weekday == null ||
+    friday == null ||
+    saturday == null ||
+    sunday == null ||
+    longWeekend == null
+  ) {
+    return undefined;
+  }
+  return { weekday, friday, saturday, sunday, longWeekend };
+}
+
+function deriveListingsFromSite(properties: PublicSitePayload['properties']): ListingCard[] {
+  const rows: { sortOrder: number; slug: string; card: ListingCard }[] = [];
+  for (const p of properties) {
+    for (const u of p.units) {
+      const lp = u.listing;
+      if (!lp?.published) continue;
+      const slug = u.slug;
+      rows.push({
+        sortOrder: lp.sortOrder,
+        slug,
+        card: {
+          id: slug,
+          slug,
+          title: lp.cardTitle,
+          short: lp.cardShort,
+          bestFor: lp.bestFor,
+          copy: lp.descriptionMarkdown,
+          cta: lp.ctaLabel?.trim() || 'View Details',
+          guests: lp.guestsHint ?? undefined,
+          bedrooms: lp.bedroomsHint ?? undefined,
+          highlights: lp.highlights,
+          amenities: lp.amenities,
+          pricing: pricingFromPayload(lp),
+          detailHeroUrl: lp.detailHeroUrl,
+          seoTitle: lp.seoTitle,
+          seoDescription: lp.seoDescription,
+        },
+      });
+    }
+  }
+  rows.sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.slug.localeCompare(b.slug);
+  });
+  return rows.map((r) => r.card);
+}
+
+function buildGallery(payload: LandingMergePayload): { url: string; alt: string; key: string }[] {
   const media = payload?.media ?? [];
   const seoAlts = [
     'Mavu Days mango farm stay near Bangalore',
@@ -354,12 +524,25 @@ function buildGallery(
   return items;
 }
 
-/** Merge editable fields from CMS. */
-export function mergeLandingContent(payload: PublicContentPayload | null): MergedLanding {
+/** Merge editable fields from CMS (and published unit listings when present). */
+export function mergeLandingContent(payload: LandingMergePayload): MergedLanding {
   const dm = cloneDefault();
   const sections = payload?.sections ?? [];
   const sm = sectionMap(sections);
   const merged: Record<string, string> = {};
+
+  const homepageKind =
+    payload && 'siteSettings' in payload && payload.siteSettings?.homepageKind === 'MATRIX_THREE_SKU'
+      ? 'MATRIX_THREE_SKU'
+      : 'LISTING_GRID';
+
+  const apiListings =
+    payload && 'properties' in payload && Array.isArray(payload.properties)
+      ? deriveListingsFromSite(payload.properties)
+      : [];
+  if (apiListings.length > 0) {
+    dm.listings = apiListings;
+  }
 
   const pick = (key: string, fb: string) => {
     const v = sectionText(sm.get(key), fb);
@@ -372,15 +555,40 @@ export function mergeLandingContent(payload: PublicContentPayload | null): Merge
   dm.heroSub = pick(SECTION_KEY.heroSub, dm.heroSub);
   dm.brandLine = pick(SECTION_KEY.brandLine, dm.brandLine);
 
+  dm.chips = parseLineList(pick(SECTION_KEY.heroChips, dm.chips.join('\n')), dm.chips);
+  dm.featureStripLabels = parseLineList(
+    pick(SECTION_KEY.featureStripLabels, dm.featureStripLabels.join('\n')),
+    dm.featureStripLabels,
+  );
+
+  dm.availabilityTitle = pick(SECTION_KEY.availabilityTitle, dm.availabilityTitle);
   dm.availabilitySubtitle = pick(SECTION_KEY.availabilityIntro, dm.availabilitySubtitle);
+  dm.staysTitle = pick(SECTION_KEY.staysTitle, dm.staysTitle);
   dm.staysSubtitle = pick(SECTION_KEY.staysIntro, dm.staysSubtitle);
+  dm.whyTitle = pick(SECTION_KEY.whyTitle, dm.whyTitle);
   dm.whyIntro = pick(SECTION_KEY.whyIntro, dm.whyIntro);
 
-  dm.experienceBodyDefault = pick(SECTION_KEY.experienceBody, dm.experienceBodyDefault);
-  dm.galleryIntroDefault = pick(SECTION_KEY.galleryIntro, dm.galleryIntroDefault);
-  dm.whoIntro = pick(SECTION_KEY.whoForIntro, dm.whoIntro);
+  dm.whyBlocks = parseWhyBlocks(sm.get(SECTION_KEY.whyBlocksJson)?.bodyMarkdown, dm.whyBlocks);
 
+  dm.experienceTitle = pick(SECTION_KEY.experienceTitle, dm.experienceTitle);
+  dm.experienceBodyDefault = pick(SECTION_KEY.experienceBody, dm.experienceBodyDefault);
+  dm.tiles = parseLineList(pick(SECTION_KEY.experienceTiles, dm.tiles.join('\n')), dm.tiles);
+
+  dm.galleryTitle = pick(SECTION_KEY.galleryTitle, dm.galleryTitle);
+  dm.galleryIntroDefault = pick(SECTION_KEY.galleryIntro, dm.galleryIntroDefault);
+
+  dm.whoTitle = pick(SECTION_KEY.whoTitle, dm.whoTitle);
+  dm.whoIntro = pick(SECTION_KEY.whoForIntro, dm.whoIntro);
+  dm.whoCards = parseWhoCards(sm.get(SECTION_KEY.whoCardsJson)?.bodyMarkdown, dm.whoCards);
+
+  dm.locationTitle = pick(SECTION_KEY.locationTitle, dm.locationTitle);
   dm.locationBodyDefault = pick(SECTION_KEY.locationBody, dm.locationBodyDefault);
+  dm.locationBulletsDefault = parseLineList(
+    pick(SECTION_KEY.locationBullets, dm.locationBulletsDefault.join('\n')),
+    dm.locationBulletsDefault,
+  );
+
+  dm.amenitiesTitle = pick(SECTION_KEY.amenitiesTitle, dm.amenitiesTitle);
   dm.amenitiesIntroDefault = pick(SECTION_KEY.amenitiesIntro, dm.amenitiesIntroDefault);
 
   dm.amenitiesDefault = parseLineList(pick(SECTION_KEY.amenitiesList, dm.amenitiesDefault.join('\n')), dm.amenitiesDefault);
@@ -388,11 +596,21 @@ export function mergeLandingContent(payload: PublicContentPayload | null): Merge
   dm.bannerTitleDefault = pick(SECTION_KEY.bannerTitle, dm.bannerTitleDefault);
   dm.bannerCopyDefault = pick(SECTION_KEY.bannerCopy, dm.bannerCopyDefault);
 
+  dm.houseRulesTitle = pick(SECTION_KEY.houseRulesTitle, dm.houseRulesTitle);
   dm.houseRulesIntroDefault = pick(SECTION_KEY.houseRulesIntro, dm.houseRulesIntroDefault);
+  dm.houseRules = parseHouseRules(sm.get(SECTION_KEY.houseRulesJson)?.bodyMarkdown, dm.houseRules);
+
+  dm.reviewsTitle = pick(SECTION_KEY.reviewsTitle, dm.reviewsTitle);
   dm.reviewsIntroDefault = pick(SECTION_KEY.reviewsIntro, dm.reviewsIntroDefault);
+  dm.reviewQuotes = parseLineList(pick(SECTION_KEY.reviewQuotes, dm.reviewQuotes.join('\n')), dm.reviewQuotes);
+
+  dm.faqTitle = pick(SECTION_KEY.faqTitle, dm.faqTitle);
+  dm.faqs = parseFaqs(sm.get(SECTION_KEY.faqsJson)?.bodyMarkdown, dm.faqs);
 
   dm.seoTitle = pick(SECTION_KEY.seoTitle, dm.seoTitle);
   dm.seoBodyDefault = pick(SECTION_KEY.seoBlock, dm.seoBodyDefault);
+
+  dm.footerNote = pick(SECTION_KEY.footerNote, dm.footerNote);
 
   const heroMedia =
     payload?.media?.find((m) => m.key.toLowerCase() === MEDIA_KEY.heroCover.toLowerCase()) ?? undefined;
@@ -400,5 +618,5 @@ export function mergeLandingContent(payload: PublicContentPayload | null): Merge
 
   const gallery = buildGallery(payload);
 
-  return { texts: dm, merged, heroImageUrl: heroImageUrl ?? null, gallery };
+  return { texts: dm, merged, heroImageUrl: heroImageUrl ?? null, gallery, homepageKind };
 }

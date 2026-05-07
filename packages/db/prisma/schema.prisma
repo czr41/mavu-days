@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrgHomepageKind {
+  LISTING_GRID
+  MATRIX_THREE_SKU
+}
+
+enum RentableUnitMatrixRole {
+  NONE
+  FULL_FARM
+  VILLA_1BHK
+  VILLA_2BHK
+}
+
 /// Host org (future SaaS tenant)
 model Organization {
   id        String       @id @default(uuid())
@@ -25,6 +37,18 @@ model Organization {
   sections SiteSection[]
   media    MediaAsset[]
   guestReviews GuestReview[]
+  landingOffers LandingOffer[]
+  siteSettings OrgSiteSettings?
+}
+
+/// Public homepage layout: generic grid of units vs Mavu-style 3-SKU matrix.
+model OrgSiteSettings {
+  id               String          @id @default(uuid())
+  organizationId   String          @unique
+  homepageKind     OrgHomepageKind @default(LISTING_GRID)
+  updatedAt        DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 
@@ -113,11 +137,49 @@ model RentableUnit {
   listingLinks         ListingLink[]
   bookings             Booking[]
   availabilityBlocks   AvailabilityBlock[]
+  landingOffers        LandingOffer[]
+  listingProfile       RentableUnitListing?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([propertyId, slug])
+}
+
+/// Marketing + booking UX content for a rentable unit (drives public site listing cards & stay detail).
+model RentableUnitListing {
+  id                    String                 @id @default(uuid())
+  rentableUnitId        String                 @unique
+  published             Boolean                @default(true)
+  sortOrder             Int                    @default(0)
+  matrixRole            RentableUnitMatrixRole @default(NONE)
+
+  cardTitle             String
+  cardShort             String                 @db.VarChar(4000)
+  bestFor               Json                   @default("[]")
+  descriptionMarkdown   String                 @db.Text
+  highlights            Json                   @default("[]")
+  amenities             Json                   @default("[]")
+  ctaLabel              String?
+
+  weekdayPriceMinor     Int?
+  fridayPriceMinor      Int?
+  saturdayPriceMinor    Int?
+  sundayPriceMinor      Int?
+  longWeekendPriceMinor Int?
+
+  guestsHint            Int?
+  bedroomsHint          Int?
+
+  seoTitle              String?
+  seoDescription        String?
+
+  detailHeroUrl         String?
+
+  rentableUnit RentableUnit @relation(fields: [rentableUnitId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// Maps one rentable SKU to channels (OTA, direct funnel segment, etc.)
@@ -179,6 +241,7 @@ model Booking {
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   rentableUnit       RentableUnit        @relation(fields: [rentableUnitId], references: [id], onDelete: Restrict)
   availabilityBlocks AvailabilityBlock[]
+  offerSelections    BookingOfferSelection[]
 
   @@index([organizationId, checkInUtc, checkOutUtc])
   @@index([externalProvider, externalId])
@@ -309,4 +372,38 @@ model GuestReview {
 
   @@index([organizationId, showOnLanding])
   @@index([organizationId, pinnedOrder, rating])
+}
+
+/// Promo lines: homepage ticker uses rows with rentableUnitId=null; scoped rows show only for that unit at booking time.
+model LandingOffer {
+  id               String         @id @default(uuid())
+  organizationId   String
+  rentableUnitId   String?
+  label            String         @db.VarChar(500)
+  sortOrder        Int            @default(0)
+  published        Boolean        @default(true)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rentableUnit   RentableUnit?  @relation(fields: [rentableUnitId], references: [id], onDelete: SetNull)
+  bookingSelections BookingOfferSelection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, published, sortOrder])
+  @@index([organizationId, published, rentableUnitId])
+}
+
+model BookingOfferSelection {
+  id             String @id @default(uuid())
+  bookingId      String
+  landingOfferId String
+
+  booking      Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  landingOffer LandingOffer @relation(fields: [landingOfferId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([bookingId, landingOfferId])
+  @@index([bookingId])
 }
