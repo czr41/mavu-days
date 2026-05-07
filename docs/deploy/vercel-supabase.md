@@ -1,6 +1,8 @@
 ﻿# Deploy: Vercel (Next.js) + Supabase (Postgres)
 
-Low-cost path: **marketing site on Vercel**, **database on Supabase**, **Fastify API on a free/low-cost Node host** (Railway, Render, Fly). This repo does **not** put the API on Vercel unless you add that separately.
+Low-cost path: **marketing site on Vercel**, **database on Supabase**, **Fastify API on a Node host** you control (Oracle Ampere VM, Railway, Render, Fly, …). This repo does **not** put the API on Vercel unless you add that separately.
+
+For **AI-assisted Supabase** in Cursor, configure **[`.cursor/mcp.json`](../../.cursor/mcp.json)** (replace `YOUR_SUPABASE_PROJECT_REF` with your project ref from the Supabase dashboard URL or **Connect → MCP**), reload MCP in Cursor, and complete any browser login Supabase prompts for. Optional: `npx skills add supabase/agent-skills` for extra Supabase-focused agent context.
 
 ## 1. Stack (what this codebase uses)
 
@@ -28,7 +30,7 @@ Prisma docs recommend **`pgbouncer=true`** on the pooled URL. Use **IPv4 add-on*
 
 See root **[`.env.example`](../../.env.example)**. Minimum:
 
-**API host (Railway / Render / Fly / etc.)**
+**API host (Oracle VM / Railway / Render / Fly / etc.)**
 
 - `DATABASE_URL` — Supabase **pooled** URL
 - `DIRECT_URL` — Supabase **direct** URL (Prisma uses this for migrations engine internals where applicable)
@@ -103,6 +105,18 @@ Push as usual; ensure `.env` is **never** committed.
 1. Connect repo; root or Dockerfile build **`npm run build:api`**; start **`node apps/api/dist/index.js`**.
 2. Set `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `NODE_ENV=production`.
 3. Run migrations (step 5) once.
+
+#### Oracle Cloud Ampere VM (API only)
+
+Use this when you already have a small **OCI** instance and want **no extra PaaS bill** for the API.
+
+1. **VM:** Ubuntu **ARM64** on Ampere; open **22** (SSH), **80** / **443** (HTTPS). Point your DNS **A** record at the instance public IP.
+2. **Node:** Install **Node.js 20+**, `git`, optionally **Caddy** or **nginx + certbot** for TLS on **443** → reverse-proxy to the API (e.g. `127.0.0.1:3001`).
+3. **Deploy:** Clone repo on the VM → `npm ci` → `npm run build:api` → run **`node apps/api/dist/index.js`** under **systemd** or **pm2** with the same env vars as above (`PORT` if the platform sets it; otherwise bind `3001` internally and proxy from 443).
+4. **Build stack:** The API needs compiled workspaces (`build:api`); keep **1 GB RAM** in mind — if `npm ci` OOMs, add **swap** or build on a larger machine / CI and rsync **`apps/api/dist`** + **`node_modules`** (or ship a Docker image).
+5. **Migrations:** Run **`npm run migrate:deploy:ci -w @mavu/db`** once from the VM (or your laptop) with **`DATABASE_URL`** + **`DIRECT_URL`** pointing at Supabase — **not** from Vercel.
+
+Keep **Postgres on Supabase** unless you intentionally self-host Postgres on OCI (more ops); this doc assumes **Supabase + API on OCI + Next on Vercel**.
 
 ### After deployment
 
