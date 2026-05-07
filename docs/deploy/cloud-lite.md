@@ -16,30 +16,33 @@ Use this when your laptop is tight on disk or you do not want Docker Desktop. Yo
 
 1. Create a Neon project and database.
 2. Copy the connection string. For Prisma, prefer a URL that includes SSL, e.g. append `?sslmode=require` if the host requires it.
-3. Set **`DATABASE_URL`** on the service that runs the API (and use the same value when you run migrations).
+3. Set **`DATABASE_URL`** on the API host (Supabase: pooled `:6543` + `?pgbouncer=true` when applicable). Set **`DIRECT_URL`** to the **direct** Postgres URL (`:5432`) for Prisma migrations.
 
 ## 2) One-time database migrations
 
-From **any** machine with Node (or a CI job), after `npm ci`. Set `DATABASE_URL` in the environment (no root `.env` required):
+From **any** machine with Node (or a CI job), after `npm ci`. Set `DATABASE_URL` and **`DIRECT_URL`** (same value as `DATABASE_URL` if you only have one URL, e.g. Neon):
 
 **Windows (cmd)**
 
 ```bat
-set DATABASE_URL=postgresql://...your-neon-url...
+set DATABASE_URL=postgresql://...your-pooled-url...
+set DIRECT_URL=postgresql://...your-direct-url...
 npm run migrate:deploy:ci -w @mavu/db
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-$env:DATABASE_URL = "postgresql://...your-neon-url..."
+$env:DATABASE_URL = "postgresql://...your-pooled-url..."
+$env:DIRECT_URL = "postgresql://...your-direct-url..."
 npm run migrate:deploy:ci -w @mavu/db
 ```
 
 **macOS / Linux**
 
 ```bash
-export DATABASE_URL="postgresql://...your-neon-url..."
+export DATABASE_URL="postgresql://...your-pooled-url..."
+export DIRECT_URL="postgresql://...your-direct-url..."
 npm run migrate:deploy:ci -w @mavu/db
 ```
 
@@ -69,7 +72,8 @@ Then register your org and seed data (same as README), pointing at your **hosted
 
    | Variable | Notes |
    |----------|--------|
-   | `DATABASE_URL` | Neon (or other) Postgres URL |
+   | `DATABASE_URL` | Pooled Postgres URL (Supabase: port `6543` + `?pgbouncer=true` when applicable) |
+   | `DIRECT_URL` | Direct Postgres for Prisma / migrations (Supabase: port `5432`; match `DATABASE_URL` if one URL) |
    | `JWT_SECRET` | Random string, **≥ 32 characters** |
    | `NODE_ENV` | `production` |
 

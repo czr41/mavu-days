@@ -12,8 +12,8 @@
     }
   },
   "scripts": {
-    "build": "prisma generate && tsc",
-    "generate": "prisma generate",
+    "build": "node ../../scripts/prisma-generate-with-placeholder-env.cjs && tsc",
+    "generate": "node ../../scripts/prisma-generate-with-placeholder-env.cjs",
     "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "migrate:deploy:ci": "prisma migrate deploy",

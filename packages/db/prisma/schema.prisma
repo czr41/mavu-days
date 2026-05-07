@@ -3,8 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  /// Pooled/runtime URL (Supabase: Transaction pooler :6543 + `?pgbouncer=true`).
+  url       = env("DATABASE_URL")
+  /// Direct Postgres URL for migrations (Supabase: session/direct :5432). Match local `DATABASE_URL` when not using a pooler.
+  directUrl = env("DIRECT_URL")
 }
 
 enum OrgHomepageKind {

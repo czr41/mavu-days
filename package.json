@@ -15,7 +15,7 @@
     "db:push": "npm run db:push -w @mavu/db",
     "compose:up": "docker compose -f docker-compose.yml up -d",
     "compose:down": "docker compose -f docker-compose.yml down",
-    "postinstall": "npm run generate -w @mavu/db"
+    "postinstall": "node scripts/postinstall-prisma.cjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
