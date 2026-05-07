@@ -52,7 +52,7 @@ Set `MOCK_PAYMENTS=true` in `.env` to auto-confirm direct-site bookings in dev.
 - Webhooks (Phase 2): `/hooks/meta/whatsapp` · `/hooks/meta/instagram` (`FEATURE_PHASE2_MESSAGES`)
 
 - **Vercel + Supabase:** [docs/deploy/vercel-supabase.md](docs/deploy/vercel-supabase.md).
-- **Cursor AI + Supabase:** edit `.cursor/mcp.json` (replace `YOUR_SUPABASE_PROJECT_REF`), then reload MCP in Cursor ? see top of [vercel-supabase.md](docs/deploy/vercel-supabase.md).
+- **Cursor AI + Supabase:** edit `.cursor/mcp.json` (replace `YOUR_SUPABASE_PROJECT_REF`), then reload MCP in Cursor; see top of [vercel-supabase.md](docs/deploy/vercel-supabase.md).
 - **No Docker / low disk:** [docs/deploy/cloud-lite.md](docs/deploy/cloud-lite.md) (Neon + hosted API + Vercel).
 - **GCP-oriented layout:** [docs/deploy/gcp-sketch.md](docs/deploy/gcp-sketch.md).
 
