@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.0.2",
-    "@fastify/jwt": "^9.0.4",
+    "@fastify/jwt": "^10.0.0",
     "@mavu/channels-ical": "*",
     "@mavu/db": "*",
     "bcryptjs": "^3.0.2",
@@ -24,14 +24,14 @@
     "fastify": "^5.2.2",
     "fastify-plugin": "^5.0.1",
     "ioredis": "^5.6.0",
-    "nodemailer": "^6.9.16",
+    "nodemailer": "^8.0.7",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
     "@types/bcryptjs": "^2.4.6",
-    "@types/nodemailer": "^6.4.17",
     "@types/node": "^22.10.10",
+    "@types/nodemailer": "^6.4.17",
     "eslint": "^9.18.0",
     "globals": "^15.14.0",
     "tsx": "^4.19.2",
