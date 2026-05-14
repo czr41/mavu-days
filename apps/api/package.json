@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "worker": "tsx watch src/worker.ts",
-    "build": "node ../../scripts/api-prebuild-deps.cjs && tsc",
+    "prebuild": "node ../../scripts/api-prebuild-deps.cjs",
+    "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src",
-    "typecheck": "node ../../scripts/api-prebuild-deps.cjs && tsc --noEmit"
+    "pretypecheck": "node ../../scripts/api-prebuild-deps.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.2",
