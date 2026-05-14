@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { AvailabilityBlock, Booking } from '@prisma/client';
 import { AvailabilityBlockReason, BookingStatus } from '@prisma/client';
 import { buildIcsFeed, type OutboundEvent } from '@mavu/channels-ical';
 
@@ -40,13 +41,13 @@ export function registerFeedsRoutes(app: FastifyInstance) {
     });
 
     const events: OutboundEvent[] = [
-      ...bookings.map((b) => ({
+      ...bookings.map((b: Booking) => ({
         uid: `mavu-booking-${b.id}`,
         startUtc: b.checkInUtc,
         endUtc: b.checkOutUtc,
         summary: b.guestName ? `Booking: ${b.guestName}` : 'Blocked (booking)',
       })),
-      ...holds.map((h) => ({
+      ...holds.map((h: AvailabilityBlock) => ({
         uid: `mavu-block-${h.id}`,
         startUtc: h.startsAtUtc,
         endUtc: h.endsAtUtc,

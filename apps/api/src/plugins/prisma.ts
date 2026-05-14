@@ -1,5 +1,5 @@
 import fp from 'fastify-plugin';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { PrismaClient } from '@mavu/db';
 
 declare module 'fastify' {
@@ -8,7 +8,7 @@ declare module 'fastify' {
   }
 }
 
-export const prismaPlugin: FastifyPluginAsync = fp(async (app) => {
+export const prismaPlugin: FastifyPluginAsync = fp(async (app: FastifyInstance) => {
   const prisma = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
   });

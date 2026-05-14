@@ -11,9 +11,16 @@ import {
   RentableUnitMatrixRole,
   ReviewPlatform,
 } from '@prisma/client';
+import type { Prisma } from '@mavu/db';
 import { getMembership, requireUser } from '../lib/org-access.js';
 import { confirmPendingBooking, upsertConfirmedBooking } from '../services/booking-flow.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
+
+type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
+  include: {
+    units: { orderBy: { slug: 'asc' }; include: { listingProfile: true } };
+  };
+}>;
 
 const adminRoles: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
 const opsRoles: MembershipRole[] = [...adminRoles];
@@ -415,15 +422,15 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   app.get('/orgs/:orgSlug/cms/unit-listings', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
-    const props = await app.prisma.property.findMany({
+    const props: PropertyWithUnitsForListings[] = await app.prisma.property.findMany({
       where: { organizationId: m.organizationId },
       orderBy: { createdAt: 'asc' },
       include: {
         units: { orderBy: { slug: 'asc' }, include: { listingProfile: true } },
       },
     });
-    const units = props.flatMap((p) =>
-      p.units.map((u) => ({
+    const units = props.flatMap((p: PropertyWithUnitsForListings) =>
+      p.units.map((u: PropertyWithUnitsForListings['units'][number]) => ({
         propertySlug: p.slug,
         propertyName: p.name,
         unit: u,

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { BookingStatus, OrgHomepageKind } from '@prisma/client';
+import type { Prisma } from '@mavu/db';
 import { confirmPendingBooking, createPendingBooking } from '../services/booking-flow.js';
 import {
   computeLandingAvailabilityMatrix,
@@ -15,6 +16,24 @@ import { buildPublicSitePayload } from '../lib/public-site-dto.js';
 
 const PUBLIC_LANDING_REVIEWS_LIMIT = 12;
 
+type OrgInventoryPayload = Prisma.OrganizationGetPayload<{
+  include: {
+    properties: {
+      include: {
+        units: {
+          select: {
+            id: true;
+            name: true;
+            slug: true;
+            kind: true;
+            listingLinks: { select: { id: true; channel: true; outboundFeedSlug: true } };
+          };
+        };
+      };
+    };
+  };
+}>;
+
 const landingAvailabilityQuerySchema = z.object({
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -28,7 +47,7 @@ function utcDay(dateStr: string): Date {
 export function registerPublicRoutes(app: FastifyInstance) {
   app.get('/public/orgs/:orgSlug/inventory', async (req, reply) => {
     const slug = (req.params as { orgSlug: string }).orgSlug;
-    const org = await app.prisma.organization.findUnique({
+    const org: OrgInventoryPayload | null = await app.prisma.organization.findUnique({
       where: { slug },
       include: {
         properties: {
@@ -49,7 +68,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
     if (!org) return reply.status(404).send({ error: 'Organization not found' });
     return reply.send({
       organization: { id: org.id, slug: org.slug, name: org.name },
-      properties: org.properties.map((p) => ({
+      properties: org.properties.map((p: OrgInventoryPayload['properties'][number]) => ({
         id: p.id,
         name: p.name,
         slug: p.slug,

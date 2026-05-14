@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import type { Prisma } from '@mavu/db';
+import type { InteractiveTxClient } from '../lib/interactive-tx-client.js';
+
+type MembershipWithOrg = Prisma.MembershipGetPayload<{ include: { organization: true } }>;
 
 const registerBody = z.object({
   email: z.string().email(),
@@ -40,7 +44,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const result = await app.prisma.$transaction(async (tx) => {
+    const result = await app.prisma.$transaction(async (tx: InteractiveTxClient) => {
       const org = await tx.organization.create({
         data: { name: organizationName, slug: organizationSlug },
       });
@@ -108,7 +112,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
     }
 
     try {
-      const signedUser = await app.prisma.$transaction(async (tx) => {
+      const signedUser = await app.prisma.$transaction(async (tx: InteractiveTxClient) => {
         const passwordHash = await bcrypt.hash(body.data.password, 12);
         const email = invite.email.toLowerCase();
         const userRecord = await tx.user.findUnique({ where: { email } });
@@ -165,7 +169,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     return reply.send({
       user: { id: payload.sub, email: payload.email },
-      organizations: memberships.map((m) => ({
+      organizations: memberships.map((m: MembershipWithOrg) => ({
         id: m.organizationId,
         name: m.organization.name,
         slug: m.organization.slug,
