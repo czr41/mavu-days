@@ -276,6 +276,7 @@ npm run build:api
 
 - If **`JavaScript heap out of memory`**: add **swap** or upgrade the VM shape, then retry.  
 - If **`npm ci` fails**, read the error — usually network or Node version.
+- If **`Could not find a declaration file for module '@mavu/db'` (TS7016)**: **`dist/` for packages never lives in Git** — `@mavu/db` must compile first so `packages/db/dist/index.d.ts` exists. From **`/opt/mavu-days`**, always run **`npm run build:api`** (not `npm run build` from inside **`apps/api` alone**) after pull. Quick repair: **`npm run build -w @mavu/db`** then **`npm run build -w @mavu/api`** from the repo root.
 
 ---
 
