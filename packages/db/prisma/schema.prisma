@@ -42,6 +42,24 @@ model Organization {
   guestReviews GuestReview[]
   landingOffers LandingOffer[]
   siteSettings OrgSiteSettings?
+  airbnbHostAccounts AirbnbHostAccount[]
+}
+
+/// Airbnb host profile: group one or more listing iCal links under one “account”.
+/// Future: Airbnb OAuth/API tokens attach here (ICAL-only for now).
+model AirbnbHostAccount {
+  id             String   @id @default(uuid())
+  organizationId String
+  label          String
+  notes          String?  @db.Text
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  listingLinks  ListingLink[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
 }
 
 /// Public homepage layout: generic grid of units vs Mavu-style 3-SKU matrix.
@@ -197,12 +215,12 @@ model ListingLink {
   lastIcalFetchedAt DateTime?
   lastIcalFetchError String?
 
-  rentableUnit RentableUnit @relation(fields: [rentableUnitId], references: [id], onDelete: Cascade)
+  rentableUnit         RentableUnit         @relation(fields: [rentableUnitId], references: [id], onDelete: Cascade)
+  airbnbHostAccountId  String?
+  airbnbHostAccount    AirbnbHostAccount?    @relation(fields: [airbnbHostAccountId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([rentableUnitId, channel])
 }
 
 enum BookingSource {

@@ -42,6 +42,13 @@ async function membershipForRoles(
   return m;
 }
 
+async function airbnbHostAccountInOrg(app: FastifyInstance, organizationId: string, accountId: string) {
+  const n = await app.prisma.airbnbHostAccount.count({
+    where: { id: accountId, organizationId },
+  });
+  return n === 1;
+}
+
 export function registerOrganizationRoutes(app: FastifyInstance) {
   app.get('/orgs/:orgSlug/dashboard', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
@@ -67,7 +74,10 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       }),
       app.prisma.listingLink.findMany({
         where: { rentableUnit: { property: { organizationId: m.organizationId } } },
-        include: { rentableUnit: { include: { property: true } } },
+        include: {
+          rentableUnit: { include: { property: true } },
+          airbnbHostAccount: { select: { id: true, label: true } },
+        },
         take: 100,
       }),
     ]);
@@ -99,12 +109,93 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     return reply.send({ invite: { id: invite.id, token: invite.token, expiresAt: invite.expiresAt } });
   });
 
+  app.get('/orgs/:orgSlug/airbnb-host-accounts', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, careRoles);
+    if (!m) return;
+    const rows = await app.prisma.airbnbHostAccount.findMany({
+      where: { organizationId: m.organizationId },
+      orderBy: { createdAt: 'asc' },
+      include: { _count: { select: { listingLinks: true } } },
+    });
+    return reply.send({
+      accounts: rows.map((a) => ({
+        id: a.id,
+        label: a.label,
+        notes: a.notes,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
+        listingLinkCount: a._count.listingLinks,
+      })),
+    });
+  });
+
+  app.post('/orgs/:orgSlug/airbnb-host-accounts', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const body = z
+      .object({
+        label: z.string().min(1).max(120),
+        notes: z.string().max(8000).nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    const acc = await app.prisma.airbnbHostAccount.create({
+      data: {
+        organizationId: m.organizationId,
+        label: body.data.label.trim(),
+        notes: body.data.notes?.trim() ?? null,
+      },
+    });
+    return reply.send({ account: acc });
+  });
+
+  app.patch('/orgs/:orgSlug/airbnb-host-accounts/:accountId', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const accountId = (req.params as { accountId: string }).accountId;
+    const body = z
+      .object({
+        label: z.string().min(1).max(120).optional(),
+        notes: z.union([z.string().max(8000), z.null()]).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    const patched = await app.prisma.airbnbHostAccount.updateMany({
+      where: { id: accountId, organizationId: m.organizationId },
+      data: {
+        ...(body.data.label !== undefined ? { label: body.data.label.trim() } : {}),
+        ...(body.data.notes !== undefined ? { notes: body.data.notes === null ? null : body.data.notes.trim() } : {}),
+      },
+    });
+    if (patched.count === 0) return reply.status(404).send({ error: 'Account not found' });
+    const acc = await app.prisma.airbnbHostAccount.findUniqueOrThrow({ where: { id: accountId } });
+    return reply.send({ account: acc });
+  });
+
+  app.delete('/orgs/:orgSlug/airbnb-host-accounts/:accountId', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const accountId = (req.params as { accountId: string }).accountId;
+    const del = await app.prisma.airbnbHostAccount.deleteMany({
+      where: { id: accountId, organizationId: m.organizationId },
+    });
+    if (del.count === 0) return reply.status(404).send({ error: 'Account not found' });
+    return reply.send({ ok: true });
+  });
+
   app.get('/orgs/:orgSlug/properties', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const rows = await app.prisma.property.findMany({
       where: { organizationId: m.organizationId },
-      include: { units: { include: { listingLinks: true, children: true } } },
+      include: {
+        units: {
+          include: {
+            listingLinks: { include: { airbnbHostAccount: { select: { id: true, label: true } } } },
+            children: true,
+          },
+        },
+      },
     });
     return reply.send({ properties: rows });
   });
@@ -223,6 +314,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         inboundIcalUrl: z.string().url().nullable().optional(),
         externalLabel: z.string().nullable().optional(),
         outboundFeedSlug: z.string().min(8).regex(/^[a-z0-9-]+$/).optional(),
+        airbnbHostAccountId: z.string().uuid().nullable().optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
@@ -230,6 +322,12 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       where: { id: unitId, property: { organizationId: m.organizationId } },
     });
     if (!count) return reply.status(404).send({ error: 'Unit not found' });
+    if (
+      body.data.airbnbHostAccountId &&
+      !(await airbnbHostAccountInOrg(app, m.organizationId, body.data.airbnbHostAccountId))
+    ) {
+      return reply.status(400).send({ error: 'Airbnb account not found for this org' });
+    }
     const slug = body.data.outboundFeedSlug ?? crypto.randomBytes(10).toString('hex');
     try {
       const link = await app.prisma.listingLink.create({
@@ -239,11 +337,12 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           inboundIcalUrl: body.data.inboundIcalUrl ?? undefined,
           externalLabel: body.data.externalLabel ?? undefined,
           outboundFeedSlug: slug,
+          airbnbHostAccountId: body.data.airbnbHostAccountId ?? undefined,
         },
       });
       return reply.send({ listingLink: link });
     } catch {
-      return reply.status(409).send({ error: 'listing link outbound slug or channel exists' });
+      return reply.status(409).send({ error: 'Could not create listing link (e.g. duplicate outbound feed slug)' });
     }
   });
 
@@ -255,6 +354,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       .object({
         inboundIcalUrl: z.string().url().nullable().optional(),
         externalLabel: z.string().nullable().optional(),
+        airbnbHostAccountId: z.string().uuid().nullable().optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
@@ -262,7 +362,24 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       where: { id: linkId, rentableUnit: { property: { organizationId: m.organizationId } } },
     });
     if (!owned) return reply.status(404).send({ error: 'Not found' });
-    const updated = await app.prisma.listingLink.update({ where: { id: linkId }, data: body.data });
+    if (
+      body.data.airbnbHostAccountId &&
+      !(await airbnbHostAccountInOrg(app, m.organizationId, body.data.airbnbHostAccountId))
+    ) {
+      return reply.status(400).send({ error: 'Airbnb account not found for this org' });
+    }
+    const patch: Prisma.ListingLinkUpdateInput = {};
+    if (body.data.inboundIcalUrl !== undefined) patch.inboundIcalUrl = body.data.inboundIcalUrl ?? null;
+    if (body.data.externalLabel !== undefined) patch.externalLabel = body.data.externalLabel;
+    if (body.data.airbnbHostAccountId !== undefined) {
+      patch.airbnbHostAccount = body.data.airbnbHostAccountId
+        ? { connect: { id: body.data.airbnbHostAccountId } }
+        : { disconnect: true };
+    }
+    const updated = await app.prisma.listingLink.update({
+      where: { id: linkId },
+      data: patch,
+    });
     return reply.send({ listingLink: updated });
   });
 
