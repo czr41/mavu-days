@@ -19,7 +19,7 @@ const DEFAULT_FAQS_JSON = JSON.stringify(
       q: 'What happens if the Full Farm is booked?',
       a: 'If the Full Farm is booked for your dates, the villa options are not offered for those same dates.',
     },
-    { q: 'Can I bring pets?', a: 'Please confirm before booking. Pet rules apply if pets are allowed.' },
+    { q: 'Can I bring pets?', a: 'Yes—we love fenced-farm weekends with dogs. Share breed and temperament when you book; the fenced two-acre space is built for pups to roam.' },
     { q: 'Is this a party place?', a: 'Designed for peaceful stays—not loud parties.' },
     { q: 'How do I book Mavu Days?', a: 'Check availability here and WhatsApp us to finish your enquiry.' },
   ],
@@ -47,6 +47,7 @@ const WHO_JSON = JSON.stringify(
     { title: 'Friend Groups', body: 'Take the Full Farm booking and tailor the soundtrack to laughter, not playlists.' },
     { title: 'Work-from-Nature Guests', body: 'Swap fluorescent calls for breezes through the grove—Wi-Fi permitting, guilt-free slowdown.' },
     { title: 'Small Celebrations', body: 'Small milestones with the people who matter—house rules favour calm over crowds.' },
+    { title: 'Pet Parents', body: 'About two fenced acres to run—see our pet-friendly notes just below.' },
   ],
   null,
   2,
@@ -59,7 +60,7 @@ const HOUSE_RULES_JSON = JSON.stringify(
     { title: 'Guest Count', text: 'Book for the correct number of guests; additional guests may need prior approval.' },
     { title: 'Check-in and Check-out', text: 'Timings are shared during booking confirmation.' },
     { title: 'Food and Kitchen', text: 'Share food or kitchen preferences before arrival so the team can guide you.' },
-    { title: 'Pets', text: 'Confirm pet details before booking if pets are allowed.' },
+    { title: 'Pets', text: 'Guests with dogs are welcome—share details when you book. Pet notes in these guidelines largely cover resident animals & land care.' },
   ],
   null,
   2,
@@ -83,7 +84,7 @@ function buildSectionRows(): SectionSeed[] {
       key: 'landing-hero-chips',
       title: 'Hero chips (one per line)',
       bodyMarkdown:
-        '2-Acre Mango Farm\n1BHK, 2BHK & Full Farm Options\nNear Bangalore\nPrivate Villa Stay\nIdeal for Families & Groups',
+        '2-Acre Mango Farm\n1BHK, 2BHK & Full Farm Options\nNear Bangalore\nPrivate Villa Stay\nFenced Ground · Great for Dogs\nIdeal for Families & Groups',
       sortOrder: 14,
     },
     {
@@ -140,6 +141,25 @@ function buildSectionRows(): SectionSeed[] {
     { key: 'landing-who-title', title: 'Who section title', bodyMarkdown: 'Who Mavu Days is Perfect For', sortOrder: 70 },
     { key: 'landing-who-for-intro', title: 'Who intro', bodyMarkdown: 'Couples, families, friends, remote weeks, and toast-sized celebrations.', sortOrder: 71 },
     { key: 'landing-who-cards', title: 'Who cards (JSON)', bodyMarkdown: WHO_JSON, sortOrder: 72 },
+    { key: 'landing-pet-friendly-eyebrow', title: 'Pet-friendly eyebrow', bodyMarkdown: 'Pet-friendly stay', sortOrder: 73 },
+    { key: 'landing-pet-friendly-title', title: 'Pet-friendly title', bodyMarkdown: 'Room for dogs to gallop—not just tagging along', sortOrder: 74 },
+    {
+      key: 'landing-pet-friendly-lead',
+      title: 'Pet-friendly lead',
+      bodyMarkdown:
+        'The farm sits inside fenced grounds so your pup can sniff, sprint, and nap in the shade while you unwind on the veranda.',
+      sortOrder: 75,
+    },
+    {
+      key: 'landing-pet-friendly-body',
+      title: 'Pet-friendly body',
+      bodyMarkdown: `Mavu Days is roughly two fenced acres of mango paths, lawns, and open pockets of grass—the kind of space city dogs rarely get without a long drive. Let them leash-off once you know the layout (we will point out the gate on arrival).
+
+We genuinely enjoy hosting pet parents. When you skim our house guidelines, anything about animals on the farm refers to how the owners maintain the homestead and resident animals—not a tightening list of restrictions for visiting dogs.
+
+Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
+      sortOrder: 76,
+    },
     { key: 'landing-location-title', title: 'Location title', bodyMarkdown: 'A Farm Stay Near Bangalore, Without Going Too Far', sortOrder: 80 },
     {
       key: 'landing-location-body',

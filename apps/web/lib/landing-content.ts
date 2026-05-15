@@ -37,6 +37,10 @@ export const SECTION_KEY = {
   whoTitle: 'landing-who-title',
   whoForIntro: 'landing-who-for-intro',
   whoCardsJson: 'landing-who-cards',
+  petFriendlyEyebrow: 'landing-pet-friendly-eyebrow',
+  petFriendlyTitle: 'landing-pet-friendly-title',
+  petFriendlyLead: 'landing-pet-friendly-lead',
+  petFriendlyBody: 'landing-pet-friendly-body',
   locationTitle: 'landing-location-title',
   locationBody: 'landing-location-body',
   locationBullets: 'landing-location-bullets',
@@ -114,6 +118,10 @@ export type LandingTexts = {
   whoTitle: string;
   whoIntro: string;
   whoCards: readonly { title: string; body: string }[];
+  petFriendlyEyebrow: string;
+  petFriendlyTitle: string;
+  petFriendlyLead: string;
+  petFriendlyBody: string;
   locationTitle: string;
   locationBodyDefault: string;
   locationBulletsDefault: readonly string[];
@@ -146,6 +154,7 @@ export const DEFAULT_LANDING: LandingTexts = {
     '1BHK, 2BHK & Full Farm Options',
     'Near Bangalore',
     'Private Villa Stay',
+    'Fenced Ground · Great for Dogs',
     'Ideal for Families & Groups',
   ],
   featureStripLabels: [
@@ -272,7 +281,20 @@ export const DEFAULT_LANDING: LandingTexts = {
       title: 'Small Celebrations',
       body: 'Small milestones with the people who matter—house rules favour calm over crowds.',
     },
+    {
+      title: 'Pet Parents',
+      body: 'About two fenced acres to run—see our pet-friendly notes just below.',
+    },
   ],
+  petFriendlyEyebrow: 'Pet-friendly stay',
+  petFriendlyTitle: 'Room for dogs to gallop—not just tagging along',
+  petFriendlyLead:
+    'The farm sits inside fenced grounds so your pup can sniff, sprint, and nap in the shade while you unwind on the veranda.',
+  petFriendlyBody: `Mavu Days is roughly two fenced acres of mango paths, lawns, and open pockets of grass—the kind of space city dogs rarely get without a long drive. Let them leash-off once you know the layout (we will point out the gate on arrival).
+
+We genuinely enjoy hosting pet parents. When you skim our house guidelines, anything about animals on the farm refers to how the owners maintain the homestead and resident animals—not a tightening list of restrictions for visiting dogs.
+
+Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
   locationTitle: 'A Farm Stay Near Bangalore, Without Going Too Far',
   locationBodyDefault:
     'Mavu Days sits about 65 km from Bangalore—close enough for a comfortable drive, quiet enough for a real reset.',
@@ -297,7 +319,10 @@ export const DEFAULT_LANDING: LandingTexts = {
     { title: 'Guest Count', text: 'Book for the correct number of guests; additional guests may need prior approval.' },
     { title: 'Check-in and Check-out', text: 'Timings are shared during booking confirmation.' },
     { title: 'Food and Kitchen', text: 'Share food or kitchen preferences before arrival so the team can guide you.' },
-    { title: 'Pets', text: 'Confirm pet details before booking if pets are allowed.' },
+    {
+      title: 'Pets',
+      text: 'Guests with dogs are welcome—share details when you book. Pet notes in these guidelines largely cover resident animals & land care.',
+    },
   ],
   reviewsTitle: 'Guest Moments at Mavu Days',
   reviewsIntroDefault: 'Stories from travellers who chased quiet—and found it.',
@@ -325,7 +350,7 @@ export const DEFAULT_LANDING: LandingTexts = {
     },
     {
       q: 'Can I bring pets?',
-      a: 'Please confirm before booking. Pet rules apply if pets are allowed.',
+      a: 'Yes—we love fenced-farm weekends with dogs. Share breed and temperament when you book; the fenced two-acre space is built for pups to roam.',
     },
     { q: 'Is this a party place?', a: 'Designed for peaceful stays—not loud parties.' },
     { q: 'How do I book Mavu Days?', a: 'Check availability here and WhatsApp us to finish your enquiry.' },
@@ -580,6 +605,11 @@ export function mergeLandingContent(payload: LandingMergePayload): MergedLanding
   dm.whoTitle = pick(SECTION_KEY.whoTitle, dm.whoTitle);
   dm.whoIntro = pick(SECTION_KEY.whoForIntro, dm.whoIntro);
   dm.whoCards = parseWhoCards(sm.get(SECTION_KEY.whoCardsJson)?.bodyMarkdown, dm.whoCards);
+
+  dm.petFriendlyEyebrow = pick(SECTION_KEY.petFriendlyEyebrow, dm.petFriendlyEyebrow);
+  dm.petFriendlyTitle = pick(SECTION_KEY.petFriendlyTitle, dm.petFriendlyTitle);
+  dm.petFriendlyLead = pick(SECTION_KEY.petFriendlyLead, dm.petFriendlyLead);
+  dm.petFriendlyBody = pick(SECTION_KEY.petFriendlyBody, dm.petFriendlyBody);
 
   dm.locationTitle = pick(SECTION_KEY.locationTitle, dm.locationTitle);
   dm.locationBodyDefault = pick(SECTION_KEY.locationBody, dm.locationBodyDefault);

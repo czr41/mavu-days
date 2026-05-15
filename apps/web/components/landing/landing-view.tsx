@@ -70,7 +70,7 @@ export async function LandingView({ path }: { path: Path }) {
           { quote: 'The villa was clean, cosy and the host was super helpful. We will definitely visit again soon.', name: 'Ananya Sharma', loc: 'Bangalore' },
         ];
 
-  const heroChips = t.chips.length ? t.chips : ['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay'];
+  const heroChips = t.chips.length ? t.chips : ['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay', 'Fenced ground · pets welcome'];
 
   return (
     <>
@@ -99,6 +99,7 @@ export async function LandingView({ path }: { path: Path }) {
               <nav className="md-nav" aria-label="Page sections">
                 <a href="#about">About</a>
                 <a href="#stays">Stay</a>
+                <a href="#pet-friendly">Pets</a>
                 <a href="#experience">Experiences</a>
                 <a href="#gallery">Gallery</a>
                 <a href="#faqs">FAQs</a>
@@ -415,6 +416,55 @@ export async function LandingView({ path }: { path: Path }) {
           </div>
         </RevealSection>
 
+        {/* ─── Pet parents ─── */}
+        <RevealSection className="md-section md-section-sage" id="pet-friendly">
+          <div className="md-wrap">
+            <div className="md-pet-friendly-split">
+              <div>
+                <p className="md-eyebrow-line md-section-label">{t.petFriendlyEyebrow || 'Pet-friendly stay'}</p>
+                <h2 className="md-h2" style={{ marginBottom: '0.75rem' }}>
+                  {t.petFriendlyTitle || 'Room for dogs to gallop'}
+                </h2>
+                <p className="md-lead" style={{ marginBottom: '1.25rem' }}>
+                  {t.petFriendlyLead ||
+                    'Fenced acreage gives pups space to roam while you unwind—built with pet parents in mind.'}
+                </p>
+                <div className="md-body md-prose">
+                  {(t.petFriendlyBody || '')
+                    .trim()
+                    .split(/\n\s*\n/)
+                    .filter(Boolean)
+                    .map((para, i) => (
+                      <p key={i} style={i === 0 ? undefined : { marginTop: '0.85rem' }}>
+                        {para}
+                      </p>
+                    ))}
+                </div>
+                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <a href="#booking" className="md-btn md-btn-secondary">
+                    Check dates with your dog →
+                  </a>
+                  <a href={waHref} className="md-btn md-btn-wa" target="_blank" rel="noreferrer">
+                    WhatsApp to book
+                  </a>
+                </div>
+              </div>
+              <div className="md-pet-friendly-icon-panel" aria-hidden>
+                <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4.5 9.5L3 11c-.8.8-.8 2.1 0 2.9l.9.9c.6.6 1.5.8 2.3.4a6 6 0 014.5-.6c.8.2 1.6 0 2.2-.5l1.2-1.1c.7-.6.7-1.7 0-2.3l-1.3-1.2" />
+                  <path d="M8 6.5c.5-1.4 2-2.1 3.3-1.5.6.3 1 .9 1.1 1.6" />
+                  <path d="M16.2 6.3c1.3-.7 2.9 0 3.3 1.5.2.6 0 1.3-.4 1.8" />
+                  <ellipse cx="12" cy="15.5" rx="4.2" ry="3.2" />
+                  <circle cx="9" cy="11" r="1.3" />
+                  <circle cx="15" cy="11" r="1.3" />
+                  <circle cx="10.2" cy="8.8" r="1.1" />
+                  <circle cx="13.8" cy="8.8" r="1.1" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </RevealSection>
+
         {/* ─── Location ─── */}
         <RevealSection className="md-section md-section-cream" id="location">
           <div className="md-wrap">
@@ -645,6 +695,7 @@ export async function LandingView({ path }: { path: Path }) {
                   <li><a href="#about">About Us</a></li>
                   <li><a href="#stays">Our Stays</a></li>
                   <li><a href="#experience">Experiences</a></li>
+                  <li><a href="#pet-friendly">Pet-friendly</a></li>
                   <li><a href="#gallery">Gallery</a></li>
                   <li><a href="#faqs">FAQs</a></li>
                 </ul>

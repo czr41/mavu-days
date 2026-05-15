@@ -1077,6 +1077,31 @@ p.md-eyebrow-line {
   min-height: 320px;
 }
 
+/* ——— Pet-friendly split ——— */
+.md-pet-friendly-split {
+  display: grid;
+  gap: clamp(1.75rem, 4vw, 2.75rem);
+  align-items: center;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .md-pet-friendly-split {
+    grid-template-columns: minmax(0, 1.15fr) minmax(200px, 0.75fr);
+  }
+}
+
+.md-pet-friendly-icon-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.28);
+  color: rgba(40, 55, 35, 0.85);
+}
+
 /* ——— Gallery ——— */
 .md-gallery-grid {
   display: grid;

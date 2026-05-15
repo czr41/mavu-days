@@ -88,6 +88,15 @@ const whoGlyphs: Record<string, ReactNode> = {
       <path d="M8 21h10" />
     </>
   ),
+  'Pet Parents': (
+    <>
+      <ellipse cx={12} cy={14.5} rx={5} ry={3.8} />
+      <circle cx={8.5} cy={10.5} r={1.6} />
+      <circle cx={15.5} cy={10.5} r={1.6} />
+      <circle cx={10.5} cy={8} r={1.25} />
+      <circle cx={13.5} cy={8} r={1.25} />
+    </>
+  ),
 };
 
 export function WhoGlyph({ title }: { title: string }) {
