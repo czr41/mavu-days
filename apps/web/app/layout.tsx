@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Cormorant_Garamond, Inter } from 'next/font/google';
 
+import { resolveSiteOrigin } from '@/lib/site-url';
 import './globals.css';
 
 const display = Cormorant_Garamond({
@@ -17,14 +18,10 @@ const sans = Inter({
   display: 'swap',
 });
 
-const site =
-  process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-  (process.env.NEXT_PUBLIC_VERCEL_URL?.trim()
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL.replace(/^https?:\/\//, '')}`
-    : 'http://localhost:3000');
+const siteOrigin = resolveSiteOrigin();
 
 export const metadata: Metadata = {
-  metadataBase: new URL(site.endsWith('/') ? site.slice(0, -1) : site),
+  metadataBase: new URL(siteOrigin),
   icons: {
     icon: '/mavu_days_favicon_transparent.svg',
     shortcut: '/mavu_days_favicon_transparent.svg',

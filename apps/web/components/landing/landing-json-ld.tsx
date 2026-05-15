@@ -1,12 +1,9 @@
 import type { LandingTexts } from '@/lib/landing-content';
 import type { PublicGuestReviewDto } from '@/lib/public-types';
+import { resolveSiteOrigin } from '@/lib/site-url';
 
 export function siteOrigin(): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, '');
-  const vc = process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
-  if (vc) return `https://${vc.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
-  return 'http://localhost:3000';
+  return resolveSiteOrigin();
 }
 
 type Props = {
