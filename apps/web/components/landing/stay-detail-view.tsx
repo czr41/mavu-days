@@ -122,7 +122,7 @@ export async function StayDetailView({ slug }: Props) {
               {/* Highlights */}
               {listing.highlights?.length ? (
                 <section className="md-stay-detail-section">
-                  <h2 className="md-stay-detail-section-title">What's Included</h2>
+                  <h2 className="md-stay-detail-section-title">What&apos;s Included</h2>
                   <ul className="md-stay-detail-highlights">
                     {listing.highlights.map((h) => (
                       <li key={h}>
@@ -212,7 +212,7 @@ export async function StayDetailView({ slug }: Props) {
                   Check Availability
                 </Link>
                 <p className="md-stay-detail-cta-note">
-                  No payment needed now — we'll confirm availability and pricing on WhatsApp.
+                  No payment needed now — we&apos;ll confirm availability and pricing on WhatsApp.
                 </p>
               </div>
             </aside>

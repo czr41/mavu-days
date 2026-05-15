@@ -1200,7 +1200,7 @@ export default function OrgAdminPage() {
     <div className="adm-card">
       <div className="adm-card-header"><h2 className="adm-card-title">Invite Team Member</h2></div>
       <div className="adm-card-body">
-        <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Send an invite link to a caretaker, staff member, or admin. They'll receive a link to set up their account.</p>
+        <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Send an invite link to a caretaker, staff member, or admin. They&apos;ll receive a link to set up their account.</p>
         <form onSubmit={async e=>{
           e.preventDefault(); setBusy(true);
           const r = await apiFetch<{invite:{token:string;expiresAt:string}}>(`${base}/invites`,{method:'POST',body:JSON.stringify({email:invForm.email,role:invForm.role})});
@@ -1319,9 +1319,6 @@ function StatusBadge({ s }: { s: string }) {
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }); }
 
 /* ─────────────────── Icons ─────────────────── */
-const ico = (d: string, extra = '') => ({ size = 20 }: { size?: number }) =>
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={extra}><path d={d}/></svg>;
-
 function GridI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>; }
 function HomeI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>; }
 function CalI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>; }
