@@ -6,6 +6,16 @@
 
 import type { PublicContentPayload, PublicSitePayload, SiteSectionDto } from './public-types';
 
+/** Canonical Google Maps link for directions (place pin). */
+export const MAVU_DAYS_DIRECTIONS_URL = 'https://maps.app.goo.gl/H3Y5mzF4gbhUReeM9';
+
+/** Coordinates aligned with the Google Maps place pin. */
+export const MAVU_DAYS_GEO = { latitude: 13.3827478, longitude: 77.9243319 } as const;
+
+/** OpenStreetMap embed (bbox + marker matches {@link MAVU_DAYS_GEO}). */
+export const MAVU_DAYS_OSM_EMBED_URL =
+  'https://www.openstreetmap.org/export/embed.html?bbox=77.9093319%2C13.3677478%2C77.9393319%2C13.3977478&layer=mapnik&marker=13.3827478%2C77.9243319';
+
 export type LandingMergePayload = PublicSitePayload | PublicContentPayload | null;
 
 export function sectionText(sec: SiteSectionDto | undefined, fallback: string): string {
@@ -337,7 +347,7 @@ Mention breed and temperament when you book so we ready the right greeting; then
   faqs: [
     {
       q: 'Where is Mavu Days located?',
-      a: 'About 65 km from Bangalore. The exact location and directions can be shared after booking confirmation.',
+      a: 'About 65 km from Bangalore near Channapatna—pinned as “Mavu Days, Farm House” on Google Maps; use Get Directions on this page for the route.',
     },
     { q: 'What stay options are available?', a: 'Full Farm, 1BHK Villa, or 2BHK Villa depending on availability.' },
     { q: 'Can I book the entire farm?', a: 'Yes—the Full Farm option includes both villas and the farm spaces.' },

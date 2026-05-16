@@ -1,4 +1,4 @@
-import type { LandingTexts } from '@/lib/landing-content';
+import { type LandingTexts, MAVU_DAYS_DIRECTIONS_URL, MAVU_DAYS_GEO } from '@/lib/landing-content';
 import type { PublicGuestReviewDto } from '@/lib/public-types';
 import { resolveSiteOrigin } from '@/lib/site-url';
 
@@ -29,10 +29,16 @@ export function LandingJsonLd({ texts, path, imageUrl, lodgingName, lodgingRevie
     url: homeUrl,
     address: {
       '@type': 'PostalAddress',
-      addressLocality: 'Near Bangalore',
+      addressLocality: 'Near Channapatna',
       addressRegion: 'Karnataka',
       addressCountry: 'IN',
     },
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: MAVU_DAYS_GEO.latitude,
+      longitude: MAVU_DAYS_GEO.longitude,
+    },
+    hasMap: MAVU_DAYS_DIRECTIONS_URL,
     areaServed: {
       '@type': 'City',
       name: 'Bengaluru',

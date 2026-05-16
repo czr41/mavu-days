@@ -8,7 +8,7 @@ const DEFAULT_FAQS_JSON = JSON.stringify(
   [
     {
       q: 'Where is Mavu Days located?',
-      a: 'About 65 km from Bangalore. The exact location and directions can be shared after booking confirmation.',
+      a: 'About 65 km from Bangalore near Channapatna—pinned as “Mavu Days, Farm House” on Google Maps; use Get Directions on this page for the route.',
     },
     { q: 'What stay options are available?', a: 'Full Farm, 1BHK Villa, or 2BHK Villa depending on availability.' },
     { q: 'Can I book the entire farm?', a: 'Yes—the Full Farm option includes both villas and the farm spaces.' },

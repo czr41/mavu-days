@@ -1,5 +1,9 @@
 import Link from 'next/link';
-import { listingUrlPath } from '@/lib/landing-content';
+import {
+  listingUrlPath,
+  MAVU_DAYS_DIRECTIONS_URL,
+  MAVU_DAYS_OSM_EMBED_URL,
+} from '@/lib/landing-content';
 import { loadLandingPayload } from '@/lib/landing-data';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { AvailabilitySearch } from '@/components/landing/availability-search';
@@ -471,15 +475,15 @@ export async function LandingView({ path }: { path: Path }) {
             <div className="md-split-location">
               <div className="md-map-shell">
                 <iframe
-                  title="Map — greater Bengaluru area"
+                  title="Map — Mavu Days Farm House"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   className="md-map-frame"
-                  src="https://www.openstreetmap.org/export/embed.html?bbox=77.32%2C12.74%2C77.94%2C13.42&layer=mapnik"
+                  src={MAVU_DAYS_OSM_EMBED_URL}
                 />
                 <span className="md-map-pin-hint">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  Near Channapatna, Karnataka
+                  Mavu Days Farm House · Near Channapatna, Karnataka
                 </span>
               </div>
               <div>
@@ -503,15 +507,15 @@ export async function LandingView({ path }: { path: Path }) {
                 </ul>
                 <a
                   className="md-btn md-btn-primary"
-                  href="https://www.google.com/maps/search/?api=1&query=Karnataka+farm+stay+near+Bengaluru"
+                  href={MAVU_DAYS_DIRECTIONS_URL}
                   target="_blank"
                   rel="noreferrer"
                 >
                   Get Directions
                 </a>
                 <p className="md-muted md-footnote">
-                  Exact pin shared after booking.{' '}
-                  <a href={waHref} className="md-link">WhatsApp us</a> for help sooner.
+                  Need help finding us?{' '}
+                  <a href={waHref} className="md-link">WhatsApp us</a>.
                 </p>
               </div>
             </div>
