@@ -14,6 +14,7 @@ import {
 import type { Prisma } from '@mavu/db';
 import { getMembership, requireUser } from '../lib/org-access.js';
 import { confirmPendingBooking, upsertConfirmedBooking } from '../services/booking-flow.js';
+import { syncInboundIcals } from '../services/ical-sync.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 
 type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
@@ -381,6 +382,14 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       data: patch,
     });
     return reply.send({ listingLink: updated });
+  });
+
+  /** Pull inbound iCal URLs for this org, upsert mirror bookings, cancel stale mirrors (two-way inbound leg). */
+  app.post('/orgs/:orgSlug/channels/sync-ical', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const result = await syncInboundIcals(app.prisma, app.notify, { organizationId: m.organizationId });
+    return reply.send(result);
   });
 
   app.get('/orgs/:orgSlug/bookings', async (req, reply) => {

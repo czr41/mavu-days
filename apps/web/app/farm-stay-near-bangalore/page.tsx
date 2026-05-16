@@ -20,7 +20,6 @@ export const metadata: Metadata = {
   },
 };
 
-/** SEO alias route — canonical points at `/`. */
 export default function FarmStayNearBangalorePage() {
   return <LandingView path="/farm-stay-near-bangalore" />;
 }

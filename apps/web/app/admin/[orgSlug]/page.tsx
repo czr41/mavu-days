@@ -727,7 +727,7 @@ export default function OrgAdminPage() {
             <div className="adm-form-grid">
               <div className="adm-field"><label className="adm-label">Platform</label><select className="adm-select" value={revForm.platform} onChange={e=>setRevForm(s=>({...s,platform:e.target.value}))}>{PLATFORMS.map(p=><option key={p} value={p}>{PLT_LABEL[p]}</option>)}</select></div>
               <div className="adm-field"><label className="adm-label">Rating (/ 5)</label><input className="adm-input" type="number" min={1} max={5} value={revForm.rating} onChange={e=>setRevForm(s=>({...s,rating:Number(e.target.value)}))}/></div>
-              <div className="adm-field"><label className="adm-label">Guest Name</label><input className="adm-input" value={revForm.guestDisplayName} placeholder="Priya & Karthik" onChange={e=>setRevForm(s=>({...s,guestDisplayName:e.target.value}))}/></div>
+              <div className="adm-field"><label className="adm-label">Guest Name</label><input className="adm-input" value={revForm.guestDisplayName} placeholder="Guest display name" onChange={e=>setRevForm(s=>({...s,guestDisplayName:e.target.value}))}/></div>
               <div className="adm-field"><label className="adm-label">Title (optional)</label><input className="adm-input" value={revForm.title} onChange={e=>setRevForm(s=>({...s,title:e.target.value}))}/></div>
               <div className="adm-field adm-field-full"><label className="adm-label">Review Text</label><textarea className="adm-textarea" required minLength={10} rows={3} value={revForm.body} onChange={e=>setRevForm(s=>({...s,body:e.target.value}))}/></div>
               <div className="adm-field"><label className="adm-label">Pinned Order (1=top)</label><input className="adm-input" type="number" min={0} value={revForm.pinnedOrder} onChange={e=>setRevForm(s=>({...s,pinnedOrder:e.target.value}))}/></div>
@@ -1162,8 +1162,7 @@ export default function OrgAdminPage() {
         <div className="adm-card-body">
           <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0 }}>
             Register each Airbnb login (or LLC / co-host identity) here. When you paste an Airbnb calendar URL below, optionally link it to a profile to keep
-            several Airbnb accounts organised. Syncing still uses Airbnb&apos;s <strong>iCal export</strong> URLs today; OAuth / official API hooks can attach to these
-            profiles later.
+            several Airbnb accounts organised. Availability uses <strong>iCal only</strong>: inbound URLs are pulled into Mavu; outbound HTTPS feeds push busy dates back to Airbnb / Booking when they import your link.
           </p>
           {!abEditing ? (
             <form
@@ -1333,6 +1332,36 @@ export default function OrgAdminPage() {
       <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
         <div className="adm-card-header">
           <h2 className="adm-card-title">All iCal feeds</h2>
+        </div>
+        <div className="adm-card-body" style={{ paddingBottom: '0.75rem' }}>
+          <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0 }}>
+            Two-way calendar sync uses iCal only: <strong>Inbound</strong> pulls below update Mavu when Airbnb or Booking changes; reservations removed there are cancelled here after the next sync.
+            <strong> Outbound</strong> URLs refresh whenever Airbnb/Booking re-fetch them (plus immediately on each pull for display consistency). Production also runs a worker every ~15 minutes if Redis is configured.
+          </p>
+          <button
+            type="button"
+            className="adm-btn adm-btn-ghost adm-btn-sm"
+            disabled={busy}
+            style={{ marginTop: '0.5rem' }}
+            onClick={async () => {
+              setBusy(true);
+              const r = await apiFetch<{
+                processed: number;
+                updated: number;
+                removed: number;
+                links: number;
+                errors: number;
+              }>(`${base}/channels/sync-ical`, { method: 'POST' });
+              setBusy(false);
+              if (!r) return;
+              await loadProps();
+              notify(
+                `Pull complete: ${r.links} feed(s), ${r.updated} upserted, ${r.removed} removed (no longer on remote calendar), ${r.errors} fetch error(s).`,
+              );
+            }}
+          >
+            Sync calendars now
+          </button>
         </div>
         {allUnits.length === 0 ? (
           <div className="adm-empty">

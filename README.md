@@ -48,7 +48,9 @@ Set `MOCK_PAYMENTS=true` in `.env` to auto-confirm direct-site bookings in dev.
 
 - Tenant ops: `/orgs/:orgSlug/...` (properties, units, listing links with inbound iCal, bookings, CMS, conflicts)
 - Public site: `/public/orgs/:orgSlug/inventory` · `POST /public/orgs/:orgSlug/bookings`
-- ICS export: `/feeds/<outbound-feed-slug>.ics` (paste URL into Airbnb/Booking)
+- ICS export: `/feeds/<outbound-feed-slug>.ics` (paste URL into Airbnb/Booking — they pull your busy dates)
+- Inbound iCal: worker (`npm run worker -w @mavu/api`, needs `REDIS_URL`) polls every ~15m; stale remote events cancel mirror bookings here
+- Manual pull: `POST /orgs/:orgSlug/channels/sync-ical` (admin JWT) — same logic as the worker for one org
 - Webhooks (Phase 2): `/hooks/meta/whatsapp` · `/hooks/meta/instagram` (`FEATURE_PHASE2_MESSAGES`)
 
 - **Vercel + Supabase:** [docs/deploy/vercel-supabase.md](docs/deploy/vercel-supabase.md).

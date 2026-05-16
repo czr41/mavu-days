@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { listingUrlPath } from '@/lib/landing-content';
+import { listingUrlPath, type ListingCard } from '@/lib/landing-content';
 import { loadLandingPayload } from '@/lib/landing-data';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { RevealSection, RevealBlock } from '@/components/landing/reveal-section';
@@ -14,8 +14,6 @@ const STAY_IMAGE: Record<string, string> = {
   '2bhk-villa': '/2bhk.jpg',
   'full-farm': '/full-farm.jpg',
 };
-
-import type { ListingCard } from '@/lib/landing-content';
 
 function resolveListingSlug(slug: string, listings: readonly ListingCard[]) {
   return listings.find((l) => listingUrlPath(l) === slug || l.id === slug);
@@ -42,7 +40,6 @@ export async function StayDetailView({ slug }: Props) {
   return (
     <div className="md-page-premium" style={{ background: 'var(--ivory)' }}>
 
-      {/* ─── Navbar ─── */}
       <header className="md-bar md-bar-premium">
         <div className="md-bar-inner">
           <div className="md-bar-logo-col">
@@ -62,8 +59,6 @@ export async function StayDetailView({ slug }: Props) {
               <Link href="/#footer">Contact</Link>
             </nav>
           </div>
-
-          {/* Right — CTA */}
           <div className="md-bar-cta-col">
             <a className="md-btn-primary-nav" href={waHref} target="_blank" rel="noreferrer">
               Book via WhatsApp
@@ -72,7 +67,6 @@ export async function StayDetailView({ slug }: Props) {
         </div>
       </header>
 
-      {/* ─── Hero ─── */}
       <section className="md-stay-detail-hero" aria-label={listing.title}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imgSrc} alt={`${listing.title} at ${orgName}`} className="md-stay-detail-hero-img" />
@@ -105,21 +99,14 @@ export async function StayDetailView({ slug }: Props) {
         </div>
       </section>
 
-      {/* ─── Content ─── */}
       <div className="md-stay-detail-body">
         <div className="md-wrap">
           <div className="md-stay-detail-layout">
-
-            {/* ─── Main column ─── */}
             <div className="md-stay-detail-main">
-
-              {/* Description */}
               <section className="md-stay-detail-section">
                 <h2 className="md-stay-detail-section-title">About this Stay</h2>
                 <p className="md-stay-detail-copy">{listing.copy}</p>
               </section>
-
-              {/* Highlights */}
               {listing.highlights?.length ? (
                 <section className="md-stay-detail-section">
                   <h2 className="md-stay-detail-section-title">What&apos;s Included</h2>
@@ -133,8 +120,6 @@ export async function StayDetailView({ slug }: Props) {
                   </ul>
                 </section>
               ) : null}
-
-              {/* Amenities */}
               {listing.amenities?.length ? (
                 <section className="md-stay-detail-section">
                   <h2 className="md-stay-detail-section-title">Amenities</h2>
@@ -145,8 +130,6 @@ export async function StayDetailView({ slug }: Props) {
                   </div>
                 </section>
               ) : null}
-
-              {/* Best For */}
               {listing.bestFor?.length ? (
                 <section className="md-stay-detail-section">
                   <h2 className="md-stay-detail-section-title">Perfect For</h2>
@@ -157,8 +140,6 @@ export async function StayDetailView({ slug }: Props) {
                   </div>
                 </section>
               ) : null}
-
-              {/* Pricing */}
               {listing.pricing ? (
                 <section className="md-stay-detail-section">
                   <h2 className="md-stay-detail-section-title">Pricing</h2>
@@ -186,8 +167,6 @@ export async function StayDetailView({ slug }: Props) {
               ) : null}
 
             </div>
-
-            {/* ─── Sticky sidebar CTA ─── */}
             <aside className="md-stay-detail-sidebar">
               <div className="md-stay-detail-cta-card">
                 <p className="md-stay-detail-cta-label">Ready to book?</p>
@@ -221,7 +200,6 @@ export async function StayDetailView({ slug }: Props) {
         </div>
       </div>
 
-      {/* ─── Other Stays ─── */}
       {otherListings.length > 0 ? (
         <RevealSection className="md-section md-section-sage">
           <div className="md-wrap">
@@ -268,7 +246,6 @@ export async function StayDetailView({ slug }: Props) {
         </RevealSection>
       ) : null}
 
-      {/* ─── Footer strip ─── */}
       <footer className="md-stay-detail-footer">
         <div className="md-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>© {new Date().getFullYear()} {orgName}. All rights reserved.</span>

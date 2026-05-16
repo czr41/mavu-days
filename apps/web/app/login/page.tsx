@@ -30,7 +30,7 @@ export default function LoginPage() {
       });
     } catch {
       setError(
-        `Cannot reach the API at ${loginUrl}. Try: (1) From the repo root run "npm run dev" (API + web together) or "npm run dev -w @mavu/api" for the API only. (2) If the API exits on startup with a Prisma error, run "npm run db:generate" then start the API again. (3) Open ${api.replace(/\/$/, '')}/health/live — if you see ok:true, the server is listening.`,
+        `Cannot reach the booking API (${loginUrl}). Check your connection and that NEXT_PUBLIC_API_URL matches your deployed API, then try again.`,
       );
       return;
     }
@@ -43,13 +43,15 @@ export default function LoginPage() {
         headers: { Authorization: `Bearer ${(json as { token: string }).token}` },
       });
     } catch {
-      setError(
-        `Login succeeded but profile could not be loaded. Check the API at ${api.replace(/\/$/, '')}.`,
-      );
+      setError('Login succeeded but your profile could not be loaded. Try again in a moment.');
       return;
     }
     const me = await meRes.json();
-    const first = me.organizations?.[0]?.slug ?? 'demo';
+    const first = me.organizations?.[0]?.slug as string | undefined;
+    if (!first) {
+      setError('This account is not linked to an organization yet. Ask an owner to send you an invite.');
+      return;
+    }
     router.push(`/admin/${first}`);
   }
 
