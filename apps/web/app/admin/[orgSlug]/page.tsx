@@ -264,7 +264,23 @@ export default function OrgAdminPage() {
       try {
         res = await fetch(`${api}${path}`, { ...opts, headers: { ...ah(), ...(opts?.headers as Record<string, string> ?? {}) } });
       } catch (err) {
-        notify(err instanceof Error ? err.message : 'Network error — check NEXT_PUBLIC_API_URL and that the API is running.', false);
+        const raw = err instanceof Error ? err.message : 'Network error';
+        const msgLc = raw.toLowerCase();
+        const isHttpsSite =
+          typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const apiLooksLocal =
+          /\b(localhost|127\.0\.0\.1)\b/i.test(api) || /^http:\/\//i.test(api);
+        let msg = raw;
+        if (isHttpsSite && apiLooksLocal) {
+          msg =
+            'This production build has no NEXT_PUBLIC_API_URL (it is falling back to localhost). ' +
+            'In Vercel → Settings → Environment Variables set NEXT_PUBLIC_API_URL=https://api.mavudays.com then Redeploy the web app.';
+        } else if (msgLc === 'failed to fetch' || msgLc.includes('networkerror')) {
+          msg =
+            `${raw} — Check DevTools → Network (request URL host). Confirm Vercel has NEXT_PUBLIC_API_URL and redeployed after setting it. ` +
+            'Some ad blockers block paths containing «airbnb» — try Incognito or disable extensions. Confirm https://api.mavudays.com/health/live works.';
+        }
+        notify(msg, false);
         return null;
       }
       if (res.status === 401) { router.push('/login'); return null; }
