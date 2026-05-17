@@ -136,6 +136,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     return reply.send({ invite: { id: invite.id, token: invite.token, expiresAt: invite.expiresAt } });
   });
 
+  /** Airbnb host grouping labels (admin Host tab); requires prisma migration for AirbnbHostAccount. */
   app.get('/orgs/:orgSlug/airbnb-host-accounts', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;

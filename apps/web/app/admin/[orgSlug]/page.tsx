@@ -285,7 +285,15 @@ export default function OrgAdminPage() {
           path.startsWith('/orgs/') &&
           (/not\s*found/i.test(errMsg) || errMsg === `HTTP ${res.status}`)
         ) {
-          errMsg = `${errMsg} — admin calls your Fastify API. On Vercel, set NEXT_PUBLIC_API_URL to that API base URL (not your marketing site). Redeploy the API if routes are missing.`;
+          if (path.includes('/airbnb-host-accounts')) {
+            errMsg =
+              `${errMsg} — Airbnb profiles are served by your Fastify API on the VM, not Vercel. ` +
+              'Frontend-only deploys do not add API routes: GitHub → Actions → "Deploy API (Oracle VM)" → Run workflow, ' +
+              'or SSH → git pull, npm run build -w @mavu/api, sudo systemctl restart mavu-api (adjust the systemd unit). ' +
+              'Ensure NEXT_PUBLIC_API_URL is your API origin (same host as GET /health/live), not your marketing www domain.';
+          } else {
+            errMsg = `${errMsg} — admin calls your Fastify API. On Vercel, set NEXT_PUBLIC_API_URL to that API base URL (not your marketing site). Redeploy the API if routes are missing.`;
+          }
         }
         if (res.status === 403 && errMsg.toLowerCase() === 'forbidden') {
           errMsg =
