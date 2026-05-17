@@ -1,7 +1,7 @@
 # Deploy Fastify API to your Oracle VM on every relevant push to main.
 #
 # Required repo secrets (Settings → Secrets and variables → Actions → Repository secrets):
-#   API_DEPLOY_HOST      — VM public IP or DNS
+#   API_DEPLOY_HOST      — VM public IPv4 (e.g. 203.0.113.50) OR a public DNS name that resolves (no private IPs).
 #   API_DEPLOY_USER      — SSH user (e.g. ubuntu)
 #   API_DEPLOY_SSH_KEY   — Private key PEM for that user
 #   API_DEPLOY_PATH      — Absolute repo root on the VM (e.g. /opt/mavu-days)
@@ -84,7 +84,6 @@ jobs:
           username: ${{ secrets.API_DEPLOY_USER }}
           key: ${{ secrets.API_DEPLOY_SSH_KEY }}
           envs: DEPLOY_PATH,SYSTEMD_UNIT
-          script_stop: true
           script: |
             set -euo pipefail
             if [ -z "${DEPLOY_PATH}" ]; then echo "DEPLOY_PATH missing — set API_DEPLOY_PATH secret"; exit 1; fi
