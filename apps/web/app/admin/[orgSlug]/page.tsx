@@ -325,6 +325,8 @@ export default function OrgAdminPage() {
 
   useEffect(() => {
     if (!tok()) { router.push('/login'); return; }
+    // Wait for dynamic [orgSlug] — first paint can have an empty slug and would call /orgs//… (404).
+    if (!slug) return;
     void loadDash();
     void loadProps();
     void loadBk();
@@ -334,6 +336,7 @@ export default function OrgAdminPage() {
     void loadSiteSettings();
     void loadAirbnb();
   }, [
+    slug,
     router,
     loadDash,
     loadProps,
