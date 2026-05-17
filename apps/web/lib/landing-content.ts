@@ -102,6 +102,10 @@ export type ListingCard = {
   detailHeroUrl?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  /** Listing gallery on `/stays/...` (HTTPS URLs). */
+  galleryImageUrls?: readonly string[];
+  airbnbProfileLabel?: string | null;
+  airbnbListingUrl?: string | null;
 };
 
 export type LandingTexts = {
@@ -518,6 +522,9 @@ function deriveListingsFromSite(properties: PublicSitePayload['properties']): Li
           detailHeroUrl: lp.detailHeroUrl,
           seoTitle: lp.seoTitle,
           seoDescription: lp.seoDescription,
+          galleryImageUrls: lp.galleryImageUrls?.length ? lp.galleryImageUrls : undefined,
+          airbnbProfileLabel: lp.airbnbProfileLabel,
+          airbnbListingUrl: lp.airbnbListingUrl,
         },
       });
     }

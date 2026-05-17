@@ -14,7 +14,14 @@ type ListingLink = {
   externalLabel: string | null;
   airbnbHostAccount: { id: string; label: string } | null;
 };
-type RentableUnit = { id: string; name: string; slug: string; kind: string; listingLinks: ListingLink[]; children: RentableUnit[] };
+type RentableUnit = {
+  id: string;
+  name: string;
+  slug: string;
+  kind: string;
+  listingLinks?: ListingLink[];
+  children: RentableUnit[];
+};
 type Property = { id: string; name: string; slug: string; units: RentableUnit[] };
 
 type AirbnbHostAccountRow = {
@@ -71,11 +78,14 @@ type ListingProfileDto = {
   seoTitle: string | null;
   seoDescription: string | null;
   detailHeroUrl: string | null;
+  airbnbProfileLabel: string | null;
+  airbnbListingUrl: string | null;
+  galleryImageUrls: unknown;
 };
 type UnitListingBundle = {
   propertySlug: string;
   propertyName: string;
-  unit: { id: string; name: string; slug: string; kind: string };
+  unit: { id: string; name: string; slug: string; kind: string; listingLinks?: ListingLink[] };
   listingProfile: ListingProfileDto | null;
 };
 type Alert       = { id: string; message: string; severity: string };
@@ -102,11 +112,28 @@ type ListingDraftState = {
   seoTitle: string;
   seoDescription: string;
   detailHeroUrl: string;
+  airbnbProfileLabel: string;
+  airbnbListingUrl: string;
+  galleryUrlsText: string;
 };
 
 function jsonStringArr(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.filter((x): x is string => typeof x === 'string');
+}
+
+/** Merge unique HTTPS URLs into gallery draft lines (max `max`). */
+function mergeGalleryLines(existingMultiline: string, urlsToAdd: string[], max = 24): string {
+  const cur = existingMultiline.split('\n').map((l) => l.trim()).filter(Boolean);
+  const seen = new Set(cur);
+  const next = [...cur];
+  for (const u of urlsToAdd) {
+    if (next.length >= max) break;
+    if (seen.has(u)) continue;
+    seen.add(u);
+    next.push(u);
+  }
+  return next.join('\n');
 }
 
 function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
@@ -132,6 +159,9 @@ function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
     seoTitle: lp?.seoTitle ?? '',
     seoDescription: lp?.seoDescription ?? '',
     detailHeroUrl: lp?.detailHeroUrl ?? '',
+    airbnbProfileLabel: lp?.airbnbProfileLabel ?? '',
+    airbnbListingUrl: lp?.airbnbListingUrl ?? '',
+    galleryUrlsText: jsonStringArr(lp?.galleryImageUrls).join('\n'),
   };
 }
 
@@ -213,6 +243,12 @@ export default function OrgAdminPage() {
   const [unitBundles, setUnitBundles] = useState<UnitListingBundle[]>([]);
   const [listingEditUnitId, setListingEditUnitId] = useState<string | null>(null);
   const [listingDraft, setListingDraft] = useState<ListingDraftState | null>(null);
+  const [airbnbInboundDraft, setAirbnbInboundDraft] = useState('');
+  const [airbnbPickSession, setAirbnbPickSession] = useState<{
+    unitId: string;
+    urls: string[];
+    picked: Record<string, boolean>;
+  } | null>(null);
   const [airbnbAccounts, setAirbnbAccounts] = useState<AirbnbHostAccountRow[]>([]);
 
   const tok = () => localStorage.getItem('mavu_token') ?? '';
@@ -293,6 +329,18 @@ export default function OrgAdminPage() {
     void loadSiteSettings();
     void loadAirbnb();
   }, [slug]);
+
+  useEffect(() => {
+    if (!listingEditUnitId) {
+      setAirbnbInboundDraft('');
+      setAirbnbPickSession(null);
+      return;
+    }
+    setAirbnbPickSession(null);
+    const row = unitBundles.find((b) => b.unit.id === listingEditUnitId);
+    const link = row?.unit.listingLinks?.find((l) => l.channel === 'AIRBNB');
+    setAirbnbInboundDraft(link?.inboundIcalUrl ?? '');
+  }, [listingEditUnitId, unitBundles]);
 
   // Flat list of all units across all properties (for dropdowns)
   const allUnits = properties.flatMap(p => p.units.map(u => ({ ...u, propertyName: p.name, propertySlug: p.slug })));
@@ -813,6 +861,7 @@ export default function OrgAdminPage() {
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
           {unitBundles.map((row)=>{
             const isOpen = listingEditUnitId===row.unit.id && listingDraft;
+            const primaryAirbnbLink = row.unit.listingLinks?.find((l) => l.channel === 'AIRBNB');
             return (
               <div key={row.unit.id} className="adm-card" style={{marginBottom:'1.25rem'}}>
                 <div className="adm-card-header" style={{alignItems:'center'}}>
@@ -880,6 +929,105 @@ export default function OrgAdminPage() {
                         ):null}
                       </div>
                     </div>
+                    <div style={{border:'1px solid #E5E7EB',borderRadius:12,padding:'1rem',marginBottom:'0.5rem'}}>
+                      <h3 style={{margin:'0 0 0.75rem',fontSize:'0.95rem'}}>Airbnb (marketing)</h3>
+                      <div className="adm-form-grid">
+                        <div className="adm-field adm-field-full">
+                          <label className="adm-label">Airbnb profile name</label>
+                          <input className="adm-input" value={listingDraft.airbnbProfileLabel} onChange={(e)=>setListingDraft((d)=>d?{...d,airbnbProfileLabel:e.target.value}:d)} placeholder="Shown next to this stay on the landing site"/>
+                        </div>
+                        <div className="adm-field adm-field-full">
+                          <label className="adm-label">Airbnb listing URL</label>
+                          <input className="adm-input" value={listingDraft.airbnbListingUrl} onChange={(e)=>setListingDraft((d)=>d?{...d,airbnbListingUrl:e.target.value}:d)} placeholder="https://www.airbnb.com/rooms/…"/>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap',marginBottom:'0.75rem'}}>
+                        <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={busy || !listingDraft.airbnbListingUrl.trim()} onClick={async ()=>{
+                          if (!listingDraft.airbnbListingUrl.trim()) return;
+                          setBusy(true);
+                          const res = await apiFetch<{ urls: string[] }>(`${base}/tools/airbnb-listing-images`, { method:'POST', body: JSON.stringify({ listingUrl: listingDraft.airbnbListingUrl.trim() }) });
+                          setBusy(false);
+                          if (!res) return;
+                          if (!res.urls.length) { notify('No listing photos found — Airbnb may block server fetches or changed their HTML.', false); return; }
+                          setAirbnbPickSession({ unitId: row.unit.id, urls: res.urls, picked: {} });
+                          notify(`Loaded ${res.urls.length} candidate photo URL(s). Select thumbnails to add.`);
+                        }}>Pull photos from Airbnb</button>
+                      </div>
+                      {airbnbPickSession?.unitId === row.unit.id && airbnbPickSession.urls.length ? (
+                        <div style={{marginBottom:'1rem'}}>
+                          <p style={{fontSize:'0.82rem',color:'#6B7280',margin:'0 0 0.5rem'}}>Select photos to append to this stay&apos;s gallery (max 24 total).</p>
+                          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(88px,1fr))',gap:'0.45rem',maxHeight:220,overflowY:'auto'}}>
+                            {airbnbPickSession.urls.map((u) => (
+                              <label key={u} style={{cursor:'pointer',display:'block',position:'relative'}}>
+                                <input type="checkbox" checked={!!airbnbPickSession.picked[u]} onChange={(e)=>setAirbnbPickSession((s)=>s&&s.unitId===row.unit.id ? {...s,picked:{...s.picked,[u]:e.target.checked}}:s)} style={{position:'absolute',top:6,left:6,zIndex:1,width:16,height:16}}/>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={u} alt="" style={{width:'100%',aspectRatio:'4/3',objectFit:'cover',borderRadius:8,border:'1px solid #E5E7EB'}}/>
+                              </label>
+                            ))}
+                          </div>
+                          <button type="button" className="adm-btn adm-btn-primary adm-btn-sm" style={{marginTop:'0.6rem'}} onClick={()=>{
+                            if (!airbnbPickSession || airbnbPickSession.unitId !== row.unit.id) return;
+                            const sel = airbnbPickSession.urls.filter((u)=>airbnbPickSession.picked[u]);
+                            if (!sel.length) { notify('Select one or more photos.', false); return; }
+                            setListingDraft((d)=>d ? {...d, galleryUrlsText: mergeGalleryLines(d.galleryUrlsText, sel)} : d);
+                            notify(`Added ${sel.length} image URL(s) to gallery draft.`);
+                          }}>Add selected to gallery</button>
+                        </div>
+                      ) : null}
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Stay gallery image URLs (one per line, HTTPS)</label>
+                        <textarea className="adm-textarea" rows={4} value={listingDraft.galleryUrlsText} onChange={(e)=>setListingDraft((d)=>d?{...d,galleryUrlsText:e.target.value}:d)} placeholder="Shown on the stay detail page · max 24"/>
+                      </div>
+                    </div>
+
+                    <div style={{border:'1px solid #E5E7EB',borderRadius:12,padding:'1rem',marginBottom:'0.85rem'}}>
+                      <h3 style={{margin:'0 0 0.75rem',fontSize:'0.95rem'}}>Calendar sync (Airbnb)</h3>
+                      <p style={{fontSize:'0.82rem',color:'#6B7280',margin:'0 0 0.75rem',lineHeight:1.55}}>
+                        <strong>Inbound:</strong> paste Airbnb&apos;s export (.ics) URL so Mavu reads Airbnb bookings.
+                        {' '}<strong>Outbound:</strong> paste the Mavu URL into Airbnb → Availability → Import calendar.
+                      </p>
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Inbound iCal URL (from Airbnb)</label>
+                        <input className="adm-input" value={airbnbInboundDraft} onChange={(e)=>setAirbnbInboundDraft(e.target.value)} placeholder="https://www.airbnb.com/calendar/ical/….ics?t=…"/>
+                      </div>
+                      <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap',marginBottom:'0.75rem'}}>
+                        {primaryAirbnbLink ? (
+                          <>
+                            <button type="button" className="adm-btn adm-btn-primary adm-btn-sm" disabled={busy} onClick={async ()=>{
+                              setBusy(true);
+                              const r = await apiFetch(`${base}/listing-links/${primaryAirbnbLink.id}`, { method:'PATCH', body: JSON.stringify({ inboundIcalUrl: airbnbInboundDraft.trim() ? airbnbInboundDraft.trim() : null }) });
+                              setBusy(false);
+                              if (!r) return;
+                              notify('Inbound calendar saved.');
+                              await loadUnitListings();
+                            }}>Save inbound URL</button>
+                            <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={()=>{
+                              void navigator.clipboard.writeText(`${api}/feeds/${primaryAirbnbLink.outboundFeedSlug}.ics`);
+                              notify('Copied outbound calendar URL for Airbnb import.');
+                            }}>Copy outbound URL for Airbnb</button>
+                          </>
+                        ) : (
+                          <button type="button" className="adm-btn adm-btn-primary adm-btn-sm" disabled={busy} onClick={async ()=>{
+                            setBusy(true);
+                            const r = await apiFetch<{ listingLink: ListingLink }>(`${base}/rentable-units/${row.unit.id}/listing-links`, {
+                              method:'POST',
+                              body: JSON.stringify({
+                                channel: 'AIRBNB',
+                                inboundIcalUrl: airbnbInboundDraft.trim() ? airbnbInboundDraft.trim() : null,
+                              }),
+                            });
+                            setBusy(false);
+                            if (!r?.listingLink) return;
+                            notify('Airbnb calendar link created.');
+                            await loadUnitListings();
+                          }}>Create Airbnb calendar link</button>
+                        )}
+                      </div>
+                      {primaryAirbnbLink ? (
+                        <code style={{fontSize:'0.75rem',wordBreak:'break-all',display:'block',padding:'0.5rem',background:'#F9FAFB',borderRadius:8}}>{api}/feeds/{primaryAirbnbLink.outboundFeedSlug}.ics</code>
+                      ) : null}
+                    </div>
+
                     <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
                       <button type="button" className="adm-btn adm-btn-primary" disabled={busy} onClick={async()=>{
                         if(!listingDraft) return;
@@ -909,6 +1057,9 @@ export default function OrgAdminPage() {
                           seoTitle:listingDraft.seoTitle.trim()||null,
                           seoDescription:listingDraft.seoDescription.trim()||null,
                           detailHeroUrl:listingDraft.detailHeroUrl.trim()||null,
+                          airbnbProfileLabel:listingDraft.airbnbProfileLabel.trim()||null,
+                          airbnbListingUrl:listingDraft.airbnbListingUrl.trim()||null,
+                          galleryImageUrls:listingDraft.galleryUrlsText.split('\n').map((l)=>l.trim()).filter(Boolean).slice(0,24),
                         })});
                         setBusy(false);
                         if(!r) return;

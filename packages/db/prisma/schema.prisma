@@ -197,6 +197,13 @@ model RentableUnitListing {
 
   detailHeroUrl         String?
 
+  /// Shown next to the stay on the marketing site (e.g. host profile name on Airbnb).
+  airbnbProfileLabel    String?
+  /// Public Airbnb listing URL — drives “View on Airbnb” and optional photo scrape.
+  airbnbListingUrl      String?
+  /// Selected listing photos (HTTPS URLs), shown on `/stays/[slug]` gallery.
+  galleryImageUrls      Json                   @default("[]")
+
   rentableUnit RentableUnit @relation(fields: [rentableUnitId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())

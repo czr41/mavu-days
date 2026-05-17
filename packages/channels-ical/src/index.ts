@@ -1,6 +1,18 @@
 import * as ic from 'node-ical';
 import type { CalendarEvent } from '@mavu/contracts';
 
+type FetchFn = (input: string, init?: unknown) => Promise<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+}>;
+
+function globalFetch(): FetchFn {
+  const f = (globalThis as unknown as { fetch?: FetchFn }).fetch;
+  if (typeof f !== 'function') throw new Error('Global fetch is not available');
+  return f;
+}
+
 type RawEvent = Record<string, unknown>;
 
 function asDate(val: unknown): Date | undefined {
@@ -43,7 +55,7 @@ export class IcalChannelConnector {
   readonly channelId = 'ical';
 
   async fetchExternalCalendar(icalUrl: string): Promise<CalendarEvent[]> {
-    const res = await fetch(icalUrl, { redirect: 'follow' });
+    const res = await globalFetch()(icalUrl, { redirect: 'follow' });
     if (!res.ok) {
       throw new Error(`iCal fetch failed ${res.status}`);
     }

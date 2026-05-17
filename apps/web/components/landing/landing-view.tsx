@@ -285,9 +285,23 @@ export async function LandingView({ path }: { path: Path }) {
                           </div>
                         </>
                       ) : null}
+                      {L.airbnbProfileLabel?.trim() ? (
+                        <p className="md-stay-airbnb-note">Airbnb · {L.airbnbProfileLabel.trim()}</p>
+                      ) : null}
                       <Link href={`/stays/${pathSeg}`} className="md-btn md-btn-primary md-btn-block">
                         {L.cta || 'View Details'}
                       </Link>
+                      {L.airbnbListingUrl?.trim() ? (
+                        <a
+                          href={L.airbnbListingUrl.trim()}
+                          className="md-btn md-btn-secondary md-btn-block"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ marginTop: '0.45rem' }}
+                        >
+                          View on Airbnb
+                        </a>
+                      ) : null}
                     </div>
                   </RevealArticle>
                 );

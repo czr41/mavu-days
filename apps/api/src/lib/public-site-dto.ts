@@ -36,6 +36,9 @@ export type PublicUnitListingDto = {
   seoTitle: string | null;
   seoDescription: string | null;
   detailHeroUrl: string | null;
+  airbnbProfileLabel: string | null;
+  airbnbListingUrl: string | null;
+  galleryImageUrls: string[];
 };
 
 export type PublicRentableUnitDto = {
@@ -92,6 +95,9 @@ export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
     seoTitle: row.seoTitle,
     seoDescription: row.seoDescription,
     detailHeroUrl: row.detailHeroUrl,
+    airbnbProfileLabel: row.airbnbProfileLabel,
+    airbnbListingUrl: row.airbnbListingUrl,
+    galleryImageUrls: jsonStringArray(row.galleryImageUrls),
   };
 }
 

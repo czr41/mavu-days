@@ -16,10 +16,11 @@ import { getMembership, requireUser } from '../lib/org-access.js';
 import { confirmPendingBooking, upsertConfirmedBooking } from '../services/booking-flow.js';
 import { syncInboundIcals } from '../services/ical-sync.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
+import { fetchAirbnbListingImageCandidates } from '../services/airbnb-listing-images.js';
 
 type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
   include: {
-    units: { orderBy: { slug: 'asc' }; include: { listingProfile: true } };
+    units: { orderBy: { slug: 'asc' }; include: { listingProfile: true; listingLinks: true } };
   };
 }>;
 
@@ -552,7 +553,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       where: { organizationId: m.organizationId },
       orderBy: { createdAt: 'asc' },
       include: {
-        units: { orderBy: { slug: 'asc' }, include: { listingProfile: true } },
+        units: { orderBy: { slug: 'asc' }, include: { listingProfile: true, listingLinks: true } },
       },
     });
     const units = props.flatMap((p: PropertyWithUnitsForListings) =>
@@ -594,6 +595,9 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         z.null(),
       ])
       .optional(),
+    airbnbProfileLabel: z.union([z.string().max(200), z.literal(''), z.null()]).optional(),
+    airbnbListingUrl: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
+    galleryImageUrls: z.array(z.string().url()).max(24).optional(),
   });
 
   app.put('/orgs/:orgSlug/rentable-units/:unitId/listing-profile', async (req, reply) => {
@@ -614,6 +618,18 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       d.detailHeroUrl === undefined || d.detailHeroUrl === null || d.detailHeroUrl === ''
         ? null
         : d.detailHeroUrl;
+
+    const airbnbListingUrl =
+      d.airbnbListingUrl === undefined || d.airbnbListingUrl === null || d.airbnbListingUrl === ''
+        ? null
+        : d.airbnbListingUrl;
+
+    const airbnbProfileLabel =
+      d.airbnbProfileLabel === undefined || d.airbnbProfileLabel === null || d.airbnbProfileLabel === ''
+        ? null
+        : d.airbnbProfileLabel.trim();
+
+    const galleryImageUrls = d.galleryImageUrls ?? [];
 
     const payload = {
       published: d.published ?? true,
@@ -636,6 +652,9 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       seoTitle: d.seoTitle ?? null,
       seoDescription: d.seoDescription ?? null,
       detailHeroUrl,
+      airbnbProfileLabel,
+      airbnbListingUrl,
+      galleryImageUrls,
     };
 
     const listing = await app.prisma.rentableUnitListing.upsert({
@@ -644,6 +663,21 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       update: payload,
     });
     return reply.send({ listingProfile: listing });
+  });
+
+  /** Best-effort: fetch public listing HTML and extract muscache photo URLs (admin-only). */
+  app.post('/orgs/:orgSlug/tools/airbnb-listing-images', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const body = z.object({ listingUrl: z.string().url() }).safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    try {
+      const urls = await fetchAirbnbListingImageCandidates(body.data.listingUrl);
+      return reply.send({ urls });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not load Airbnb listing HTML';
+      return reply.status(422).send({ error: msg });
+    }
   });
 
   app.get('/orgs/:orgSlug/cms/sections', async (req, reply) => {

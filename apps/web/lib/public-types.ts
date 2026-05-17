@@ -63,6 +63,9 @@ export type PublicUnitListingPayload = {
   seoTitle: string | null;
   seoDescription: string | null;
   detailHeroUrl: string | null;
+  airbnbProfileLabel: string | null;
+  airbnbListingUrl: string | null;
+  galleryImageUrls: string[];
 };
 
 export type PublicSitePayload = PublicContentPayload & {

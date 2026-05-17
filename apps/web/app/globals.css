@@ -937,6 +937,12 @@ p.md-eyebrow-line {
   flex: 1;
 }
 
+.md-stay-airbnb-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: -0.55rem 0 0.85rem;
+}
+
 /* Best for list */
 .md-stay-bestfor-label {
   font-size: 0.72rem;
@@ -2401,6 +2407,26 @@ img { max-width: 100%; }
   line-height: 1.7;
   color: var(--body-color);
   margin: 0;
+}
+
+.md-stay-detail-airbnb-host {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0.75rem 0 0;
+  font-weight: 500;
+}
+
+.md-stay-detail-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.65rem;
+}
+
+.md-stay-detail-photo-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-md, 10px);
 }
 
 .md-stay-detail-highlights {
