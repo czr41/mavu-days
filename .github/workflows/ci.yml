@@ -15,7 +15,12 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: package-lock.json
+      # ECONNRESET to registry.npmjs.org is often transient; npm defaults to few retries.
       - run: npm ci
+        env:
+          npm_config_fetch_retries: '5'
+          npm_config_fetch_retry_mintimeout: '15000'
+          npm_config_fetch_retry_maxtimeout: '120000'
       - run: npx prisma validate --schema packages/db/prisma/schema.prisma
       - run: npm run lint
       - run: npm run typecheck

@@ -55,6 +55,10 @@ jobs:
             exit 1
           fi
       - run: npm ci
+        env:
+          npm_config_fetch_retries: '5'
+          npm_config_fetch_retry_mintimeout: '15000'
+          npm_config_fetch_retry_maxtimeout: '120000'
       - name: Prisma migrate deploy
         run: npm run migrate:deploy:ci -w @mavu/db
 
@@ -80,6 +84,6 @@ jobs:
             git fetch origin main
             git checkout main
             git pull --ff-only origin main
-            npm ci
+            npm_config_fetch_retries=5 npm_config_fetch_retry_mintimeout=15000 npm_config_fetch_retry_maxtimeout=120000 npm ci
             npm run build -w @mavu/api
             sudo systemctl restart "${SYSTEMD_UNIT:-mavu-api}"
