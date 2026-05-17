@@ -197,7 +197,7 @@ export default function OrgAdminPage() {
   const params = useParams();
   const router = useRouter();
   const slug = typeof params?.orgSlug === 'string' ? params.orgSlug : '';
-  const api  = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+  const api = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '');
 
   const [tab, setTab]             = useState('overview');
   const [dash, setDash]           = useState<DashStats | null>(null);
@@ -237,6 +237,13 @@ export default function OrgAdminPage() {
         errMsg = toToastMessage(j);
       } else {
         errMsg = typeof j.message === 'string' ? j.message : `HTTP ${res.status}`;
+      }
+      if (
+        res.status === 404 &&
+        path.startsWith('/orgs/') &&
+        (/not\s*found/i.test(errMsg) || errMsg === `HTTP ${res.status}`)
+      ) {
+        errMsg = `${errMsg} — admin calls your Fastify API. On Vercel, set NEXT_PUBLIC_API_URL to that API base URL (not your marketing site). Redeploy the API if routes are missing.`;
       }
       notify(errMsg, false); return null;
     }
@@ -1155,14 +1162,26 @@ export default function OrgAdminPage() {
 
   const TabChannels = (
     <>
+      <div className="adm-alert adm-alert-error" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
+        <strong>Calendar URLs go here:</strong>{' '}
+        <a href="#connect-ical-feed" style={{ fontWeight: 700, color: 'inherit', textDecoration: 'underline' }}>
+          Connect channel / add iCal feed
+        </a>{' '}
+        → choose your unit → paste Airbnb&apos;s <strong>Export calendar</strong> link into <strong>Inbound iCal URL</strong>.
+        The <strong>Airbnb profiles</strong> block below is <em>not</em> for .ics links—it&apos;s only optional grouping labels.
+      </div>
+
       <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
         <div className="adm-card-header">
-          <h2 className="adm-card-title">Airbnb profiles</h2>
+          <h2 className="adm-card-title">Airbnb profiles (optional grouping)</h2>
         </div>
         <div className="adm-card-body">
           <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0 }}>
-            Register each Airbnb login (or LLC / co-host identity) here. When you paste an Airbnb calendar URL below, optionally link it to a profile to keep
-            several Airbnb accounts organised. Availability uses <strong>iCal only</strong>: inbound URLs are pulled into Mavu; outbound HTTPS feeds push busy dates back to Airbnb / Booking when they import your link.
+            Optional labels for organising feeds when you run multiple Airbnb accounts or entities. Paste calendar URLs under{' '}
+            <a href="#connect-ical-feed" style={{ fontWeight: 600, color: 'var(--sage)' }}>
+              Connect channel / add iCal feed
+            </a>
+            . Availability sync is <strong>iCal only</strong>: inbound pulls update Mavu; outbound URLs push busy dates when Airbnb or Booking imports your feed.
           </p>
           {!abEditing ? (
             <form
@@ -1204,7 +1223,7 @@ export default function OrgAdminPage() {
                     className="adm-input"
                     rows={2}
                     maxLength={2000}
-                    placeholder="Listing URLs, payout account, reminders…"
+                    placeholder="Short notes only—not for calendar (.ics) URLs"
                     value={abForm.notes}
                     onChange={(e) => setAbForm((s) => ({ ...s, notes: e.target.value }))}
                   />
@@ -1270,7 +1289,9 @@ export default function OrgAdminPage() {
           )}
           <div className="adm-divider" />
           {airbnbAccounts.length === 0 ? (
-            <p style={{ fontSize: '0.84rem', color: '#9CA3AF', marginBottom: 0 }}>No profiles yet — paste iCal URLs without a profile, or create one above.</p>
+            <p style={{ fontSize: '0.84rem', color: '#9CA3AF', marginBottom: 0 }}>
+              No profiles yet—optional. Create one if you want feeds tagged under a label in the table below.
+            </p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
               {airbnbAccounts.map((a) => (
@@ -1421,7 +1442,7 @@ export default function OrgAdminPage() {
         )}
       </div>
 
-      <div className="adm-card">
+      <div className="adm-card" id="connect-ical-feed" style={{ marginBottom: '1.5rem', scrollMarginTop: '6rem' }}>
         <div className="adm-card-header">
           <h2 className="adm-card-title">Connect channel / add iCal feed</h2>
         </div>
@@ -1437,6 +1458,10 @@ export default function OrgAdminPage() {
               e.preventDefault();
               if (!chUnit) {
                 notify('Select a unit.', false);
+                return;
+              }
+              if (chForm.channel === 'AIRBNB' && !chForm.inboundIcalUrl.trim()) {
+                notify('Paste Airbnb’s Inbound iCal URL (Export calendar link from Airbnb).', false);
                 return;
               }
               const payload: Record<string, unknown> = {
