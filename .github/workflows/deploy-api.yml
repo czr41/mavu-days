@@ -54,6 +54,14 @@ jobs:
             echo "::error::Set repository secrets DATABASE_URL and DIRECT_URL (same values as production Supabase / Prisma)."
             exit 1
           fi
+      - name: Warn if DIRECT_URL looks unreachable from Actions
+        run: |
+          # P1001 from GitHub → db.*.supabase.co is common: that host is often not reachable from GH runners.
+          if printf '%s' "${DIRECT_URL}" | grep -qE '@db\.[^/:]*\.supabase\.co'; then
+            echo "::error::DIRECT_URL must not use db.<ref>.supabase.co for migrate on GitHub Actions (Prisma P1001)."
+            echo "Fix: Supabase Dashboard → Project Settings → Database → Connection string → Session pooler (pooler.supabase.com, port 5432). Paste that URI as DIRECT_URL. Keep DATABASE_URL as the Transaction pooler (:6543 + pgbouncer=true). See .env.example comments."
+            exit 1
+          fi
       - run: npm ci
         env:
           npm_config_fetch_retries: '5'
