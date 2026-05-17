@@ -51,6 +51,31 @@ async function airbnbHostAccountInOrg(app: FastifyInstance, organizationId: stri
   return n === 1;
 }
 
+function galleryUrlsFromJson(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === 'string');
+}
+
+async function ensureRentableUnitListingStub(app: FastifyInstance, organizationId: string, unitId: string) {
+  const existing = await app.prisma.rentableUnitListing.findUnique({ where: { rentableUnitId: unitId } });
+  if (existing) return existing;
+  const unit = await app.prisma.rentableUnit.findFirst({
+    where: { id: unitId, property: { organizationId } },
+    select: { id: true, name: true },
+  });
+  if (!unit) return null;
+  return app.prisma.rentableUnitListing.create({
+    data: {
+      rentableUnitId: unit.id,
+      published: false,
+      matrixRole: RentableUnitMatrixRole.NONE,
+      cardTitle: unit.name,
+      cardShort: 'Configure marketing copy under CMS → Stay listings.',
+      descriptionMarkdown: '_Edit details under CMS → Stay listings._',
+    },
+  });
+}
+
 export function registerOrganizationRoutes(app: FastifyInstance) {
   app.get('/orgs/:orgSlug/dashboard', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
@@ -383,6 +408,120 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       data: patch,
     });
     return reply.send({ listingLink: updated });
+  });
+
+  /** Airbnb listing URL, inbound iCal, optional profile tag, gallery scrape append — isolated from CMS marketing PUT. */
+  app.patch('/orgs/:orgSlug/rentable-units/:unitId/host-channel', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const unitId = (req.params as { unitId: string }).unitId;
+    const patchHostChannelBody = z.object({
+      airbnbListingUrl: z.union([z.string().trim().pipe(z.string().url()), z.null()]).optional(),
+      airbnbProfileLabel: z.union([z.string().max(200).trim(), z.literal(''), z.null()]).optional(),
+      inboundIcalUrl: z.union([z.string().url(), z.null()]).optional(),
+      airbnbHostAccountId: z.union([z.string().uuid(), z.null()]).optional(),
+      appendGalleryUrls: z.array(z.string().url()).max(24).optional(),
+    });
+    const parsed = patchHostChannelBody.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() });
+
+    const unitOk = await app.prisma.rentableUnit.findFirst({
+      where: { id: unitId, property: { organizationId: m.organizationId } },
+      select: { id: true },
+    });
+    if (!unitOk) return reply.status(404).send({ error: 'Unit not found' });
+
+    const d = parsed.data;
+
+    if (
+      d.airbnbHostAccountId &&
+      !(await airbnbHostAccountInOrg(app, m.organizationId, d.airbnbHostAccountId))
+    ) {
+      return reply.status(400).send({ error: 'Airbnb profile not found for this org' });
+    }
+
+    const needsListingStub =
+      d.airbnbListingUrl !== undefined ||
+      d.airbnbProfileLabel !== undefined ||
+      (d.appendGalleryUrls !== undefined && d.appendGalleryUrls.length > 0);
+
+    if (needsListingStub) {
+      const lp = await ensureRentableUnitListingStub(app, m.organizationId, unitId);
+      if (!lp) return reply.status(404).send({ error: 'Unit not found' });
+      const listingPatch: Prisma.RentableUnitListingUpdateInput = {};
+      if (d.airbnbListingUrl !== undefined) {
+        listingPatch.airbnbListingUrl = d.airbnbListingUrl;
+      }
+      if (d.airbnbProfileLabel !== undefined) {
+        listingPatch.airbnbProfileLabel =
+          d.airbnbProfileLabel === null || d.airbnbProfileLabel === '' ? null : d.airbnbProfileLabel;
+      }
+      if (d.appendGalleryUrls !== undefined && d.appendGalleryUrls.length > 0) {
+        const fresh = await app.prisma.rentableUnitListing.findUnique({ where: { rentableUnitId: unitId } });
+        const cur = galleryUrlsFromJson(fresh?.galleryImageUrls);
+        listingPatch.galleryImageUrls = [...cur, ...d.appendGalleryUrls].slice(0, 24);
+      }
+      if (Object.keys(listingPatch).length > 0) {
+        await app.prisma.rentableUnitListing.update({
+          where: { rentableUnitId: unitId },
+          data: listingPatch,
+        });
+      }
+    }
+
+    if (d.inboundIcalUrl !== undefined) {
+      let airbnbLink = await app.prisma.listingLink.findFirst({
+        where: { rentableUnitId: unitId, channel: 'AIRBNB' },
+      });
+      if (!airbnbLink && d.inboundIcalUrl !== null) {
+        await app.prisma.listingLink.create({
+          data: {
+            rentableUnitId: unitId,
+            channel: 'AIRBNB',
+            inboundIcalUrl: d.inboundIcalUrl,
+            outboundFeedSlug: crypto.randomBytes(10).toString('hex'),
+            ...(d.airbnbHostAccountId ? { airbnbHostAccountId: d.airbnbHostAccountId } : {}),
+          },
+        });
+      } else if (airbnbLink) {
+        const linkPatch: Prisma.ListingLinkUpdateInput = { inboundIcalUrl: d.inboundIcalUrl };
+        if (d.airbnbHostAccountId !== undefined) {
+          linkPatch.airbnbHostAccount = d.airbnbHostAccountId
+            ? { connect: { id: d.airbnbHostAccountId } }
+            : { disconnect: true };
+        }
+        await app.prisma.listingLink.update({
+          where: { id: airbnbLink.id },
+          data: linkPatch,
+        });
+      }
+    } else if (d.airbnbHostAccountId !== undefined) {
+      let airbnbLink = await app.prisma.listingLink.findFirst({
+        where: { rentableUnitId: unitId, channel: 'AIRBNB' },
+      });
+      if (!airbnbLink && d.airbnbHostAccountId) {
+        await app.prisma.listingLink.create({
+          data: {
+            rentableUnitId: unitId,
+            channel: 'AIRBNB',
+            inboundIcalUrl: null,
+            outboundFeedSlug: crypto.randomBytes(10).toString('hex'),
+            airbnbHostAccountId: d.airbnbHostAccountId,
+          },
+        });
+      } else if (airbnbLink) {
+        await app.prisma.listingLink.update({
+          where: { id: airbnbLink.id },
+          data: {
+            airbnbHostAccount: d.airbnbHostAccountId
+              ? { connect: { id: d.airbnbHostAccountId } }
+              : { disconnect: true },
+          },
+        });
+      }
+    }
+
+    return reply.send({ ok: true });
   });
 
   /** Pull inbound iCal URLs for this org, upsert mirror bookings, cancel stale mirrors (two-way inbound leg). */

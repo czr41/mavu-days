@@ -166,6 +166,14 @@ function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
 }
 
 const MATRIX_ROLE_OPTS = ['NONE', 'FULL_FARM', 'VILLA_1BHK', 'VILLA_2BHK'] as const;
+const EMPTY_UNIT_FORM = { name: '', slug: '', kind: 'WHOLE_HOME', airbnbListingUrl: '', inboundIcalUrl: '' };
+
+type HostDraftRow = {
+  listingUrl: string;
+  inboundIcal: string;
+  profileLabel: string;
+  tagAccountId: string;
+};
 const PLATFORMS  = ['AIRBNB', 'GOOGLE', 'BOOKING_COM', 'DIRECT', 'OTHER'] as const;
 const PLT_LABEL: Record<string, string> = { AIRBNB: 'Airbnb', GOOGLE: 'Google', BOOKING_COM: 'Booking.com', DIRECT: 'Direct', OTHER: 'Other' };
 const ROLES = ['CARETAKER', 'STAFF_BLOCK', 'ADMIN'] as const;
@@ -176,7 +184,7 @@ const NAV = [
   { key: 'bookings',    label: 'Bookings',        icon: CalI },
   { key: 'reviews',     label: 'Guest Reviews',  icon: StarI },
   { key: 'cms',         label: 'CMS / Content',  icon: EditI },
-  { key: 'channels',    label: 'Channels & iCal', icon: LinkI },
+  { key: 'host',        label: 'Host & Airbnb',  icon: LinkI },
   { key: 'team',        label: 'Team',            icon: UsersI },
 ];
 
@@ -243,12 +251,12 @@ export default function OrgAdminPage() {
   const [unitBundles, setUnitBundles] = useState<UnitListingBundle[]>([]);
   const [listingEditUnitId, setListingEditUnitId] = useState<string | null>(null);
   const [listingDraft, setListingDraft] = useState<ListingDraftState | null>(null);
-  const [airbnbInboundDraft, setAirbnbInboundDraft] = useState('');
   const [airbnbPickSession, setAirbnbPickSession] = useState<{
     unitId: string;
     urls: string[];
     picked: Record<string, boolean>;
   } | null>(null);
+  const [hostDrafts, setHostDrafts] = useState<Record<string, HostDraftRow>>({});
   const [airbnbAccounts, setAirbnbAccounts] = useState<AirbnbHostAccountRow[]>([]);
 
   const tok = () => localStorage.getItem('mavu_token') ?? '';
@@ -341,16 +349,22 @@ export default function OrgAdminPage() {
   }, [slug]);
 
   useEffect(() => {
-    if (!listingEditUnitId) {
-      setAirbnbInboundDraft('');
-      setAirbnbPickSession(null);
-      return;
+    const next: Record<string, HostDraftRow> = {};
+    for (const row of unitBundles) {
+      const link = row.unit.listingLinks?.find((l) => l.channel === 'AIRBNB');
+      next[row.unit.id] = {
+        listingUrl: row.listingProfile?.airbnbListingUrl ?? '',
+        inboundIcal: link?.inboundIcalUrl ?? '',
+        profileLabel: row.listingProfile?.airbnbProfileLabel ?? '',
+        tagAccountId: link?.airbnbHostAccount?.id ?? '',
+      };
     }
-    setAirbnbPickSession(null);
-    const row = unitBundles.find((b) => b.unit.id === listingEditUnitId);
-    const link = row?.unit.listingLinks?.find((l) => l.channel === 'AIRBNB');
-    setAirbnbInboundDraft(link?.inboundIcalUrl ?? '');
-  }, [listingEditUnitId, unitBundles]);
+    setHostDrafts(next);
+  }, [unitBundles]);
+
+  useEffect(() => {
+    if (tab !== 'host') setAirbnbPickSession(null);
+  }, [tab]);
 
   // Flat list of all units across all properties (for dropdowns)
   const allUnits = properties.flatMap(p => p.units.map(u => ({ ...u, propertyName: p.name, propertySlug: p.slug })));
@@ -411,18 +425,19 @@ export default function OrgAdminPage() {
 
   /* ─── Properties ─── */
   const [propForm, setPropForm] = useState({ name: '', slug: '' });
-  const [unitForms, setUnitForms] = useState<Record<string, { name: string; slug: string; kind: string }>>({});
+  const [unitForms, setUnitForms] = useState<Record<string, typeof EMPTY_UNIT_FORM>>({});
 
   const TabProperties = (
     <>
       {/* Add property */}
       <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
-        <strong>Landing site alignment:</strong> the homepage “Full Farm / 1BHK / 2BHK” booking grid resolves units by{' '}
-        <strong>slug</strong> (see API <code style={{fontSize:'0.78rem'}}>landing-availability-matrix.ts</code>). Canonical slugs are{' '}
+        <strong>Landing site alignment:</strong>{' '}
+        Canonical unit slugs for the matrix grid include{' '}
         <code style={{fontSize:'0.78rem'}}>full-farm</code>, <code style={{fontSize:'0.78rem'}}>1bhk-villa</code>,{' '}
-        <code style={{fontSize:'0.78rem'}}>2bhk-villa</code> — run <code style={{fontSize:'0.78rem'}}>npm run db:seed</code> after register to create them.
-        Stay cards, detail pages, and pricing are edited under <strong>CMS → Stay listings</strong>. Generic homepage copy lives in{' '}
-        <strong>Text Sections</strong> &amp; <strong>Media</strong>; run <code style={{fontSize:'0.78rem'}}>npm run db:seed</code> after register to preload Mavu-style content when the DB is empty.
+        <code style={{fontSize:'0.78rem'}}>2bhk-villa</code>. Run <code style={{fontSize:'0.78rem'}}>npm run db:seed</code> after register when the DB is empty.
+        Stay cards and detail copy live under <strong>CMS → Stay listings</strong>. Airbnb listing URLs and calendar feeds live under{' '}
+        <strong>Host &amp; Airbnb</strong> (you can also paste them when adding a unit below).
+        Homepage prose and imagery: <strong>Text sections</strong> &amp; <strong>Media</strong>.
       </div>
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
         <div className="adm-card-header"><h2 className="adm-card-title">Add Property</h2></div>
@@ -491,34 +506,76 @@ export default function OrgAdminPage() {
             <div className="adm-divider"/>
             <h3 style={{fontSize:'0.82rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6B7280',margin:'0 0 0.75rem'}}>Add Unit to {p.name}</h3>
             <form onSubmit={async e => {
-              e.preventDefault(); setBusy(true);
-              const f = unitForms[p.id] ?? {name:'',slug:'',kind:'WHOLE_HOME'};
-              const r = await apiFetch(`${base}/properties/${p.slug}/units`,{method:'POST',body:JSON.stringify({name:f.name,slug:f.slug,kind:f.kind})});
-              setBusy(false); if(!r) return;
-              setUnitForms(s=>({...s,[p.id]:{name:'',slug:'',kind:'WHOLE_HOME'}}));
-              await loadProps(); notify('Unit added.');
+              e.preventDefault();
+              const f = unitForms[p.id] ?? EMPTY_UNIT_FORM;
+              const nu = f.airbnbListingUrl.trim();
+              const ic = f.inboundIcalUrl.trim();
+              if (nu) {
+                try {
+                  const u = new URL(nu);
+                  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('bad');
+                } catch {
+                  notify('Airbnb listing URL must be a valid http(s) URL.', false);
+                  return;
+                }
+              }
+              if (ic) {
+                try {
+                  void new URL(ic);
+                } catch {
+                  notify('Inbound iCal must be a valid URL.', false);
+                  return;
+                }
+              }
+              setBusy(true);
+              const r = await apiFetch<{ unit: { id: string } }>(`${base}/properties/${p.slug}/units`,{method:'POST',body:JSON.stringify({name:f.name,slug:f.slug,kind:f.kind})});
+              setBusy(false); if(!r?.unit) return;
+              const patch: Record<string, unknown> = {};
+              if (nu) patch.airbnbListingUrl = nu;
+              if (ic) patch.inboundIcalUrl = ic;
+              if (Object.keys(patch).length) {
+                setBusy(true);
+                await apiFetch(`${base}/rentable-units/${r.unit.id}/host-channel`, { method: 'PATCH', body: JSON.stringify(patch) });
+                setBusy(false);
+              }
+              setUnitForms(s=>({...s,[p.id]:{ ...EMPTY_UNIT_FORM }}));
+              await loadProps();
+              await loadUnitListings();
+              notify('Unit added.');
             }}>
               <div className="adm-form-grid">
                 <div className="adm-field">
                   <label className="adm-label">Unit Name</label>
                   <input className="adm-input" placeholder="e.g. 1BHK Villa" required
                     value={(unitForms[p.id]?.name??'')}
-                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??{name:'',slug:'',kind:'WHOLE_HOME'}),name:e.target.value,slug:(s[p.id]?.slug||e.target.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))}}))} />
+                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??EMPTY_UNIT_FORM),name:e.target.value,slug:(s[p.id]?.slug||e.target.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))}}))} />
                 </div>
                 <div className="adm-field">
                   <label className="adm-label">Slug</label>
                   <input className="adm-input" placeholder="e.g. 1bhk-villa" required pattern="[a-z0-9-]+"
                     value={(unitForms[p.id]?.slug??'')}
-                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??{name:'',slug:'',kind:'WHOLE_HOME'}),slug:e.target.value}}))} />
+                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??EMPTY_UNIT_FORM),slug:e.target.value}}))} />
                 </div>
                 <div className="adm-field">
                   <label className="adm-label">Kind</label>
                   <select className="adm-select" value={(unitForms[p.id]?.kind??'WHOLE_HOME')}
-                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??{name:'',slug:'',kind:'WHOLE_HOME'}),kind:e.target.value}}))}>
+                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??EMPTY_UNIT_FORM),kind:e.target.value}}))}>
                     <option value="WHOLE_HOME">Whole Home</option>
                     <option value="PRIVATE_ROOM">Private Room</option>
                     <option value="SHARED_ROOM">Shared Room</option>
                   </select>
+                </div>
+                <div className="adm-field adm-field-full">
+                  <label className="adm-label">Airbnb listing URL <span style={{fontWeight:400,color:'#9CA3AF'}}>(optional)</span></label>
+                  <input className="adm-input" type="url" placeholder="https://www.airbnb.com/rooms/…"
+                    value={(unitForms[p.id]?.airbnbListingUrl??'')}
+                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??EMPTY_UNIT_FORM),airbnbListingUrl:e.target.value}}))} />
+                </div>
+                <div className="adm-field adm-field-full">
+                  <label className="adm-label">Inbound iCal URL <span style={{fontWeight:400,color:'#9CA3AF'}}>(optional)</span></label>
+                  <input className="adm-input" type="url" placeholder="Airbnb → Export calendar (.ics)"
+                    value={(unitForms[p.id]?.inboundIcalUrl??'')}
+                    onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??EMPTY_UNIT_FORM),inboundIcalUrl:e.target.value}}))} />
                 </div>
               </div>
               <button className="adm-btn adm-btn-primary adm-btn-sm" style={{marginTop:'0.75rem'}} disabled={busy} type="submit">Add Unit</button>
@@ -866,12 +923,12 @@ export default function OrgAdminPage() {
       {cmsSubTab==='listings' && (
         <>
           <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
-            These fields power the marketing <strong>stay cards</strong>, <strong>/stays/…</strong> detail heroes, and (when prices are set) rate hints. Published listings appear on the public site immediately after save.
+            Marketing copy and pricing for each stay—published listings appear on the public site immediately after save.
+            Airbnb listing URLs and calendar connections are managed separately under <strong>Host &amp; Airbnb</strong>.
           </div>
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
           {unitBundles.map((row)=>{
             const isOpen = listingEditUnitId===row.unit.id && listingDraft;
-            const primaryAirbnbLink = row.unit.listingLinks?.find((l) => l.channel === 'AIRBNB');
             return (
               <div key={row.unit.id} className="adm-card" style={{marginBottom:'1.25rem'}}>
                 <div className="adm-card-header" style={{alignItems:'center'}}>
@@ -939,103 +996,12 @@ export default function OrgAdminPage() {
                         ):null}
                       </div>
                     </div>
-                    <div style={{border:'1px solid #E5E7EB',borderRadius:12,padding:'1rem',marginBottom:'0.5rem'}}>
-                      <h3 style={{margin:'0 0 0.75rem',fontSize:'0.95rem'}}>Airbnb (marketing)</h3>
-                      <div className="adm-form-grid">
-                        <div className="adm-field adm-field-full">
-                          <label className="adm-label">Airbnb profile name</label>
-                          <input className="adm-input" value={listingDraft.airbnbProfileLabel} onChange={(e)=>setListingDraft((d)=>d?{...d,airbnbProfileLabel:e.target.value}:d)} placeholder="Shown next to this stay on the landing site"/>
-                        </div>
-                        <div className="adm-field adm-field-full">
-                          <label className="adm-label">Airbnb listing URL</label>
-                          <input className="adm-input" value={listingDraft.airbnbListingUrl} onChange={(e)=>setListingDraft((d)=>d?{...d,airbnbListingUrl:e.target.value}:d)} placeholder="https://www.airbnb.com/rooms/…"/>
-                        </div>
-                      </div>
-                      <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap',marginBottom:'0.75rem'}}>
-                        <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={busy || !listingDraft.airbnbListingUrl.trim()} onClick={async ()=>{
-                          if (!listingDraft.airbnbListingUrl.trim()) return;
-                          setBusy(true);
-                          const res = await apiFetch<{ urls: string[] }>(`${base}/tools/airbnb-listing-images`, { method:'POST', body: JSON.stringify({ listingUrl: listingDraft.airbnbListingUrl.trim() }) });
-                          setBusy(false);
-                          if (!res) return;
-                          if (!res.urls.length) { notify('No listing photos found — Airbnb may block server fetches or changed their HTML.', false); return; }
-                          setAirbnbPickSession({ unitId: row.unit.id, urls: res.urls, picked: {} });
-                          notify(`Loaded ${res.urls.length} candidate photo URL(s). Select thumbnails to add.`);
-                        }}>Pull photos from Airbnb</button>
-                      </div>
-                      {airbnbPickSession?.unitId === row.unit.id && airbnbPickSession.urls.length ? (
-                        <div style={{marginBottom:'1rem'}}>
-                          <p style={{fontSize:'0.82rem',color:'#6B7280',margin:'0 0 0.5rem'}}>Select photos to append to this stay&apos;s gallery (max 24 total).</p>
-                          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(88px,1fr))',gap:'0.45rem',maxHeight:220,overflowY:'auto'}}>
-                            {airbnbPickSession.urls.map((u) => (
-                              <label key={u} style={{cursor:'pointer',display:'block',position:'relative'}}>
-                                <input type="checkbox" checked={!!airbnbPickSession.picked[u]} onChange={(e)=>setAirbnbPickSession((s)=>s&&s.unitId===row.unit.id ? {...s,picked:{...s.picked,[u]:e.target.checked}}:s)} style={{position:'absolute',top:6,left:6,zIndex:1,width:16,height:16}}/>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={u} alt="" style={{width:'100%',aspectRatio:'4/3',objectFit:'cover',borderRadius:8,border:'1px solid #E5E7EB'}}/>
-                              </label>
-                            ))}
-                          </div>
-                          <button type="button" className="adm-btn adm-btn-primary adm-btn-sm" style={{marginTop:'0.6rem'}} onClick={()=>{
-                            if (!airbnbPickSession || airbnbPickSession.unitId !== row.unit.id) return;
-                            const sel = airbnbPickSession.urls.filter((u)=>airbnbPickSession.picked[u]);
-                            if (!sel.length) { notify('Select one or more photos.', false); return; }
-                            setListingDraft((d)=>d ? {...d, galleryUrlsText: mergeGalleryLines(d.galleryUrlsText, sel)} : d);
-                            notify(`Added ${sel.length} image URL(s) to gallery draft.`);
-                          }}>Add selected to gallery</button>
-                        </div>
-                      ) : null}
-                      <div className="adm-field adm-field-full">
-                        <label className="adm-label">Stay gallery image URLs (one per line, HTTPS)</label>
-                        <textarea className="adm-textarea" rows={4} value={listingDraft.galleryUrlsText} onChange={(e)=>setListingDraft((d)=>d?{...d,galleryUrlsText:e.target.value}:d)} placeholder="Shown on the stay detail page · max 24"/>
-                      </div>
-                    </div>
-
-                    <div style={{border:'1px solid #E5E7EB',borderRadius:12,padding:'1rem',marginBottom:'0.85rem'}}>
-                      <h3 style={{margin:'0 0 0.75rem',fontSize:'0.95rem'}}>Calendar sync (Airbnb)</h3>
-                      <p style={{fontSize:'0.82rem',color:'#6B7280',margin:'0 0 0.75rem',lineHeight:1.55}}>
-                        <strong>Inbound:</strong> paste Airbnb&apos;s export (.ics) URL so Mavu reads Airbnb bookings.
-                        {' '}<strong>Outbound:</strong> paste the Mavu URL into Airbnb → Availability → Import calendar.
+                    <div className="adm-field adm-field-full">
+                      <label className="adm-label">Stay gallery image URLs (one per line, HTTPS)</label>
+                      <textarea className="adm-textarea" rows={4} value={listingDraft.galleryUrlsText} onChange={(e)=>setListingDraft((d)=>d?{...d,galleryUrlsText:e.target.value}:d)} placeholder="Shown on the stay detail page · max 24"/>
+                      <p style={{fontSize:'0.78rem',color:'#6B7280',margin:'0.35rem 0 0',lineHeight:1.45}}>
+                        Airbnb listing URL, inbound iCal, outbound feeds, and pulling listing photos are under <strong>Host &amp; Airbnb</strong>.
                       </p>
-                      <div className="adm-field adm-field-full">
-                        <label className="adm-label">Inbound iCal URL (from Airbnb)</label>
-                        <input className="adm-input" value={airbnbInboundDraft} onChange={(e)=>setAirbnbInboundDraft(e.target.value)} placeholder="https://www.airbnb.com/calendar/ical/….ics?t=…"/>
-                      </div>
-                      <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap',marginBottom:'0.75rem'}}>
-                        {primaryAirbnbLink ? (
-                          <>
-                            <button type="button" className="adm-btn adm-btn-primary adm-btn-sm" disabled={busy} onClick={async ()=>{
-                              setBusy(true);
-                              const r = await apiFetch(`${base}/listing-links/${primaryAirbnbLink.id}`, { method:'PATCH', body: JSON.stringify({ inboundIcalUrl: airbnbInboundDraft.trim() ? airbnbInboundDraft.trim() : null }) });
-                              setBusy(false);
-                              if (!r) return;
-                              notify('Inbound calendar saved.');
-                              await loadUnitListings();
-                            }}>Save inbound URL</button>
-                            <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={()=>{
-                              void navigator.clipboard.writeText(`${api}/feeds/${primaryAirbnbLink.outboundFeedSlug}.ics`);
-                              notify('Copied outbound calendar URL for Airbnb import.');
-                            }}>Copy outbound URL for Airbnb</button>
-                          </>
-                        ) : (
-                          <button type="button" className="adm-btn adm-btn-primary adm-btn-sm" disabled={busy} onClick={async ()=>{
-                            setBusy(true);
-                            const r = await apiFetch<{ listingLink: ListingLink }>(`${base}/rentable-units/${row.unit.id}/listing-links`, {
-                              method:'POST',
-                              body: JSON.stringify({
-                                channel: 'AIRBNB',
-                                inboundIcalUrl: airbnbInboundDraft.trim() ? airbnbInboundDraft.trim() : null,
-                              }),
-                            });
-                            setBusy(false);
-                            if (!r?.listingLink) return;
-                            notify('Airbnb calendar link created.');
-                            await loadUnitListings();
-                          }}>Create Airbnb calendar link</button>
-                        )}
-                      </div>
-                      {primaryAirbnbLink ? (
-                        <code style={{fontSize:'0.75rem',wordBreak:'break-all',display:'block',padding:'0.5rem',background:'#F9FAFB',borderRadius:8}}>{api}/feeds/{primaryAirbnbLink.outboundFeedSlug}.ics</code>
-                      ) : null}
                     </div>
 
                     <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
@@ -1318,18 +1284,14 @@ export default function OrgAdminPage() {
     externalLabel: '',
     airbnbHostAccountId: '',
   });
-  const [abForm, setAbForm] = useState({ label: '', notes: '' });
-  const [abEditing, setAbEditing] = useState<{ id: string; label: string; notes: string } | null>(null);
+  const [abForm, setAbForm] = useState({ label: '' });
+  const [abEditing, setAbEditing] = useState<{ id: string; label: string } | null>(null);
 
-  const TabChannels = (
+  const TabHost = (
     <>
-      <div className="adm-alert adm-alert-error" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
-        <strong>Calendar URLs go here:</strong>{' '}
-        <a href="#connect-ical-feed" style={{ fontWeight: 700, color: 'inherit', textDecoration: 'underline' }}>
-          Connect channel / add iCal feed
-        </a>{' '}
-        → choose your unit → paste Airbnb&apos;s <strong>Export calendar</strong> link into <strong>Inbound iCal URL</strong>.
-        The <strong>Airbnb profiles</strong> block below is <em>not</em> for <code>.ics</code> links—it&apos;s only optional grouping labels.
+      <div className="adm-alert adm-alert-info" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
+        Set each unit&apos;s <strong>listing URL</strong> and <strong>inbound iCal</strong> under <strong>Listing Airbnb connections</strong> below (or when adding a unit on Properties).
+        Other channels (Booking.com, etc.) still use <a href="#connect-ical-feed" style={{ fontWeight: 700, color: 'inherit' }}>Connect channel</a>.
       </div>
 
       <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
@@ -1359,10 +1321,10 @@ export default function OrgAdminPage() {
                 try {
                   const r = await apiFetch(`${base}/airbnb-host-accounts`, {
                     method: 'POST',
-                    body: JSON.stringify({ label, notes: abForm.notes.trim() || null }),
+                    body: JSON.stringify({ label, notes: null }),
                   });
                   if (!r) return;
-                  setAbForm({ label: '', notes: '' });
+                  setAbForm({ label: '' });
                   await loadAirbnb();
                   notify('Airbnb profile created.');
                 } finally {
@@ -1380,17 +1342,6 @@ export default function OrgAdminPage() {
                     placeholder='e.g. "Personal Airbnb" or "Oak Villa LLC"'
                     value={abForm.label}
                     onChange={(e) => setAbForm((s) => ({ ...s, label: e.target.value }))}
-                  />
-                </div>
-                <div className="adm-field adm-field-full">
-                  <label className="adm-label">Notes (optional)</label>
-                  <textarea
-                    className="adm-input"
-                    rows={2}
-                    maxLength={2000}
-                    placeholder="Short notes only—not for calendar (.ics) URLs"
-                    value={abForm.notes}
-                    onChange={(e) => setAbForm((s) => ({ ...s, notes: e.target.value }))}
                   />
                 </div>
               </div>
@@ -1412,7 +1363,7 @@ export default function OrgAdminPage() {
                 try {
                   const r = await apiFetch(`${base}/airbnb-host-accounts/${abEditing.id}`, {
                     method: 'PATCH',
-                    body: JSON.stringify({ label, notes: abEditing.notes.trim() || null }),
+                    body: JSON.stringify({ label, notes: null }),
                   });
                   if (!r) return;
                   setAbEditing(null);
@@ -1432,16 +1383,6 @@ export default function OrgAdminPage() {
                     maxLength={120}
                     value={abEditing.label}
                     onChange={(e) => setAbEditing((s) => (s ? { ...s, label: e.target.value } : s))}
-                  />
-                </div>
-                <div className="adm-field adm-field-full">
-                  <label className="adm-label">Notes</label>
-                  <textarea
-                    className="adm-input"
-                    rows={2}
-                    maxLength={8000}
-                    value={abEditing.notes}
-                    onChange={(e) => setAbEditing((s) => (s ? { ...s, notes: e.target.value } : s))}
                   />
                 </div>
               </div>
@@ -1477,9 +1418,6 @@ export default function OrgAdminPage() {
                 >
                   <div style={{ flex: '1', minWidth: '200px' }}>
                     <div style={{ fontWeight: 600, color: '#111827' }}>{a.label}</div>
-                    {a.notes ? (
-                      <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: '0.25rem 0 0', whiteSpace: 'pre-wrap' }}>{a.notes}</p>
-                    ) : null}
                     <p style={{ fontSize: '0.75rem', color: '#9CA3AF', margin: '0.35rem 0 0' }}>
                       {a.listingLinkCount} iCal feed{a.listingLinkCount === 1 ? '' : 's'} tagged
                     </p>
@@ -1488,7 +1426,7 @@ export default function OrgAdminPage() {
                     <button
                       type="button"
                       className="adm-btn adm-btn-ghost adm-btn-sm"
-                      onClick={() => setAbEditing({ id: a.id, label: a.label, notes: a.notes ?? '' })}
+                      onClick={() => setAbEditing({ id: a.id, label: a.label })}
                       disabled={busy || !!abEditing}
                     >
                       Edit
@@ -1514,6 +1452,253 @@ export default function OrgAdminPage() {
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
+        <div className="adm-card-header">
+          <h2 className="adm-card-title">Listing Airbnb connections</h2>
+        </div>
+        <div className="adm-card-body">
+          <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0, lineHeight: 1.55 }}>
+            Public Airbnb <strong>listing URL</strong> (required here to save), optional marketing label, <strong>inbound .ics</strong> from Airbnb, and optional profile tag.
+          </p>
+          {unitBundles.length === 0 ? (
+            <div className="adm-empty">
+              <HomeI size={28} /> Add properties &amp; units first.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {unitBundles.map((row) => {
+                const link = row.unit.listingLinks?.find((l) => l.channel === 'AIRBNB');
+                const fromServer: HostDraftRow = {
+                  listingUrl: row.listingProfile?.airbnbListingUrl ?? '',
+                  inboundIcal: link?.inboundIcalUrl ?? '',
+                  profileLabel: row.listingProfile?.airbnbProfileLabel ?? '',
+                  tagAccountId: link?.airbnbHostAccount?.id ?? '',
+                };
+                const draft = hostDrafts[row.unit.id] ?? fromServer;
+                const mergeDraft = (patch: Partial<HostDraftRow>) =>
+                  setHostDrafts((s) => ({
+                    ...s,
+                    [row.unit.id]: { ...(s[row.unit.id] ?? fromServer), ...patch },
+                  }));
+                return (
+                  <div key={row.unit.id} style={{ border: '1px solid #E5E7EB', borderRadius: 12, padding: '1rem' }}>
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <strong style={{ fontSize: '1rem' }}>{row.unit.name}</strong>
+                      <span className="adm-badge adm-badge-gray" style={{ marginLeft: '0.5rem' }}>
+                        {row.propertyName} · {row.unit.slug}
+                      </span>
+                    </div>
+                    <div className="adm-form-grid">
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Airbnb listing URL *</label>
+                        <input
+                          className="adm-input"
+                          type="url"
+                          value={draft.listingUrl}
+                          onChange={(e) => mergeDraft({ listingUrl: e.target.value })}
+                          placeholder="https://www.airbnb.com/rooms/…"
+                        />
+                      </div>
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Display label on site (optional)</label>
+                        <input
+                          className="adm-input"
+                          value={draft.profileLabel}
+                          onChange={(e) => mergeDraft({ profileLabel: e.target.value })}
+                          placeholder="Shown next to this stay on the marketing site"
+                        />
+                      </div>
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Inbound iCal URL</label>
+                        <input
+                          className="adm-input"
+                          type="url"
+                          value={draft.inboundIcal}
+                          onChange={(e) => mergeDraft({ inboundIcal: e.target.value })}
+                          placeholder="Airbnb → Export calendar (.ics)"
+                        />
+                      </div>
+                      <div className="adm-field adm-field-full">
+                        <label className="adm-label">Airbnb profile tag (optional)</label>
+                        <select
+                          className="adm-select"
+                          value={draft.tagAccountId}
+                          onChange={(e) => mergeDraft({ tagAccountId: e.target.value })}
+                        >
+                          <option value="">— none —</option>
+                          {airbnbAccounts.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.65rem', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn-primary adm-btn-sm"
+                        disabled={busy}
+                        onClick={async () => {
+                          const listingUrl = draft.listingUrl.trim();
+                          if (!listingUrl) {
+                            notify('Airbnb listing URL is required.', false);
+                            return;
+                          }
+                          try {
+                            const u = new URL(listingUrl);
+                            if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('bad');
+                          } catch {
+                            notify('Enter a valid http(s) listing URL.', false);
+                            return;
+                          }
+                          setBusy(true);
+                          const r = await apiFetch(`${base}/rentable-units/${row.unit.id}/host-channel`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({
+                              airbnbListingUrl: listingUrl,
+                              airbnbProfileLabel: draft.profileLabel.trim() || null,
+                              inboundIcalUrl: draft.inboundIcal.trim() || null,
+                              airbnbHostAccountId: draft.tagAccountId || null,
+                            }),
+                          });
+                          setBusy(false);
+                          if (!r) return;
+                          await loadProps();
+                          await loadUnitListings();
+                          notify('Saved Airbnb connection.');
+                        }}
+                      >
+                        Save connection
+                      </button>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn-ghost adm-btn-sm"
+                        disabled={busy || !draft.listingUrl.trim()}
+                        onClick={async () => {
+                          const listingUrl = draft.listingUrl.trim();
+                          if (!listingUrl) return;
+                          setBusy(true);
+                          const res = await apiFetch<{ urls: string[] }>(`${base}/tools/airbnb-listing-images`, {
+                            method: 'POST',
+                            body: JSON.stringify({ listingUrl }),
+                          });
+                          setBusy(false);
+                          if (!res) return;
+                          if (!res.urls.length) {
+                            notify('No listing photos found — Airbnb may block server fetches or changed their HTML.', false);
+                            return;
+                          }
+                          setAirbnbPickSession({ unitId: row.unit.id, urls: res.urls, picked: {} });
+                          notify(`Loaded ${res.urls.length} candidate photo URL(s).`);
+                        }}
+                      >
+                        Pull photos from Airbnb
+                      </button>
+                      {link ? (
+                        <>
+                          <button
+                            type="button"
+                            className="adm-btn adm-btn-ghost adm-btn-sm"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(`${api}/feeds/${link.outboundFeedSlug}.ics`);
+                              notify('Copied outbound calendar URL.');
+                            }}
+                          >
+                            Copy outbound iCal URL
+                          </button>
+                          <code style={{ fontSize: '0.72rem', wordBreak: 'break-all', flex: '1', minWidth: '200px' }}>
+                            {api}/feeds/{link.outboundFeedSlug}.ics
+                          </code>
+                        </>
+                      ) : null}
+                    </div>
+                    {airbnbPickSession?.unitId === row.unit.id && airbnbPickSession.urls.length ? (
+                      <div style={{ marginTop: '0.85rem' }}>
+                        <p style={{ fontSize: '0.82rem', color: '#6B7280', margin: '0 0 0.5rem' }}>
+                          Select photos to append to the stay gallery (max 24 total).
+                        </p>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill,minmax(88px,1fr))',
+                            gap: '0.45rem',
+                            maxHeight: 220,
+                            overflowY: 'auto',
+                          }}
+                        >
+                          {airbnbPickSession.urls.map((u) => (
+                            <label key={u} style={{ cursor: 'pointer', display: 'block', position: 'relative' }}>
+                              <input
+                                type="checkbox"
+                                checked={!!airbnbPickSession.picked[u]}
+                                onChange={(e) =>
+                                  setAirbnbPickSession((s) =>
+                                    s && s.unitId === row.unit.id
+                                      ? { ...s, picked: { ...s.picked, [u]: e.target.checked } }
+                                      : s,
+                                  )
+                                }
+                                style={{
+                                  position: 'absolute',
+                                  top: 6,
+                                  left: 6,
+                                  zIndex: 1,
+                                  width: 16,
+                                  height: 16,
+                                }}
+                              />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={u}
+                                alt=""
+                                style={{
+                                  width: '100%',
+                                  aspectRatio: '4/3',
+                                  objectFit: 'cover',
+                                  borderRadius: 8,
+                                  border: '1px solid #E5E7EB',
+                                }}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="adm-btn adm-btn-primary adm-btn-sm"
+                          style={{ marginTop: '0.55rem' }}
+                          disabled={busy}
+                          onClick={async () => {
+                            if (!airbnbPickSession || airbnbPickSession.unitId !== row.unit.id) return;
+                            const sel = airbnbPickSession.urls.filter((u) => airbnbPickSession.picked[u]);
+                            if (!sel.length) {
+                              notify('Select one or more photos.', false);
+                              return;
+                            }
+                            setBusy(true);
+                            const ok = await apiFetch(`${base}/rentable-units/${row.unit.id}/host-channel`, {
+                              method: 'PATCH',
+                              body: JSON.stringify({ appendGalleryUrls: sel }),
+                            });
+                            setBusy(false);
+                            if (!ok) return;
+                            setAirbnbPickSession(null);
+                            await loadUnitListings();
+                            notify(`Added ${sel.length} image URL(s) to gallery.`);
+                          }}
+                        >
+                          Add selected to gallery
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -1648,6 +1833,7 @@ export default function OrgAdminPage() {
               setChUnit('');
               setChForm({ channel: 'AIRBNB', inboundIcalUrl: '', externalLabel: '', airbnbHostAccountId: '' });
               await loadProps();
+              await loadUnitListings();
               await loadAirbnb();
               notify('Channel linked!');
             }}
@@ -1769,7 +1955,7 @@ export default function OrgAdminPage() {
     </div>
   );
 
-  const TAB_TITLES: Record<string, string> = { overview:'Overview', properties:'Properties & Units', bookings:'Bookings', reviews:'Guest Reviews', cms:'CMS / Content', channels:'Channels & iCal', team:'Team' };
+  const TAB_TITLES: Record<string, string> = { overview:'Overview', properties:'Properties & Units', bookings:'Bookings', reviews:'Guest Reviews', cms:'CMS / Content', host:'Host & Airbnb', team:'Team' };
 
   return (
     <div className="adm-root">
@@ -1816,7 +2002,7 @@ export default function OrgAdminPage() {
           {tab==='bookings'   && TabBookings}
           {tab==='reviews'    && TabReviews}
           {tab==='cms'        && TabCms}
-          {tab==='channels'   && TabChannels}
+          {tab==='host'   && TabHost}
           {tab==='team'       && TabTeam}
         </div>
       </div>
