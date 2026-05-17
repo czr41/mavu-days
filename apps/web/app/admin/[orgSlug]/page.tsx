@@ -480,7 +480,7 @@ export default function OrgAdminPage() {
                         <td><strong>{u.name}</strong></td>
                         <td><code style={{fontSize:'0.8rem'}}>{u.slug}</code></td>
                         <td><span className="adm-badge adm-badge-blue">{u.kind}</span></td>
-                        <td>{u.listingLinks.length} feed{u.listingLinks.length!==1?'s':''}</td>
+                        <td>{(u.listingLinks ?? []).length} feed{(u.listingLinks ?? []).length !== 1 ? 's' : ''}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1571,7 +1571,7 @@ export default function OrgAdminPage() {
             <tbody>
               {properties.flatMap((p) =>
                 p.units.flatMap((u) =>
-                  u.listingLinks.map((l) => (
+                  (u.listingLinks ?? []).map((l) => (
                     <tr key={l.id}>
                       <td>{p.name}</td>
                       <td>
