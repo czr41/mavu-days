@@ -122,20 +122,6 @@ function jsonStringArr(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === 'string');
 }
 
-/** Merge unique HTTPS URLs into gallery draft lines (max `max`). */
-function mergeGalleryLines(existingMultiline: string, urlsToAdd: string[], max = 24): string {
-  const cur = existingMultiline.split('\n').map((l) => l.trim()).filter(Boolean);
-  const seen = new Set(cur);
-  const next = [...cur];
-  for (const u of urlsToAdd) {
-    if (next.length >= max) break;
-    if (seen.has(u)) continue;
-    seen.add(u);
-    next.push(u);
-  }
-  return next.join('\n');
-}
-
 function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
   const lp = row.listingProfile;
   return {
@@ -176,8 +162,6 @@ type HostDraftRow = {
 };
 const PLATFORMS  = ['AIRBNB', 'GOOGLE', 'BOOKING_COM', 'DIRECT', 'OTHER'] as const;
 const PLT_LABEL: Record<string, string> = { AIRBNB: 'Airbnb', GOOGLE: 'Google', BOOKING_COM: 'Booking.com', DIRECT: 'Direct', OTHER: 'Other' };
-const ROLES = ['CARETAKER', 'STAFF_BLOCK', 'ADMIN'] as const;
-const BLOCK_REASONS = ['PERSONAL_HOLD', 'MAINTENANCE', 'OTHER'] as const;
 const NAV = [
   { key: 'overview',    label: 'Overview',       icon: GridI },
   { key: 'properties',  label: 'Properties',     icon: HomeI },
@@ -262,54 +246,57 @@ export default function OrgAdminPage() {
   const tok = () => localStorage.getItem('mavu_token') ?? '';
   const ah  = (extra?: Record<string, string>) => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json', ...extra });
 
-  function notify(msg: unknown, ok = true) {
+  const notify = useCallback((msg: unknown, ok = true) => {
     setToast({ msg: toToastMessage(msg), ok });
     setTimeout(() => setToast(null), 4000);
-  }
+  }, []);
 
-  async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> {
-    let res: Response;
-    try {
-      res = await fetch(`${api}${path}`, { ...opts, headers: { ...ah(), ...(opts?.headers as Record<string, string> ?? {}) } });
-    } catch (err) {
-      notify(err instanceof Error ? err.message : 'Network error — check NEXT_PUBLIC_API_URL and that the API is running.', false);
-      return null;
-    }
-    if (res.status === 401) { router.push('/login'); return null; }
-    const j = await res.json().catch(() => ({})) as Record<string, unknown>;
-    if (!res.ok) {
-      let errMsg: string;
-      if (typeof j.error === 'string') {
-        errMsg = j.error;
-      } else if (j.error != null && typeof j.error === 'object') {
-        errMsg = toToastMessage(j.error);
-      } else if (j.formErrors != null || j.fieldErrors != null) {
-        errMsg = toToastMessage(j);
-      } else {
-        errMsg = typeof j.message === 'string' ? j.message : `HTTP ${res.status}`;
+  const apiFetch = useCallback(
+    async <T,>(path: string, opts?: RequestInit): Promise<T | null> => {
+      let res: Response;
+      try {
+        res = await fetch(`${api}${path}`, { ...opts, headers: { ...ah(), ...(opts?.headers as Record<string, string> ?? {}) } });
+      } catch (err) {
+        notify(err instanceof Error ? err.message : 'Network error — check NEXT_PUBLIC_API_URL and that the API is running.', false);
+        return null;
       }
-      if (
-        res.status === 404 &&
-        path.startsWith('/orgs/') &&
-        (/not\s*found/i.test(errMsg) || errMsg === `HTTP ${res.status}`)
-      ) {
-        errMsg = `${errMsg} — admin calls your Fastify API. On Vercel, set NEXT_PUBLIC_API_URL to that API base URL (not your marketing site). Redeploy the API if routes are missing.`;
+      if (res.status === 401) { router.push('/login'); return null; }
+      const j = await res.json().catch(() => ({})) as Record<string, unknown>;
+      if (!res.ok) {
+        let errMsg: string;
+        if (typeof j.error === 'string') {
+          errMsg = j.error;
+        } else if (j.error != null && typeof j.error === 'object') {
+          errMsg = toToastMessage(j.error);
+        } else if (j.formErrors != null || j.fieldErrors != null) {
+          errMsg = toToastMessage(j);
+        } else {
+          errMsg = typeof j.message === 'string' ? j.message : `HTTP ${res.status}`;
+        }
+        if (
+          res.status === 404 &&
+          path.startsWith('/orgs/') &&
+          (/not\s*found/i.test(errMsg) || errMsg === `HTTP ${res.status}`)
+        ) {
+          errMsg = `${errMsg} — admin calls your Fastify API. On Vercel, set NEXT_PUBLIC_API_URL to that API base URL (not your marketing site). Redeploy the API if routes are missing.`;
+        }
+        if (res.status === 403 && errMsg.toLowerCase() === 'forbidden') {
+          errMsg =
+            'Forbidden — your membership role cannot do this (for example Staff Block). Ask an Owner or Admin.';
+        }
+        notify(errMsg, false); return null;
       }
-      if (res.status === 403 && errMsg.toLowerCase() === 'forbidden') {
-        errMsg =
-          'Forbidden — your membership role cannot do this (for example Staff Block). Ask an Owner or Admin.';
-      }
-      notify(errMsg, false); return null;
-    }
-    return j as T;
-  }
+      return j as T;
+    },
+    [api, notify, router],
+  );
 
   const base = `/orgs/${encodeURIComponent(slug)}`;
 
-  const loadDash  = useCallback(async () => { const d = await apiFetch<DashStats>(`${base}/dashboard`); if (d) setDash(d); }, [slug]);
-  const loadProps = useCallback(async () => { const d = await apiFetch<{ properties: Property[] }>(`${base}/properties`); if (d) setProps(d.properties); }, [slug]);
-  const loadBk    = useCallback(async () => { const d = await apiFetch<{ bookings: Booking[] }>(`${base}/bookings`); if (d) setBookings(d.bookings); }, [slug]);
-  const loadRev   = useCallback(async () => { const d = await apiFetch<{ reviews: GuestReview[] }>(`${base}/cms/reviews`); if (d) setReviews(d.reviews); }, [slug]);
+  const loadDash  = useCallback(async () => { const d = await apiFetch<DashStats>(`${base}/dashboard`); if (d) setDash(d); }, [apiFetch, base]);
+  const loadProps = useCallback(async () => { const d = await apiFetch<{ properties: Property[] }>(`${base}/properties`); if (d) setProps(d.properties); }, [apiFetch, base]);
+  const loadBk    = useCallback(async () => { const d = await apiFetch<{ bookings: Booking[] }>(`${base}/bookings`); if (d) setBookings(d.bookings); }, [apiFetch, base]);
+  const loadRev   = useCallback(async () => { const d = await apiFetch<{ reviews: GuestReview[] }>(`${base}/cms/reviews`); if (d) setReviews(d.reviews); }, [apiFetch, base]);
   const loadCms   = useCallback(async () => {
     const [s, m, o] = await Promise.all([
       apiFetch<{ sections: SiteSection[] }>(`${base}/cms/sections`),
@@ -319,22 +306,22 @@ export default function OrgAdminPage() {
     if (s) setSections(s.sections);
     if (m) setMedia(m.media);
     if (o) setOffers(o.offers);
-  }, [slug]);
+  }, [apiFetch, base]);
 
   const loadUnitListings = useCallback(async () => {
     const d = await apiFetch<{ units: UnitListingBundle[] }>(`${base}/cms/unit-listings`);
     if (d) setUnitBundles(d.units);
-  }, [slug]);
+  }, [apiFetch, base]);
 
   const loadSiteSettings = useCallback(async () => {
     const d = await apiFetch<{ homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' }>(`${base}/cms/site-settings`);
     if (d?.homepageKind) setHomepageKind(d.homepageKind);
-  }, [slug]);
+  }, [apiFetch, base]);
 
   const loadAirbnb = useCallback(async () => {
     const d = await apiFetch<{ accounts: AirbnbHostAccountRow[] }>(`${base}/airbnb-host-accounts`);
     if (d?.accounts) setAirbnbAccounts(d.accounts);
-  }, [slug]);
+  }, [apiFetch, base]);
 
   useEffect(() => {
     if (!tok()) { router.push('/login'); return; }
@@ -346,7 +333,17 @@ export default function OrgAdminPage() {
     void loadUnitListings();
     void loadSiteSettings();
     void loadAirbnb();
-  }, [slug]);
+  }, [
+    router,
+    loadDash,
+    loadProps,
+    loadBk,
+    loadRev,
+    loadCms,
+    loadUnitListings,
+    loadSiteSettings,
+    loadAirbnb,
+  ]);
 
   useEffect(() => {
     const next: Record<string, HostDraftRow> = {};
