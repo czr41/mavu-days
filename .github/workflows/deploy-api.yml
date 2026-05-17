@@ -12,6 +12,7 @@
 #   API_SYSTEMD_UNIT     — systemd service name (default mavu-api on remote if unset)
 #
 # Migrations run on GitHub-hosted runners (IPv6-friendly), not on the Oracle VM — avoids IPv4-only VM issues with Supabase Free.
+# Also runnable manually: Actions → Deploy API (Oracle VM) → Run workflow.
 
 name: Deploy API (Oracle VM)
 
