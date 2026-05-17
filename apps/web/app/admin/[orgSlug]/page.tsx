@@ -214,11 +214,18 @@ function toToastMessage(input: unknown): string {
   return input == null ? 'Something went wrong' : String(input);
 }
 
+/** `useParams()['orgSlug']` can be string or string[] depending on routing. */
+function segmentFromParams(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+  return '';
+}
+
 /* ─────────────────────────────── Page ─────────────────────────────── */
 export default function OrgAdminPage() {
   const params = useParams();
   const router = useRouter();
-  const slug = typeof params?.orgSlug === 'string' ? params.orgSlug : '';
+  const slug = segmentFromParams(params?.orgSlug);
   const api = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '');
 
   const [tab, setTab]             = useState('overview');
@@ -323,30 +330,36 @@ export default function OrgAdminPage() {
     if (d?.accounts) setAirbnbAccounts(d.accounts);
   }, [apiFetch, base]);
 
+  // Overview + sidebar need only dash / properties / reviews. Other tabs load their own routes
+  // when opened so one missing or older API endpoint does not toast on every page load.
   useEffect(() => {
     if (!tok()) { router.push('/login'); return; }
     // Wait for dynamic [orgSlug] — first paint can have an empty slug and would call /orgs//… (404).
     if (!slug) return;
     void loadDash();
     void loadProps();
-    void loadBk();
     void loadRev();
-    void loadCms();
-    void loadUnitListings();
-    void loadSiteSettings();
-    void loadAirbnb();
-  }, [
-    slug,
-    router,
-    loadDash,
-    loadProps,
-    loadBk,
-    loadRev,
-    loadCms,
-    loadUnitListings,
-    loadSiteSettings,
-    loadAirbnb,
-  ]);
+  }, [slug, router, loadDash, loadProps, loadRev]);
+
+  useEffect(() => {
+    if (!slug) return;
+    if (tab !== 'bookings') return;
+    void loadBk();
+  }, [slug, tab, loadBk]);
+
+  useEffect(() => {
+    if (!slug) return;
+    if (tab === 'cms') {
+      void loadCms();
+      void loadSiteSettings();
+      void loadUnitListings();
+      return;
+    }
+    if (tab === 'host') {
+      void loadAirbnb();
+      void loadUnitListings();
+    }
+  }, [slug, tab, loadCms, loadSiteSettings, loadUnitListings, loadAirbnb]);
 
   useEffect(() => {
     const next: Record<string, HostDraftRow> = {};
