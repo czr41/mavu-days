@@ -1,0 +1,83 @@
+# Deploy Fastify API to your Oracle VM on every relevant push to main.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions → Repository secrets):
+#   API_DEPLOY_HOST      — VM public IP or DNS
+#   API_DEPLOY_USER      — SSH user (e.g. ubuntu)
+#   API_DEPLOY_SSH_KEY   — Private key PEM for that user
+#   API_DEPLOY_PATH      — Absolute repo root on the VM (e.g. /opt/mavu-days)
+#   DATABASE_URL         — Supabase Postgres (pooled URI is fine; Prisma reads schema url + directUrl)
+#   DIRECT_URL           — Supabase direct/session URI (port 5432) — required for migrate deploy
+#
+# Optional:
+#   API_SYSTEMD_UNIT     — systemd service name (default mavu-api on remote if unset)
+#
+# Migrations run on GitHub-hosted runners (IPv6-friendly), not on the Oracle VM — avoids IPv4-only VM issues with Supabase Free.
+
+name: Deploy API (Oracle VM)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/db/**'
+      - 'packages/channels-ical/**'
+      - 'packages/contracts/**'
+      - 'scripts/api-prebuild-deps.cjs'
+      - 'scripts/prisma-generate-with-placeholder-env.cjs'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Check DB secrets
+        run: |
+          if [ -z "${DATABASE_URL}" ] || [ -z "${DIRECT_URL}" ]; then
+            echo "::error::Set repository secrets DATABASE_URL and DIRECT_URL (same values as production Supabase / Prisma)."
+            exit 1
+          fi
+      - run: npm ci
+      - name: Prisma migrate deploy
+        run: npm run migrate:deploy:ci -w @mavu/db
+
+  deploy:
+    needs: migrate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          DEPLOY_PATH: ${{ secrets.API_DEPLOY_PATH }}
+          SYSTEMD_UNIT: ${{ secrets.API_SYSTEMD_UNIT }}
+        with:
+          host: ${{ secrets.API_DEPLOY_HOST }}
+          username: ${{ secrets.API_DEPLOY_USER }}
+          key: ${{ secrets.API_DEPLOY_SSH_KEY }}
+          envs: DEPLOY_PATH,SYSTEMD_UNIT
+          script_stop: true
+          script: |
+            set -euo pipefail
+            if [ -z "${DEPLOY_PATH}" ]; then echo "DEPLOY_PATH missing — set API_DEPLOY_PATH secret"; exit 1; fi
+            cd "${DEPLOY_PATH}"
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+            npm ci
+            npm run build -w @mavu/api
+            sudo systemctl restart "${SYSTEMD_UNIT:-mavu-api}"

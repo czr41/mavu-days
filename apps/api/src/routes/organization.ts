@@ -132,7 +132,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   });
 
   app.post('/orgs/:orgSlug/airbnb-host-accounts', async (req, reply) => {
-    const m = await membershipForRoles(app, req, reply, opsRoles);
+    const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const body = z
       .object({
@@ -152,7 +152,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   });
 
   app.patch('/orgs/:orgSlug/airbnb-host-accounts/:accountId', async (req, reply) => {
-    const m = await membershipForRoles(app, req, reply, opsRoles);
+    const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const accountId = (req.params as { accountId: string }).accountId;
     const body = z
@@ -175,7 +175,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   });
 
   app.delete('/orgs/:orgSlug/airbnb-host-accounts/:accountId', async (req, reply) => {
-    const m = await membershipForRoles(app, req, reply, opsRoles);
+    const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const accountId = (req.params as { accountId: string }).accountId;
     const del = await app.prisma.airbnbHostAccount.deleteMany({

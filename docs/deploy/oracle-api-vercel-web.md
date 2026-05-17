@@ -458,6 +458,31 @@ If your **Supabase** database is empty of your real org:
 
 ---
 
+## Part 10 — Auto-deploy API on push (GitHub Actions)
+
+This repo includes **`.github/workflows/deploy-api.yml`**. On each push to **`main`** that touches API-related paths, GitHub Actions **SSHes into your Oracle VM**, runs **`git pull`**, **`npm ci`**, **`migrate deploy`**, **`npm run build -w @mavu/api`**, and **`sudo systemctl restart mavu-api`** (or **`API_SYSTEMD_UNIT`**).
+
+### One-time setup
+
+1. On the VM: ensure the repo is cloned at **`API_DEPLOY_PATH`** (e.g. `/opt/mavu-days`), **`origin`** points at GitHub, and **`git pull` works** (deploy key or HTTPS credential).
+2. **sudo:** the SSH user must be able to restart the unit without a password, e.g. **`NOPASSWD`** for **`systemctl restart mavu-api`** only (don’t blanket NOPASSWD unless you accept the risk).
+3. In GitHub: **Repo → Settings → Secrets and variables → Actions**, add:
+
+| Secret | Example |
+| ------ | ------- |
+| **`API_DEPLOY_HOST`** | VM public IP or DNS |
+| **`API_DEPLOY_USER`** | `ubuntu` |
+| **`API_DEPLOY_SSH_KEY`** | Private key PEM (pair whose **public** key is in **`~/.ssh/authorized_keys`** on the VM for that user) |
+| **`API_DEPLOY_PATH`** | `/opt/mavu-days` |
+
+Optional: **`API_SYSTEMD_UNIT`** if your unit isn’t **`mavu-api`**.
+
+4. Push this workflow to **`main`** or run **Actions → Deploy API (Oracle VM) → Run workflow** manually (`workflow_dispatch`).
+
+SSH uses **port 22**. Non-standard SSH ports require editing the workflow `appleboy/ssh-action` step to pass **`port`**.
+
+---
+
 ## Reference links inside this repo
 
 - [vercel-supabase.md](./vercel-supabase.md) — Supabase URL shapes and Prisma notes.  

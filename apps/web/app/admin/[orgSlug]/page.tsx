@@ -260,7 +260,13 @@ export default function OrgAdminPage() {
   }
 
   async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> {
-    const res = await fetch(`${api}${path}`, { ...opts, headers: { ...ah(), ...(opts?.headers as Record<string, string> ?? {}) } });
+    let res: Response;
+    try {
+      res = await fetch(`${api}${path}`, { ...opts, headers: { ...ah(), ...(opts?.headers as Record<string, string> ?? {}) } });
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Network error — check NEXT_PUBLIC_API_URL and that the API is running.', false);
+      return null;
+    }
     if (res.status === 401) { router.push('/login'); return null; }
     const j = await res.json().catch(() => ({})) as Record<string, unknown>;
     if (!res.ok) {
@@ -280,6 +286,10 @@ export default function OrgAdminPage() {
         (/not\s*found/i.test(errMsg) || errMsg === `HTTP ${res.status}`)
       ) {
         errMsg = `${errMsg} — admin calls your Fastify API. On Vercel, set NEXT_PUBLIC_API_URL to that API base URL (not your marketing site). Redeploy the API if routes are missing.`;
+      }
+      if (res.status === 403 && errMsg.toLowerCase() === 'forbidden') {
+        errMsg =
+          'Forbidden — your membership role cannot do this (for example Staff Block). Ask an Owner or Admin.';
       }
       notify(errMsg, false); return null;
     }
@@ -1319,7 +1329,7 @@ export default function OrgAdminPage() {
           Connect channel / add iCal feed
         </a>{' '}
         → choose your unit → paste Airbnb&apos;s <strong>Export calendar</strong> link into <strong>Inbound iCal URL</strong>.
-        The <strong>Airbnb profiles</strong> block below is <em>not</em> for .ics links—it&apos;s only optional grouping labels.
+        The <strong>Airbnb profiles</strong> block below is <em>not</em> for <code>.ics</code> links—it&apos;s only optional grouping labels.
       </div>
 
       <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
@@ -1328,11 +1338,12 @@ export default function OrgAdminPage() {
         </div>
         <div className="adm-card-body">
           <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0 }}>
-            Optional labels for organising feeds when you run multiple Airbnb accounts or entities. Paste calendar URLs under{' '}
+            Profiles are <strong>optional labels</strong> to organise rows when you manage several Airbnb accounts—not where you paste calendar URLs.
+            Export <code>.ics</code> links always go under{' '}
             <a href="#connect-ical-feed" style={{ fontWeight: 600, color: 'var(--sage)' }}>
               Connect channel / add iCal feed
-            </a>
-            . Availability sync is <strong>iCal only</strong>: inbound pulls update Mavu; outbound URLs push busy dates when Airbnb or Booking imports your feed.
+            </a>{' '}
+            → unit → Inbound iCal URL. Availability is <strong>iCal only</strong>: inbound pulls update Mavu; outbound URLs refresh when Airbnb or Booking imports your feed.
           </p>
           {!abEditing ? (
             <form
@@ -1345,15 +1356,18 @@ export default function OrgAdminPage() {
                   return;
                 }
                 setBusy(true);
-                const r = await apiFetch(`${base}/airbnb-host-accounts`, {
-                  method: 'POST',
-                  body: JSON.stringify({ label, notes: abForm.notes.trim() || null }),
-                });
-                setBusy(false);
-                if (!r) return;
-                setAbForm({ label: '', notes: '' });
-                await loadAirbnb();
-                notify('Airbnb profile created.');
+                try {
+                  const r = await apiFetch(`${base}/airbnb-host-accounts`, {
+                    method: 'POST',
+                    body: JSON.stringify({ label, notes: abForm.notes.trim() || null }),
+                  });
+                  if (!r) return;
+                  setAbForm({ label: '', notes: '' });
+                  await loadAirbnb();
+                  notify('Airbnb profile created.');
+                } finally {
+                  setBusy(false);
+                }
               }}
             >
               <div className="adm-form-grid">
@@ -1395,15 +1409,18 @@ export default function OrgAdminPage() {
                   return;
                 }
                 setBusy(true);
-                const r = await apiFetch(`${base}/airbnb-host-accounts/${abEditing.id}`, {
-                  method: 'PATCH',
-                  body: JSON.stringify({ label, notes: abEditing.notes.trim() || null }),
-                });
-                setBusy(false);
-                if (!r) return;
-                setAbEditing(null);
-                await loadAirbnb();
-                notify('Profile updated.');
+                try {
+                  const r = await apiFetch(`${base}/airbnb-host-accounts/${abEditing.id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ label, notes: abEditing.notes.trim() || null }),
+                  });
+                  if (!r) return;
+                  setAbEditing(null);
+                  await loadAirbnb();
+                  notify('Profile updated.');
+                } finally {
+                  setBusy(false);
+                }
               }}
             >
               <div className="adm-form-grid">
