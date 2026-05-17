@@ -5,8 +5,9 @@
 #   API_DEPLOY_USER      — SSH user (e.g. ubuntu)
 #   API_DEPLOY_SSH_KEY   — Private key PEM for that user
 #   API_DEPLOY_PATH      — Absolute repo root on the VM (e.g. /opt/mavu-days)
-#   DATABASE_URL         — Supabase Postgres (pooled URI is fine; Prisma reads schema url + directUrl)
-#   DIRECT_URL           — Supabase direct/session URI (port 5432) — required for migrate deploy
+#   DATABASE_URL         — Supabase transaction pooler (:6543 + ?pgbouncer=true), same as production runtime.
+#   DIRECT_URL           — For migrate deploy from Actions: use Session pooler (:5432 on *.pooler.supabase.com).
+#                         Avoid db.<ref>.supabase.co here if migrate fails with P1001 — that host is often IPv6-only and unreachable from GitHub runners.
 #
 # Optional:
 #   API_SYSTEMD_UNIT     — systemd service name (default mavu-api on remote if unset)
