@@ -751,7 +751,7 @@ p.md-eyebrow-line {
 
 .md-booking-toolbar-row-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(124px, 0.72fr) minmax(148px, 1fr) auto;
+  grid-template-columns: minmax(10.5rem, 1fr) minmax(10.5rem, 1fr) minmax(124px, 0.72fr) minmax(148px, 1fr) auto;
   gap: 0.75rem 0.95rem;
   align-items: end;
 }
@@ -782,25 +782,41 @@ p.md-eyebrow-line {
   min-width: 160px;
 }
 
+.md-booking-field--date {
+  min-width: 10.5rem;
+}
+
 .md-booking-date-wrap {
   position: relative;
   display: flex;
   align-items: center;
+  min-height: 46px;
+  background: #fff;
+  border-radius: 8px;
 }
 
-.md-booking-date-ph {
+.md-booking-date-ph,
+.md-booking-date-display {
   position: absolute;
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  font-size: 0.86rem;
-  color: var(--muted);
-  z-index: 1;
+  font-size: 0.9rem;
+  z-index: 2;
+  max-width: calc(100% - 2.75rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.md-booking-date-wrap--filled .md-booking-date-ph {
-  opacity: 0;
+.md-booking-date-ph {
+  color: var(--muted);
+}
+
+.md-booking-date-display {
+  color: var(--heading);
+  font-weight: 500;
 }
 
 .md-booking-cal-icon {
@@ -815,15 +831,43 @@ p.md-eyebrow-line {
 
 .md-booking-date-input {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   width: 100%;
+  min-width: 0;
   padding-right: 2.65rem;
   color-scheme: light;
-  background: #fff;
+  background: transparent;
+  cursor: pointer;
 }
 
+/* Native date text is unreliable when narrow — show .md-booking-date-display instead */
 .md-booking-date-wrap--filled .md-booking-date-input {
-  color: var(--heading);
+  color: transparent;
+}
+
+.md-booking-date-wrap--filled .md-booking-date-input::-webkit-datetime-edit,
+.md-booking-date-wrap--filled .md-booking-date-input::-webkit-datetime-edit-fields-wrapper,
+.md-booking-date-wrap--filled .md-booking-date-input::-webkit-datetime-edit-text,
+.md-booking-date-wrap--filled .md-booking-date-input::-webkit-datetime-edit-month-field,
+.md-booking-date-wrap--filled .md-booking-date-input::-webkit-datetime-edit-day-field,
+.md-booking-date-wrap--filled .md-booking-date-input::-webkit-datetime-edit-year-field {
+  color: transparent;
+}
+
+.md-booking-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 2.65rem;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.md-booking-date-wrap:not(.md-booking-date-wrap--filled) .md-booking-date-input {
+  color: transparent;
 }
 
 .md-booking-select-wrap {
@@ -1018,6 +1062,23 @@ p.md-eyebrow-line {
 
 .md-booking-status--busy {
   color: #b91c1c;
+}
+
+.md-booking-avail-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  white-space: nowrap;
+}
+
+.md-booking-book-btn {
+  flex-shrink: 0;
+}
+
+.md-booking-notice {
+  margin: 1rem 0 0;
+  font-size: 0.92rem;
 }
 
 .md-booking-tax-foot {

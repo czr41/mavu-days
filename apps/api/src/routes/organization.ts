@@ -561,9 +561,9 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   app.get('/orgs/:orgSlug/bookings', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
-    // Wide overlap window for admin calendar (~±18mo); capped for safety.
-    const horizonPast = new Date(Date.now() - 540 * 24 * 60 * 60 * 1000);
-    const horizonFuture = new Date(Date.now() + 540 * 24 * 60 * 60 * 1000);
+    // Wide overlap window for admin calendar — past stays must load for history view.
+    const horizonPast = new Date(Date.now() - 1825 * 24 * 60 * 60 * 1000); // ~5 years
+    const horizonFuture = new Date(Date.now() + 540 * 24 * 60 * 60 * 1000); // ~18 months ahead
     const rows = await app.prisma.booking.findMany({
       where: {
         organizationId: m.organizationId,
@@ -571,7 +571,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         checkOutUtc: { gt: horizonPast },
       },
       orderBy: { checkInUtc: 'desc' },
-      take: 800,
+      take: 5000,
       include: {
         rentableUnit: true,
         offerSelections: { include: { landingOffer: { select: { id: true, label: true } } } },

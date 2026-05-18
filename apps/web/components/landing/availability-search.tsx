@@ -1,9 +1,10 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useMemo, useState } from 'react';
 
 import { RevealSection } from '@/components/landing/reveal-section';
 import { publicApiBaseUrl } from '@/lib/public-api-base';
+import { publicOrgSlugCandidates } from '@/lib/public-org-slug';
 import type { StayFilter } from '@/lib/whatsapp';
 import { formatStayPreference, whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 
@@ -49,7 +50,7 @@ type LandingAvailResponse = {
 
 function fmtInr(n: number | null | undefined): string | null {
   if (n == null || Number.isNaN(n)) return null;
-  return '₹' + n.toLocaleString('en-IN');
+  return 'â‚¹' + n.toLocaleString('en-IN');
 }
 
 function fmtNightCell(n: number | null | undefined) {
@@ -96,6 +97,19 @@ function BedroomsCell({
   return <span className="md-booking-cell-muted">—</span>;
 }
 
+/** YYYY-MM-DD → readable label (e.g. 19 May 2026). */
+function formatBookingDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return dt.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 function BookingDateField({
   label,
   value,
@@ -108,13 +122,20 @@ function BookingDateField({
   hintId?: string;
 }) {
   const hasVal = Boolean(value);
+  const displayDate = hasVal ? formatBookingDate(value) : '';
   return (
-    <label className="md-booking-field">
+    <label className="md-booking-field md-booking-field--date">
       <span className="md-field-label">{label}</span>
       <div className={`md-booking-date-wrap ${hasVal ? 'md-booking-date-wrap--filled' : ''}`}>
-        <span className="md-booking-date-ph" aria-hidden={hasVal}>
-          Choose date
-        </span>
+        {hasVal ? (
+          <span className="md-booking-date-display" aria-hidden="true">
+            {displayDate}
+          </span>
+        ) : (
+          <span className="md-booking-date-ph" aria-hidden="true">
+            Choose date
+          </span>
+        )}
         <svg className="md-booking-cal-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden>
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
           <path d="M16 2v4M8 2v4M3 10h18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
@@ -124,6 +145,7 @@ function BookingDateField({
           type="date"
           value={value}
           aria-describedby={hintId}
+          title={displayDate || label}
           onChange={(e) => onChange(e.target.value)}
         />
       </div>
@@ -147,6 +169,10 @@ export function AvailabilitySearch({
   const [error, setError] = useState<string | null>(null);
   const [columns, setColumns] = useState<Column[] | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
+  /** Slug that successfully answered landing-availability (may differ from props after env fallback). */
+  const [availabilityOrgSlug, setAvailabilityOrgSlug] = useState<string | null>(null);
+  const [bookingBusyKey, setBookingBusyKey] = useState<string | null>(null);
+  const [bookingNotice, setBookingNotice] = useState<{ key: string; ok: boolean; text: string } | null>(null);
 
   const apiBase = useMemo(() => publicApiBaseUrl(), []);
 
@@ -159,6 +185,7 @@ export function AvailabilitySearch({
     setError(null);
     setColumns(null);
     setNotConfigured(false);
+    setBookingNotice(null);
     if (!checkIn || !checkOut) {
       setError('Please choose check-in and check-out dates.');
       return;
@@ -168,30 +195,106 @@ export function AvailabilitySearch({
       return;
     }
     setLoading(true);
+    setAvailabilityOrgSlug(null);
     try {
       const q = new URLSearchParams({ checkIn, checkOut });
-      const res = await fetch(`${apiBase}/public/orgs/${encodeURIComponent(orgSlug)}/landing-availability?${q}`);
-      const data = (await res.json()) as LandingAvailResponse;
-      if (!res.ok) {
+      const slugCandidates = publicOrgSlugCandidates(orgSlug);
+      let lastBad: { res: Response; data: LandingAvailResponse } | null = null;
+
+      for (const slugTry of slugCandidates) {
+        const res = await fetch(`${apiBase}/public/orgs/${encodeURIComponent(slugTry)}/landing-availability?${q}`);
+        let data: LandingAvailResponse = {};
+        try {
+          data = (await res.json()) as LandingAvailResponse;
+        } catch {
+          data = {};
+        }
+        if (res.ok) {
+          if (data.configured === false) {
+            setNotConfigured(true);
+            return;
+          }
+          setColumns(data.columns ?? []);
+          setAvailabilityOrgSlug(slugTry);
+          return;
+        }
+        lastBad = { res, data };
         const rawMsg = typeof data.error === 'string' ? data.error : 'Could not load availability.';
-        const hint404 =
-          res.status === 404 && rawMsg === 'Organization not found'
-            ? 'Organization not found — check NEXT_PUBLIC_ORG_SLUG vs database Organization.slug and that NEXT_PUBLIC_API_URL is your live API (then redeploy).'
-            : rawMsg;
-        setError(hint404);
-        return;
+        const orgMissing =
+          res.status === 404 && rawMsg === 'Organization not found';
+        if (!orgMissing) {
+          setError(rawMsg);
+          return;
+        }
       }
-      if (data.configured === false) {
-        setNotConfigured(true);
-        return;
-      }
-      setColumns(data.columns ?? []);
+
+      const hint404 =
+        'Organization not found — check NEXT_PUBLIC_ORG_SLUG vs database Organization.slug and that NEXT_PUBLIC_API_URL is your live API (then redeploy).';
+      setError(lastBad?.res.status === 404 ? hint404 : 'Could not load availability.');
     } catch {
       setError('Please try again in a moment, or message us on WhatsApp.');
     } finally {
       setLoading(false);
     }
   }, [apiBase, orgSlug, checkIn, checkOut]);
+
+  const bookingOrgSlug = availabilityOrgSlug ?? orgSlug;
+
+  const submitBooking = useCallback(
+    async (column: Column) => {
+      if (!column.available || !column.bookingTarget) return;
+      setBookingNotice(null);
+      setBookingBusyKey(column.key);
+      try {
+        const res = await fetch(`${apiBase}/public/orgs/${encodeURIComponent(bookingOrgSlug)}/bookings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertySlug: column.bookingTarget.propertySlug,
+            unitSlug: column.bookingTarget.unitSlug,
+            checkInUtc: `${checkIn}T00:00:00.000Z`,
+            checkOutUtc: `${checkOut}T00:00:00.000Z`,
+          }),
+        });
+        const data = (await res.json()) as {
+          error?: unknown;
+          message?: string;
+          mockedPayment?: boolean;
+          conflict?: boolean;
+        };
+        if (!res.ok) {
+          if (data.conflict === true) {
+            setBookingNotice({
+              key: column.key,
+              ok: false,
+              text: `${column.title}: those dates were just taken — refresh availability or pick another stay.`,
+            });
+            return;
+          }
+          const errText =
+            typeof data.error === 'string'
+              ? data.error
+              : data.message ?? 'Could not submit booking. Please try WhatsApp instead.';
+          setBookingNotice({ key: column.key, ok: false, text: errText });
+          return;
+        }
+        const thanks =
+          data.mockedPayment === true
+            ? `${column.title}: booking received (demo — mock payment).`
+            : `${column.title}: request sent — we'll confirm shortly.`;
+        setBookingNotice({ key: column.key, ok: true, text: thanks });
+      } catch {
+        setBookingNotice({
+          key: column.key,
+          ok: false,
+          text: 'Network error. Please try again or use WhatsApp.',
+        });
+      } finally {
+        setBookingBusyKey(null);
+      }
+    },
+    [apiBase, bookingOrgSlug, checkIn, checkOut],
+  );
 
   const visibleColumns = useMemo(() => {
     if (!columns?.length) return [];
@@ -305,7 +408,7 @@ export function AvailabilitySearch({
                         <th scope="col">Weekdays (Mon–Thu)</th>
                         <th scope="col">Weekends (Fri–Sun)</th>
                         <th scope="col">Extra guest</th>
-                        <th scope="col">Status</th>
+                        <th scope="col">Availability</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -337,10 +440,20 @@ export function AvailabilitySearch({
                                 <span className="md-booking-cell-muted">—</span>
                               )}
                             </td>
-                            <td>
+                            <td className="md-booking-avail-cell">
                               <span className={c.available ? 'md-booking-status md-booking-status--ok' : 'md-booking-status md-booking-status--busy'}>
                                 {c.available ? 'Available' : 'Booked'}
                               </span>
+                              {c.available && c.bookingTarget ? (
+                                <button
+                                  type="button"
+                                  className="md-btn md-btn-primary md-btn-sm md-booking-book-btn"
+                                  disabled={bookingBusyKey === c.key}
+                                  onClick={() => void submitBooking(c)}
+                                >
+                                  {bookingBusyKey === c.key ? 'Booking…' : 'Book now'}
+                                </button>
+                              ) : null}
                             </td>
                           </tr>
                         );
@@ -359,26 +472,14 @@ export function AvailabilitySearch({
                 </div>
               </div>
 
-              <div className="md-booking-direct-stack">
-                <p className="md-booking-direct-intro">
-                  Book directly below when status shows <strong>Available</strong>. Add offers if they apply — we&apos;ll attach them to
-                  your request.
+              {bookingNotice ? (
+                <p
+                  className={bookingNotice.ok ? 'md-success md-booking-notice' : 'md-error md-booking-notice'}
+                  role={bookingNotice.ok ? 'status' : 'alert'}
+                >
+                  {bookingNotice.text}
                 </p>
-                {visibleColumns.map((c) => (
-                  <DirectBookingPanel
-                    key={c.key}
-                    title={c.title}
-                    columnKey={c.key}
-                    available={c.available}
-                    target={c.bookingTarget}
-                    offers={c.offers}
-                    orgSlug={orgSlug}
-                    apiBase={apiBase}
-                    checkIn={checkIn}
-                    checkOut={checkOut}
-                  />
-                ))}
-              </div>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -397,168 +498,5 @@ export function AvailabilitySearch({
         </p>
       </div>
     </RevealSection>
-  );
-}
-
-function DirectBookingPanel({
-  title,
-  columnKey,
-  available,
-  target,
-  offers,
-  orgSlug,
-  apiBase,
-  checkIn,
-  checkOut,
-}: {
-  title: string;
-  columnKey: string;
-  available: boolean;
-  target: BookingTarget | null;
-  offers: { id: string; label: string }[];
-  orgSlug: string;
-  apiBase: string;
-  checkIn: string;
-  checkOut: string;
-}) {
-  const [guestName, setGuestName] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
-  const [selectedOffers, setSelectedOffers] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
-
-  const toggleOffer = (id: string) => {
-    setSelectedOffers((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const submit = async () => {
-    setFeedback(null);
-    if (!available || !target) {
-      setFeedback({ ok: false, text: 'This option is not available for the dates you picked.' });
-      return;
-    }
-    setBusy(true);
-    try {
-      const offerIds = Object.entries(selectedOffers)
-        .filter(([, on]) => on)
-        .map(([id]) => id);
-      const res = await fetch(`${apiBase}/public/orgs/${encodeURIComponent(orgSlug)}/bookings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertySlug: target.propertySlug,
-          unitSlug: target.unitSlug,
-          checkInUtc: `${checkIn}T00:00:00.000Z`,
-          checkOutUtc: `${checkOut}T00:00:00.000Z`,
-          guestName: guestName.trim() || undefined,
-          guestEmail: guestEmail.trim() || undefined,
-          guestPhone: guestPhone.trim() || undefined,
-          offerIds: offerIds.length ? offerIds : undefined,
-        }),
-      });
-      const data = (await res.json()) as {
-        error?: unknown;
-        message?: string;
-        mockedPayment?: boolean;
-        conflict?: boolean;
-      };
-      if (!res.ok) {
-        if (data.conflict === true) {
-          setFeedback({
-            ok: false,
-            text: 'Those dates were just taken — refresh availability or choose another stay option.',
-          });
-          return;
-        }
-        const errText =
-          typeof data.error === 'string'
-            ? data.error
-            : data.message ?? 'Could not submit booking. Please try WhatsApp instead.';
-        setFeedback({ ok: false, text: errText });
-        return;
-      }
-      const thanks =
-        data.mockedPayment === true
-          ? "Booking received — you're confirmed for this demo (mock payment)."
-          : "Booking request sent — we'll confirm shortly.";
-      setFeedback({ ok: true, text: thanks });
-      setGuestName('');
-      setGuestEmail('');
-      setGuestPhone('');
-      setSelectedOffers({});
-    } catch {
-      setFeedback({ ok: false, text: 'Network error. Please try again or use WhatsApp.' });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className={`md-booking-direct-card ${available ? '' : 'md-booking-direct-card-muted'}`} data-stay={columnKey}>
-      <div className="md-booking-direct-card-head">
-        <h3 className="md-booking-direct-title">{title}</h3>
-        <span className={available ? 'md-tag md-tag-open' : 'md-tag md-tag-busy'}>{available ? 'Open' : 'Unavailable'}</span>
-      </div>
-
-      {!available ? (
-        <p className="md-muted" style={{ marginTop: 0 }}>
-          Pick different dates or message us on WhatsApp — this option is booked for your window.
-        </p>
-      ) : !target ? (
-        <p className="md-muted" style={{ marginTop: 0 }}>
-          We couldn&apos;t resolve this stay for online booking yet. Please use WhatsApp.
-        </p>
-      ) : (
-        <>
-          {offers.length > 0 && (
-            <fieldset className="md-offer-fieldset">
-              <legend className="md-offer-legend">Available offers</legend>
-              {offers.map((o) => (
-                <label key={o.id} className="md-offer-row">
-                  <input type="checkbox" checked={!!selectedOffers[o.id]} onChange={() => toggleOffer(o.id)} />
-                  <span>{o.label}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <div className="md-booking-direct-fields">
-            <label className="md-field">
-              <span className="md-field-label">Name</span>
-              <input className="md-input" value={guestName} onChange={(e) => setGuestName(e.target.value)} autoComplete="name" />
-            </label>
-            <label className="md-field">
-              <span className="md-field-label">Email</span>
-              <input
-                className="md-input"
-                type="email"
-                value={guestEmail}
-                onChange={(e) => setGuestEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </label>
-            <label className="md-field md-field-span">
-              <span className="md-field-label">Phone</span>
-              <input
-                className="md-input"
-                type="tel"
-                value={guestPhone}
-                onChange={(e) => setGuestPhone(e.target.value)}
-                autoComplete="tel"
-              />
-            </label>
-          </div>
-          <button type="button" className="md-btn md-btn-primary" disabled={busy} onClick={() => void submit()}>
-            {busy ? 'Sending…' : 'Request this stay'}
-          </button>
-        </>
-      )}
-
-      {feedback && (
-        <p className={feedback.ok ? 'md-success' : 'md-error'} role={feedback.ok ? 'status' : 'alert'} style={{ marginBottom: 0 }}>
-          {feedback.text}
-        </p>
-      )}
-    </div>
   );
 }

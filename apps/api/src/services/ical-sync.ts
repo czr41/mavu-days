@@ -31,12 +31,19 @@ async function cancelStaleIcalBookingsForLink(
       externalId: { startsWith: prefix },
       status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
     },
-    select: { id: true, externalId: true },
+    select: { id: true, externalId: true, checkOutUtc: true },
   });
 
   let removed = 0;
+  const nowMs = Date.now();
   for (const b of stale) {
     if (!b.externalId || wantedExternalIds.has(b.externalId)) continue;
+    /**
+     * Airbnb (and similar) feeds usually drop reservations after checkout. Treating those as
+     * “removed” would cancel every completed stay on the next sync and wipe admin calendar history.
+     * Only cancel mirrors that are still active/upcoming — real cancellations while the stay matters.
+     */
+    if (b.checkOutUtc.getTime() <= nowMs) continue;
     await prisma.$transaction(async (tx) => {
       await tx.availabilityBlock.deleteMany({ where: { bookingId: b.id } });
       await tx.booking.update({

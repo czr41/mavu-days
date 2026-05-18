@@ -44,6 +44,15 @@ function utcDay(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00.000Z`);
 }
 
+/** Decode path segment: trim, strip BOM/NBSP, unify unicode hyphen variants to ASCII `-`. */
+function normalizeOrgSlugParam(raw: string): string {
+  return raw
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .replace(/\u00a0/g, '')
+    .replace(/[\u2010-\u2015]/g, '-');
+}
+
 /** Match URL slug to {@link Organization.slug} without tripping on harmless casing drift (PostgreSQL). */
 function whereOrgSlugParam(slug: string): Prisma.OrganizationWhereInput {
   return { slug: { equals: slug.trim(), mode: 'insensitive' } };
@@ -51,7 +60,7 @@ function whereOrgSlugParam(slug: string): Prisma.OrganizationWhereInput {
 
 export function registerPublicRoutes(app: FastifyInstance) {
   app.get('/public/orgs/:orgSlug/inventory', async (req, reply) => {
-    const slug = (req.params as { orgSlug: string }).orgSlug.trim();
+    const slug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
     const org: OrgInventoryPayload | null = await app.prisma.organization.findFirst({
       where: whereOrgSlugParam(slug),
       include: {
@@ -83,7 +92,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
   });
 
   app.get('/public/orgs/:orgSlug/site', async (req, reply) => {
-    const slug = (req.params as { orgSlug: string }).orgSlug.trim();
+    const slug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
     const org = await app.prisma.organization.findFirst({
       where: whereOrgSlugParam(slug),
       include: {
@@ -133,7 +142,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
   });
 
   app.get('/public/orgs/:orgSlug/content', async (req, reply) => {
-    const slug = (req.params as { orgSlug: string }).orgSlug.trim();
+    const slug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
     const org = await app.prisma.organization.findFirst({
       where: whereOrgSlugParam(slug),
       include: {
@@ -193,7 +202,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
   });
 
   app.get('/public/orgs/:orgSlug/landing-availability', async (req, reply) => {
-    const orgSlug = (req.params as { orgSlug: string }).orgSlug.trim();
+    const orgSlug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
     const parsed = landingAvailabilityQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return reply.status(400).send({ error: 'checkIn and checkOut must be YYYY-MM-DD dates' });
@@ -375,7 +384,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
   });
 
   app.post('/public/orgs/:orgSlug/bookings', async (req, reply) => {
-    const orgSlug = (req.params as { orgSlug: string }).orgSlug.trim();
+    const orgSlug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
     const body = z
       .object({
         propertySlug: z.string().min(1),
