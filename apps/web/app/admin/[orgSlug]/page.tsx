@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -241,8 +241,8 @@ function bookingOverlapsLocalDay(b: Booking, day: Date): boolean {
 type OverviewCalendarProps = {
   units: { id: string; name: string; slug: string; propertyName: string }[];
   bookings: Booking[];
-  unitId: string;
-  onUnitId: (id: string) => void;
+  selectedUnitIds: string[];
+  onSelectedUnitIds: (ids: string[]) => void;
   viewMonth: Date;
   onViewMonth: (d: Date) => void;
   onPickBooking: (b: Booking) => void;
@@ -251,8 +251,8 @@ type OverviewCalendarProps = {
 function OverviewBookingCalendar({
   units,
   bookings,
-  unitId,
-  onUnitId,
+  selectedUnitIds,
+  onSelectedUnitIds,
   viewMonth,
   onViewMonth,
   onPickBooking,
@@ -260,7 +260,20 @@ function OverviewBookingCalendar({
   const fmtDay = (iso: string) =>
     new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
-  const unitBookings = bookings.filter((b) => b.rentableUnit?.id === unitId && b.status !== 'CANCELLED');
+  const selectedSet = new Set(selectedUnitIds);
+  const showMultipleUnits = selectedUnitIds.length > 1;
+  const unitBookings = bookings.filter(
+    (b) => b.rentableUnit?.id && selectedSet.has(b.rentableUnit.id) && b.status !== 'CANCELLED',
+  );
+
+  const toggleUnit = (id: string, checked: boolean) => {
+    if (checked) {
+      if (selectedUnitIds.includes(id)) return;
+      onSelectedUnitIds([...selectedUnitIds, id]);
+      return;
+    }
+    onSelectedUnitIds(selectedUnitIds.filter((x) => x !== id));
+  };
 
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
@@ -275,7 +288,13 @@ function OverviewBookingCalendar({
 
   const bookingsForDay = (dayNum: number) => {
     const day = new Date(year, month, dayNum);
-    return unitBookings.filter((b) => bookingOverlapsLocalDay(b, day));
+    const list = unitBookings.filter((b) => bookingOverlapsLocalDay(b, day));
+    if (!showMultipleUnits || list.length < 2) return list;
+    return [...list].sort(
+      (a, b) =>
+        (a.rentableUnit?.name ?? '').localeCompare(b.rentableUnit?.name ?? '') ||
+        new Date(a.checkInUtc).getTime() - new Date(b.checkInUtc).getTime(),
+    );
   };
 
   const monthTitle = viewMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -284,31 +303,65 @@ function OverviewBookingCalendar({
     <div className="adm-card adm-cal-card">
       <div className="adm-card-header adm-cal-card-header">
         <div>
-          <h2 className="adm-card-title">Unit calendar</h2>
-          <p className="adm-cal-sub">Switch unit to compare stays. Icons: website vs Airbnb calendar import.</p>
+          <h2 className="adm-card-title">Units calendar</h2>
+          <p className="adm-cal-sub">
+            Select one or more stays; bookings merge onto a single month grid. Icons: website vs Airbnb calendar import.
+            {showMultipleUnits ? ' Chip subtitle shows which unit each booking belongs to.' : ''}
+          </p>
         </div>
       </div>
       <div className="adm-card-body">
         <div className="adm-cal-toolbar">
-          <label className="adm-label" htmlFor="adm-cal-unit">
-            Stay / unit
-          </label>
-          <select
-            id="adm-cal-unit"
-            className="adm-select adm-cal-unit-select"
-            value={unitId}
-            onChange={(e) => onUnitId(e.target.value)}
-          >
-            {units.length === 0 ? (
-              <option value="">No units yet</option>
-            ) : (
-              units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.propertyName} · {u.slug})
-                </option>
-              ))
-            )}
-          </select>
+          <div className="adm-cal-unit-picker">
+            <div className="adm-cal-unit-picker-head">
+              <span id="adm-cal-units-label" className="adm-label" style={{ marginBottom: 0 }}>
+                Stays / units ({selectedUnitIds.length}/{units.length})
+              </span>
+              <div className="adm-cal-unit-picker-actions">
+                <button
+                  type="button"
+                  className="adm-btn adm-btn-ghost adm-btn-sm"
+                  disabled={units.length === 0}
+                  onClick={() => onSelectedUnitIds(units.map((u) => u.id))}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className="adm-btn adm-btn-ghost adm-btn-sm"
+                  disabled={units.length === 0}
+                  onClick={() => onSelectedUnitIds([])}
+                >
+                  None
+                </button>
+              </div>
+            </div>
+            <div
+              className="adm-cal-unit-checkboxes"
+              role="group"
+              aria-labelledby="adm-cal-units-label"
+            >
+              {units.length === 0 ? (
+                <p style={{ margin: 0, fontSize: '0.82rem', color: '#9CA3AF' }}>No units yet.</p>
+              ) : (
+                units.map((u) => (
+                  <label key={u.id} className="adm-cal-unit-row">
+                    <input
+                      type="checkbox"
+                      checked={selectedSet.has(u.id)}
+                      onChange={(e) => toggleUnit(u.id, e.target.checked)}
+                    />
+                    <span className="adm-cal-unit-row-text">
+                      <span className="adm-cal-unit-name">{u.name}</span>
+                      <span className="adm-cal-unit-meta">
+                        {u.propertyName} · {u.slug}
+                      </span>
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
           <div className="adm-cal-nav">
             <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => onViewMonth(new Date(year, month - 1, 1))}>
               ← Prev
@@ -320,9 +373,13 @@ function OverviewBookingCalendar({
           </div>
         </div>
 
-        {!unitId || units.length === 0 ? (
+        {units.length === 0 ? (
           <div className="adm-empty" style={{ padding: '1.5rem' }}>
             Add properties and units first.
+          </div>
+        ) : selectedUnitIds.length === 0 ? (
+          <div className="adm-empty" style={{ padding: '1.5rem' }}>
+            Select one or more units above to show bookings on the calendar.
           </div>
         ) : (
           <div className="adm-cal-grid-wrap">
@@ -344,7 +401,9 @@ function OverviewBookingCalendar({
                       {bookingsForDay(c.dayNum).map((b) => {
                         const airbnb = b.externalProvider === ICAL_INGEST_PROVIDER;
                         const site = b.source === 'DIRECT_WEB';
+                        const unitLabel = b.rentableUnit?.name ?? '';
                         const tip = [
+                          showMultipleUnits && unitLabel ? `Unit: ${unitLabel}` : '',
                           b.guestName ?? 'Guest',
                           `${fmtDay(b.checkInUtc)} → ${fmtDay(b.checkOutUtc)}`,
                           b.status,
@@ -364,6 +423,9 @@ function OverviewBookingCalendar({
                             onClick={() => onPickBooking(b)}
                           >
                             <span className="adm-cal-chip-tip">
+                              {showMultipleUnits && unitLabel ? (
+                                <span className="adm-cal-chip-unit">{unitLabel}</span>
+                              ) : null}
                               <strong>{b.guestName ?? 'Guest'}</strong>
                               <br />
                               {fmtDay(b.checkInUtc)} — {fmtDay(b.checkOutUtc)}
@@ -446,7 +508,8 @@ export default function OrgAdminPage() {
     d.setHours(0, 0, 0, 0);
     return d;
   });
-  const [overviewCalUnitId, setOverviewCalUnitId] = useState('');
+  const [overviewCalUnitIds, setOverviewCalUnitIds] = useState<string[]>([]);
+  const overviewCalInitRef = useRef(false);
   const [overviewBookingDetail, setOverviewBookingDetail] = useState<Booking | null>(null);
 
   const tok = () => localStorage.getItem('mavu_token') ?? '';
@@ -567,6 +630,12 @@ export default function OrgAdminPage() {
 
   useEffect(() => {
     if (!slug) return;
+    overviewCalInitRef.current = false;
+    setOverviewCalUnitIds([]);
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug) return;
     if (tab !== 'bookings') return;
     void loadBk();
   }, [slug, tab, loadBk]);
@@ -607,8 +676,21 @@ export default function OrgAdminPage() {
   const allUnits = properties.flatMap(p => p.units.map(u => ({ ...u, propertyName: p.name, propertySlug: p.slug })));
 
   useEffect(() => {
-    if (allUnits.length > 0 && !overviewCalUnitId) setOverviewCalUnitId(allUnits[0].id);
-  }, [allUnits, overviewCalUnitId]);
+    if (allUnits.length === 0) {
+      setOverviewCalUnitIds([]);
+      overviewCalInitRef.current = false;
+      return;
+    }
+    setOverviewCalUnitIds((prev) => {
+      const valid = new Set(allUnits.map((u) => u.id));
+      const pruned = prev.filter((id) => valid.has(id));
+      if (!overviewCalInitRef.current) {
+        overviewCalInitRef.current = true;
+        return allUnits.map((u) => u.id);
+      }
+      return pruned;
+    });
+  }, [allUnits]);
 
   /* ─── Overview ─── */
   const TabOverview = (
@@ -665,8 +747,8 @@ export default function OrgAdminPage() {
       <OverviewBookingCalendar
         units={allUnits.map((u) => ({ id: u.id, name: u.name, slug: u.slug, propertyName: u.propertyName }))}
         bookings={bookings}
-        unitId={overviewCalUnitId}
-        onUnitId={setOverviewCalUnitId}
+        selectedUnitIds={overviewCalUnitIds}
+        onSelectedUnitIds={setOverviewCalUnitIds}
         viewMonth={overviewCalMonth}
         onViewMonth={setOverviewCalMonth}
         onPickBooking={setOverviewBookingDetail}
