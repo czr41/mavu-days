@@ -240,16 +240,25 @@ Travellers often find us searching for Bangalore farm stays, quiet villa weekend
 }
 
 export async function seedLandingCmsIfEmpty(prisma: PrismaClient, organizationId: string) {
-  await prisma.mediaAsset.upsert({
-    where: { organizationId_key: { organizationId, key: 'landing-hero-cover' } },
-    create: {
-      organizationId,
+  const mediaRows: { key: string; publicUrl: string; alt: string }[] = [
+    {
       key: 'landing-hero-cover',
       publicUrl: '/hero.jpg',
       alt: 'Mavu Days — private mango farm stay near Bangalore',
     },
-    update: {},
-  });
+    { key: 'gallery-room-1', publicUrl: '/1bhk.jpg', alt: '1BHK bedroom and living space' },
+    { key: 'gallery-room-2', publicUrl: '/2bhk.jpg', alt: '2BHK villa interior' },
+    { key: 'gallery-outdoor-1', publicUrl: '/full-farm.jpg', alt: 'Farm lawn and outdoor areas' },
+    { key: 'gallery-porch-1', publicUrl: '/hero.jpg', alt: 'Porch and sitout seating' },
+    { key: 'gallery-view-1', publicUrl: '/full-farm.jpg', alt: 'Open sky and farm views' },
+  ];
+  for (const row of mediaRows) {
+    await prisma.mediaAsset.upsert({
+      where: { organizationId_key: { organizationId, key: row.key } },
+      create: { organizationId, ...row },
+      update: {},
+    });
+  }
 
   for (const row of buildSectionRows()) {
     const existing = await prisma.siteSection.findUnique({

@@ -11,6 +11,7 @@ import { HeroReveal } from '@/components/landing/hero-reveal';
 import { FeatureGlyph, WhoGlyph } from '@/components/landing/landing-glyphs';
 import { OffersTicker } from '@/components/landing/offers-ticker';
 import { LandingJsonLd } from '@/components/landing/landing-json-ld';
+import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
 
 type Path = '/' | '/farm-stay-near-bangalore';
@@ -27,16 +28,6 @@ function galleryFallbackSlots(count = 8) {
     'Bedroom with natural light',
   ];
   return Array.from({ length: count }, (_, i) => ({ alt: alts[i % alts.length], key: `fallback-${i}` }));
-}
-
-/** Short caption for gallery pill (drops text after · separator). */
-function galleryCaptionLabel(altRaw: string): string {
-  const trimmed = altRaw?.trim();
-  if (!trimmed) return 'Mavu Days';
-  const first = trimmed.split(/\s*[·•|–—]\s*/)[0]?.trim();
-  const base = first && first.length >= 3 ? first : trimmed;
-  if (base.length <= 46) return base;
-  return `${base.slice(0, 43).trimEnd()}…`;
 }
 
 function GalleryBranchGlyph({ className }: { className?: string }) {
@@ -60,29 +51,6 @@ function GalleryBranchGlyph({ className }: { className?: string }) {
       <ellipse cx="102" cy="41" rx="12" ry="6" transform="rotate(15 102 41)" stroke="currentColor" strokeWidth="1.06" opacity="0.52" />
       <ellipse cx="38" cy="56" rx="9" ry="5" transform="rotate(12 38 56)" stroke="currentColor" strokeWidth="1.02" opacity="0.48" />
     </svg>
-  );
-}
-
-function GalleryBentoThumb({ slide, phMod }: { slide: { url: string | null; alt: string }; phMod: number }) {
-  const cap = galleryCaptionLabel(slide.alt);
-  const ph = (Math.abs(phMod) % 4) + 1;
-  return (
-    <>
-      {slide.url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={slide.url} alt={slide.alt} loading="lazy" className="md-gallery-bento-img" />
-      ) : (
-        <div className={`md-gallery-ph-${ph} md-gallery-bento-ph-fill`} role="img" aria-label={slide.alt} />
-      )}
-      <span className="md-gallery-bento-cap">
-        <svg className="md-gallery-bento-cap-ic" width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-          <rect x="3" y="5" width="18" height="14" rx="2" ry="2" stroke="currentColor" strokeWidth="1.6" fill="none" />
-          <circle cx="8.25" cy="10" r="1.05" fill="currentColor" />
-          <path d="M14 13h4M14 15.5h2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
-        <span className="md-gallery-bento-cap-text">{cap}</span>
-      </span>
-    </>
   );
 }
 
@@ -112,33 +80,11 @@ export async function LandingView({ path }: { path: Path }) {
     `Hi! I'd love to see the full photo gallery for ${orgName}.`,
   );
 
-  type GallerySlide = { url: string | null; alt: string; key: string };
   const cappedGallery = merged.gallery.slice(0, 48);
-  const galleryItems: GallerySlide[] =
+  const galleryItems =
     cappedGallery.length > 0
       ? cappedGallery.map((g) => ({ url: g.url, alt: g.alt, key: g.key }))
       : galleryFallbackSlots(8).map((p) => ({ url: null, alt: p.alt, key: p.key }));
-
-  /** Seven slots for desktop bento; mobile strip can show more. */
-  const galleryBentoSlides = galleryItems.slice(0, 7);
-
-  /** Always render seven bento tiles; pad with tonal placeholders matching marketing copy if CMS has fewer. */
-  let bentoFb = 0;
-  const galleryBentoSeven: GallerySlide[] = [...galleryBentoSlides];
-  while (galleryBentoSeven.length < 7) {
-    const f = galleryFallbackSlots(1)[0]!;
-    galleryBentoSeven.push({
-      url: null,
-      alt: f.alt,
-      key: `gallery-bento-fallback-${bentoFb}-${f.key}`,
-    });
-    bentoFb++;
-  }
-
-  const [bzHero, bzWide, bzTri1, bzTri2, bzTri3, bzDuo1, bzDuo2] = galleryBentoSeven;
-
-  /** Horizontal scroll / mobile: more room for stay-linked photos appended after CMS */
-  const galleryScrollItems = galleryItems.slice(0, 24);
 
   const verifiedFallbackLabel = 'Verified guest';
   const defaultReviews =
@@ -168,7 +114,7 @@ export async function LandingView({ path }: { path: Path }) {
           },
         ];
 
-  const heroChips = t.chips.length ? t.chips : ['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay', 'Fenced ground · pets welcome'];
+  const heroChips = t.chips.length ? t.chips : ['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay', 'Fenced ground Â· pets welcome'];
 
   return (
     <>
@@ -216,7 +162,7 @@ export async function LandingView({ path }: { path: Path }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={merged.heroImageUrl ?? '/hero.jpg'}
-            alt={`${orgName} — private mango farm stay near Bangalore`}
+            alt={`${orgName} â€” private mango farm stay near Bangalore`}
             className="md-hero-img"
           />
           <div className="md-hero-overlay-premium" aria-hidden />
@@ -225,13 +171,13 @@ export async function LandingView({ path }: { path: Path }) {
               <div className="md-hero-text">
                 <p className="md-hero-eyebrow">
                   <span />
-                  Private Mango Farm Stay · Near Bangalore
+                  Private Mango Farm Stay Â· Near Bangalore
                 </p>
                 <h1 id="hero-heading" className="md-h1">
                   {t.heroH1 || 'Slow Down at\nMavu Days'}
                 </h1>
                 <p className="md-hero-lead">
-                  {t.heroSub || 'Peaceful mango farm stay near Bangalore—slow weekends, family time, private escapes.'}
+                  {t.heroSub || 'Peaceful mango farm stay near Bangaloreâ€”slow weekends, family time, private escapes.'}
                 </p>
                 <div className="md-hero-ctas">
                   <a className="md-btn md-btn-primary" href="#booking">
@@ -296,7 +242,7 @@ export async function LandingView({ path }: { path: Path }) {
             <header className="md-section-head md-section-head-center">
               <p className="md-eyebrow-line md-section-label">Choose Your Stay</p>
               <h2 className="md-h2">{t.staysTitle || 'Find the Stay That Fits'}</h2>
-              <p className="md-lead">{t.staysSubtitle || 'Three ways to experience Mavu Days — cosy, spacious, or the whole farm to yourself.'}</p>
+              <p className="md-lead">{t.staysSubtitle || 'Three ways to experience Mavu Days â€” cosy, spacious, or the whole farm to yourself.'}</p>
             </header>
             <div className="md-stay-grid">
               {t.listings.map((L, idx) => {
@@ -324,7 +270,7 @@ export async function LandingView({ path }: { path: Path }) {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={imgSrc}
-                          alt={`${L.title} — villa exterior at Mavu Days`}
+                          alt={`${L.title} â€” villa exterior at Mavu Days`}
                           loading="lazy"
                           className="md-stay-card-img"
                         />
@@ -366,7 +312,7 @@ export async function LandingView({ path }: { path: Path }) {
                         </>
                       ) : null}
                       {L.airbnbProfileLabel?.trim() ? (
-                        <p className="md-stay-airbnb-note">Airbnb · {L.airbnbProfileLabel.trim()}</p>
+                        <p className="md-stay-airbnb-note">Airbnb Â· {L.airbnbProfileLabel.trim()}</p>
                       ) : null}
                       <Link href={`/stays/${pathSeg}`} className="md-btn md-btn-primary md-btn-block">
                         {L.cta || 'View Details'}
@@ -395,7 +341,7 @@ export async function LandingView({ path }: { path: Path }) {
             <header className="md-section-head md-section-head-center">
               <p className="md-eyebrow-line md-section-label">Experiences</p>
               <h2 className="md-h2">{t.whyTitle || 'What Awaits You'}</h2>
-              <p className="md-lead">{t.whyIntro || 'More than a stay — a full sensory reconnection with nature and slow living.'}</p>
+              <p className="md-lead">{t.whyIntro || 'More than a stay â€” a full sensory reconnection with nature and slow living.'}</p>
             </header>
             <div className="md-feature-grid">
               {t.whyBlocks.map((b, fi) => (
@@ -423,7 +369,7 @@ export async function LandingView({ path }: { path: Path }) {
                 </h2>
                 <p className="md-body md-prose" style={{ marginBottom: '1.5rem' }}>
                   {t.experienceBodyDefault ||
-                    'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breathe—your unrushed farm day.'}
+                    'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breatheâ€”your unrushed farm day.'}
                 </p>
                 {t.tiles?.length ? (
                   <ul className="md-tiles" style={{ marginBottom: '1.75rem' }}>
@@ -433,7 +379,7 @@ export async function LandingView({ path }: { path: Path }) {
                   </ul>
                 ) : null}
                 <a href="#gallery" className="md-btn md-btn-secondary">
-                  View Gallery →
+                  View Gallery â†’
                 </a>
               </div>
               <RevealFigure delayIndex={1} className="md-story-img-wrap">
@@ -443,7 +389,7 @@ export async function LandingView({ path }: { path: Path }) {
                   const shot = fromGallery?.url
                     ? fromGallery
                     : heroFb
-                      ? { url: heroFb, alt: `${orgName} — overview`, key: 'story-hero-fallback' }
+                      ? { url: heroFb, alt: `${orgName} â€” overview`, key: 'story-hero-fallback' }
                       : galleryItems[0];
                   return shot?.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -471,51 +417,12 @@ export async function LandingView({ path }: { path: Path }) {
               <a className="md-gallery-bento-cta-outline" href={waGalleryTourHref} target="_blank" rel="noreferrer">
                 View Full Gallery
                 <span className="md-gallery-bento-cta-arrow" aria-hidden>
-                  →
+                  â†’
                 </span>
               </a>
             </div>
 
-            <div className="md-gallery-bento md-gallery-bento-desktop">
-              <RevealFigure key={bzHero.key} delayIndex={0} className="md-gallery-bento-hero md-gallery-bento-cell">
-                <GalleryBentoThumb slide={bzHero} phMod={0} />
-              </RevealFigure>
-              <RevealFigure key={bzWide.key} delayIndex={1} className="md-gallery-bento-wide md-gallery-bento-cell">
-                <GalleryBentoThumb slide={bzWide} phMod={1} />
-              </RevealFigure>
-              <div className="md-gallery-bento-triple">
-                <RevealFigure key={bzTri1.key} delayIndex={2} className="md-gallery-bento-tile md-gallery-bento-cell">
-                  <GalleryBentoThumb slide={bzTri1} phMod={2} />
-                </RevealFigure>
-                <RevealFigure key={bzTri2.key} delayIndex={3} className="md-gallery-bento-tile md-gallery-bento-cell">
-                  <GalleryBentoThumb slide={bzTri2} phMod={3} />
-                </RevealFigure>
-                <RevealFigure key={bzTri3.key} delayIndex={4} className="md-gallery-bento-tile md-gallery-bento-cell">
-                  <GalleryBentoThumb slide={bzTri3} phMod={4} />
-                </RevealFigure>
-              </div>
-              <div className="md-gallery-bento-duo">
-                <RevealFigure key={bzDuo1.key} delayIndex={5} className="md-gallery-bento-tile md-gallery-bento-cell">
-                  <GalleryBentoThumb slide={bzDuo1} phMod={5} />
-                </RevealFigure>
-                <RevealFigure key={bzDuo2.key} delayIndex={6} className="md-gallery-bento-tile md-gallery-bento-cell">
-                  <GalleryBentoThumb slide={bzDuo2} phMod={6} />
-                </RevealFigure>
-              </div>
-            </div>
-
-            <div className="md-gallery-scroll md-gallery-scroll-bento-mobile" aria-label="Photo gallery">
-              {galleryScrollItems.map((item, i) => (
-                <div key={`m-${item.key}`} className="md-swipe-card">
-                  {item.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.url} alt={item.alt} className="md-swipe-img" loading="lazy" />
-                  ) : (
-                    <div className={`md-gallery-ph md-gallery-ph-${(i % 4) + 1}`} role="img" aria-label={item.alt} style={{ height: 220 }} />
-                  )}
-                </div>
-              ))}
-            </div>
+            <GalleryCategoryGroups items={galleryItems} />
 
           </div>
         </RevealSection>
@@ -571,14 +478,14 @@ export async function LandingView({ path }: { path: Path }) {
                 <div className="md-map-shell md-map-shell-brand">
                   <div className="md-map-frame-wrap">
                     <iframe
-                      title="Map — Mavu Days Farm House"
+                      title="Map â€” Mavu Days Farm House"
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
                       className="md-map-frame"
                       src={MAVU_DAYS_OSM_EMBED_URL}
                     />
                     <span className="md-map-drive-badge">
-                      ~1.5 hrs drive <span aria-hidden className="md-map-drive-dot">·</span> From Bangalore
+                      ~1.5 hrs drive <span aria-hidden className="md-map-drive-dot">Â·</span> From Bangalore
                     </span>
                   </div>
                   <span className="md-map-pin-hint md-map-pin-hint-soft">
@@ -586,7 +493,7 @@ export async function LandingView({ path }: { path: Path }) {
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                       <circle cx="12" cy="10" r="3" />
                     </svg>
-                    Mavu Days Farm House · Near Channapatna, Karnataka
+                    Mavu Days Farm House Â· Near Channapatna, Karnataka
                   </span>
                 </div>
               </div>
@@ -625,7 +532,7 @@ export async function LandingView({ path }: { path: Path }) {
                   {t.petFriendlyEyebrow || 'Pet-friendly stay'}
                 </h3>
                 <p className="md-pet-welcome-banner-copy">
-                  <strong>No rules for pets on property — only for humans!</strong> Roughly two fenced acres for dogs to roam—our{' '}
+                  <strong>No rules for pets on property â€” only for humans!</strong> Roughly two fenced acres for dogs to roamâ€”our{' '}
                   <a href="#house-rules" className="md-link">
                     house guidelines
                   </a>{' '}
@@ -699,7 +606,7 @@ export async function LandingView({ path }: { path: Path }) {
               {hasImportedReviews
                 ? landingReviews.map((r, idx) => (
                     <RevealFigure key={r.id} delayIndex={idx} className="md-review-card">
-                      <div className="md-review-stars">★★★★★</div>
+                      <div className="md-review-stars">â˜…â˜…â˜…â˜…â˜…</div>
                       <blockquote className="md-quote">
                         <p>{`"${r.body}"`}</p>
                       </blockquote>
@@ -715,7 +622,7 @@ export async function LandingView({ path }: { path: Path }) {
                   ))
                 : defaultReviews.map((q, idx) => (
                     <RevealBlock key={idx} delayIndex={idx} className="md-review-card">
-                      <div className="md-review-stars">★★★★★</div>
+                      <div className="md-review-stars">â˜…â˜…â˜…â˜…â˜…</div>
                       <blockquote className="md-quote">
                         <p>{`"${q.quote}"`}</p>
                       </blockquote>
@@ -808,7 +715,7 @@ export async function LandingView({ path }: { path: Path }) {
                 <div>
                   <p className="md-footer-col-title">Stay in touch</p>
                   <p className="md-muted" style={{ marginBottom: '0.75rem', fontSize: '0.88rem' }}>
-                    Message us on WhatsApp or email—we reply when we can.
+                    Message us on WhatsApp or emailâ€”we reply when we can.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {phone ? (
@@ -837,7 +744,7 @@ export async function LandingView({ path }: { path: Path }) {
             </div>
 
             <div className="md-footer-bottom">
-              <span>© {new Date().getFullYear()} {orgName}. All rights reserved.</span>
+              <span>Â© {new Date().getFullYear()} {orgName}. All rights reserved.</span>
               <span>
                 <Link href="/login" className="md-footer-bottom md-link" style={{ fontSize: '0.8rem' }}>Host login</Link>
               </span>

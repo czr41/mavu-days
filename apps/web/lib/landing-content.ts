@@ -570,15 +570,19 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
   ];
 
   if (payload?.media?.length) {
-    const hero =
-      payload.media.find((m) => m.key.toLowerCase() === MEDIA_KEY.heroCover.toLowerCase()) ?? undefined;
-    const heroUrl = normalizeMarketingImageUrl(hero?.publicUrl ?? '');
-    if (heroUrl) {
-      seen.add(heroUrl);
+    const sortedMedia = [...payload.media].sort((a, b) => a.key.localeCompare(b.key));
+    for (const m of sortedMedia) {
+      const k = m.key.toLowerCase();
+      const isHero = k === MEDIA_KEY.heroCover.toLowerCase();
+      const isGalleryCat = k.startsWith('gallery-');
+      if (!isHero && !isGalleryCat) continue;
+      const url = normalizeMarketingImageUrl(m.publicUrl ?? '');
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
       out.push({
-        url: heroUrl,
-        key: MEDIA_KEY.heroCover,
-        alt: hero?.alt?.trim() || seoAltsForStays[0],
+        url,
+        key: m.key,
+        alt: m.alt?.trim() || seoAltsForStays[0],
       });
     }
   }

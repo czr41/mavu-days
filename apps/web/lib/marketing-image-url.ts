@@ -33,20 +33,22 @@ export function normalizeMarketingImageUrl(raw: string | null | undefined): stri
 
 /** When the API returns no usable image URLs, still drive the bento from public paths (add files under `apps/web/public/` or use absolute CDN URLs in admin). */
 export function marketingGalleryStaticFallback(): { url: string; alt: string; key: string }[] {
-  const alts = [
-    'Villa exterior with shaded lawn',
-    'Private pool and leisure area',
-    'Pool seating and open sky',
-    'Farm pathway through mango grove',
-    'Mango trees and walking trail',
-    'Bonfire and outdoor evening lights',
-    'Living room and cosy indoor seating',
-    'Bedroom with natural light',
+  const slots: { key: string; path: string; alt: string }[] = [
+    { key: 'gallery-room-1', path: '/1bhk.jpg', alt: '1BHK bedroom and living space' },
+    { key: 'gallery-room-2', path: '/2bhk.jpg', alt: '2BHK villa interior' },
+    { key: 'gallery-outdoor-1', path: '/full-farm.jpg', alt: 'Farm lawn and outdoor areas' },
+    { key: 'gallery-outdoor-2', path: '/full-farm.jpg', alt: 'Mango grove and farm paths' },
+    { key: 'gallery-porch-1', path: '/hero.jpg', alt: 'Porch and sitout seating' },
+    { key: 'gallery-view-1', path: '/hero.jpg', alt: 'Open sky and farm views' },
+    { key: 'gallery-other-1', path: '/2bhk.jpg', alt: 'Weekend stay at Mavu Days' },
+    { key: 'gallery-other-2', path: '/1bhk.jpg', alt: 'Private villa comfort' },
   ];
-  const paths = ['/full-farm.jpg', '/hero.jpg', '/1bhk.jpg', '/2bhk.jpg'];
-  return alts.map((alt, i) => ({
-    url: paths[i % paths.length]!,
-    alt: `${alt} · Mavu Days`,
-    key: `marketing-static-${i}`,
-  }));
+  const seen = new Set<string>();
+  const out: { url: string; alt: string; key: string }[] = [];
+  for (const s of slots) {
+    if (seen.has(s.path)) continue;
+    seen.add(s.path);
+    out.push({ url: s.path, alt: `${s.alt} · Mavu Days`, key: s.key });
+  }
+  return out;
 }

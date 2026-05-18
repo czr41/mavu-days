@@ -1662,22 +1662,76 @@ p.md-eyebrow-line {
   transform: translateY(-1px);
 }
 
-.md-gallery-bento-desktop { display: none; }
+/* Categorized square gallery (replaces tall bento hero column) */
+.md-gallery-categories {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2rem, 4.5vw, 3.25rem);
+  margin-top: clamp(1.5rem, 3vw, 2rem);
+}
 
-@media (min-width: 960px) {
-  .md-gallery-section .md-gallery-bento {
-    display: grid;
-    gap: clamp(12px, 1.85vw, 18px);
-    grid-template-columns: repeat(3, minmax(0, 1fr)) repeat(5, minmax(0, 1fr));
-    grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, 1fr);
-    align-items: stretch;
-    min-height: clamp(448px, 56vmin, 640px);
-  }
+.md-gallery-category-title {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: clamp(1.12rem, 2.2vw, 1.35rem);
+  font-weight: 500;
+  color: var(--heading);
+  letter-spacing: 0.01em;
+}
 
-  .md-gallery-bento-desktop {
-    display: grid;
+.md-gallery-category-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr);
+  gap: clamp(10px, 1.5vw, 14px);
+  align-items: stretch;
+}
+
+@media (max-width: 719px) {
+  .md-gallery-category-layout {
+    grid-template-columns: 1fr;
   }
 }
+
+.md-gallery-square-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
+  border-radius: clamp(12px, 1.35vw, 16px);
+  background: var(--soft-beige);
+  aspect-ratio: 1 / 1;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.md-gallery-square-cell:hover {
+  transform: scale(1.012);
+}
+
+.md-gallery-square-img,
+.md-gallery-square-ph {
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  object-fit: cover;
+  display: block;
+}
+
+.md-gallery-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: inherit;
+  min-height: 0;
+}
+
+@media (min-width: 900px) {
+  .md-gallery-category-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.md-gallery-bento-desktop { display: none; }
 
 @media (max-width: 959px) {
   .md-gallery-section .md-gallery-bento-cta-outline { margin-top: 0.35rem; }
