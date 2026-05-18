@@ -559,7 +559,7 @@ function deriveListingsFromSite(properties: PublicSitePayload['properties']): Li
  *   Includes **draft** listings when they have at least one image (homepage mosaic); dedupes by URL.
  */
 function mergedLandingGallery(payload: LandingMergePayload): GallerySlide[] {
-  const out: { url: string; alt: string; key: string }[] = [];
+  const out: GallerySlide[] = [];
   const seen = new Set<string>();
 
   const seoAltsForStays = [

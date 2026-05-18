@@ -32,7 +32,9 @@ export function normalizeMarketingImageUrl(raw: string | null | undefined): stri
 }
 
 /** When the API returns no usable image URLs, still drive the bento from public paths (add files under `apps/web/public/` or use absolute CDN URLs in admin). */
-export function marketingGalleryStaticFallback(): { url: string; alt: string; key: string }[] {
+import type { GallerySlide } from './gallery-categories';
+
+export function marketingGalleryStaticFallback(): GallerySlide[] {
   const slots: { key: string; path: string; alt: string }[] = [
     { key: 'gallery-room-1', path: '/1bhk.jpg', alt: '1BHK bedroom and living space' },
     { key: 'gallery-room-2', path: '/2bhk.jpg', alt: '2BHK villa interior' },
@@ -44,7 +46,7 @@ export function marketingGalleryStaticFallback(): { url: string; alt: string; ke
     { key: 'gallery-other-2', path: '/1bhk.jpg', alt: 'Private villa comfort' },
   ];
   const seen = new Set<string>();
-  const out: { url: string; alt: string; key: string }[] = [];
+  const out: GallerySlide[] = [];
   for (const s of slots) {
     if (seen.has(s.path)) continue;
     seen.add(s.path);

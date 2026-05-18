@@ -83,7 +83,7 @@ export async function LandingView({ path }: { path: Path }) {
   const cappedGallery = merged.gallery.slice(0, 48);
   const galleryItems =
     cappedGallery.length > 0
-      ? cappedGallery.map((g) => ({ url: g.url, alt: g.alt, key: g.key }))
+      ? cappedGallery
       : galleryFallbackSlots(8).map((p) => ({ url: null, alt: p.alt, key: p.key }));
 
   const verifiedFallbackLabel = 'Verified guest';
