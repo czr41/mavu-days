@@ -47,6 +47,59 @@ function orderedStayGallery(slug: string, listing: ListingCard): string[] {
   return out.length ? out : [staticCover];
 }
 
+/** Homepage mosaic stores per-unit URLs under keys `listing-gallery-${unitSlug}-…` (see mergedLandingGallery). */
+function homepageGalleryUrlsForUnit(
+  pathSeg: string,
+  homepageGallery: readonly { url: string; key: string }[],
+): string[] {
+  const prefix = `listing-gallery-${pathSeg}-`;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const g of homepageGallery) {
+    if (!g.key.startsWith(prefix)) continue;
+    const u = g.url.trim();
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+  }
+  return out;
+}
+
+/** Prefer listing/API order; append any extra URLs already merged for this unit on the homepage (deduped). */
+function mergedStayGalleryOrdered(
+  routeSlug: string,
+  listing: ListingCard,
+  homepageGallery: readonly { url: string; key: string }[],
+): string[] {
+  const base = orderedStayGallery(routeSlug, listing);
+  const pathSeg = listingUrlPath(listing);
+  const extra = homepageGalleryUrlsForUnit(pathSeg, homepageGallery);
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const pushUnique = (arr: string[]) => {
+    for (const u of arr) {
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      out.push(u);
+    }
+  };
+
+  /** No CMS/API photos — homepage mosaic still may have listing shots; prefer those over generic `/full-farm.jpg` hero. */
+  const listingHero = listing.detailHeroUrl?.trim();
+  const listingGallerySlots =
+    listing.galleryImageUrls?.filter((u) => typeof u === 'string' && u.trim()).length ?? 0;
+  if (!listingHero && listingGallerySlots === 0 && extra.length > 0) {
+    pushUnique(extra);
+    pushUnique(base);
+    return out.length ? out : base;
+  }
+
+  pushUnique(base);
+  pushUnique(extra);
+  return out.length ? out : base;
+}
+
 export async function StayDetailView({ slug }: Props) {
   const { merged, orgName } = await loadLandingPayload();
   const t = merged.texts;
@@ -60,9 +113,16 @@ export async function StayDetailView({ slug }: Props) {
   const pathSeg = listingUrlPath(listing);
   const otherListings = t.listings.filter((l) => listingUrlPath(l) !== pathSeg && l.id !== listing.id);
 
-  const galleryOrdered = orderedStayGallery(slug, listing);
+  const galleryOrdered = mergedStayGalleryOrdered(slug, listing, merged.gallery);
   const imgSrc = galleryOrdered[0] ?? '/hero.jpg';
+  /** Extra rows below the hero; if only one URL exists total but homepage merged several for this unit, include them here. */
   const galleryThumbs = galleryOrdered.slice(1);
+
+  const thumbAlt = (photoUrl: string, pi: number) => {
+    const hit = merged.gallery.find((g) => g.url.trim() === photoUrl);
+    const fromCms = hit?.alt?.trim();
+    return fromCms || `${listing.title} — gallery ${pi + 2}`;
+  };
 
   return (
     <div className="md-page-premium" style={{ background: 'var(--ivory)' }}>
@@ -152,7 +212,7 @@ export async function StayDetailView({ slug }: Props) {
                       <img
                         key={`${photoUrl}-${pi}`}
                         src={photoUrl}
-                        alt={`${listing.title} — gallery ${pi + 2}`}
+                        alt={thumbAlt(photoUrl, pi)}
                         loading={pi < 4 ? 'eager' : 'lazy'}
                       />
                     ))}

@@ -31,14 +31,6 @@ export type PublicLandingOfferDto = {
   label: string;
 };
 
-export type PublicContentPayload = {
-  organization: { slug: string; name: string };
-  sections: SiteSectionDto[];
-  media: MediaAssetDto[];
-  reviews: PublicGuestReviewDto[];
-  offers: PublicLandingOfferDto[];
-};
-
 /** Published marketing fields for one rentable unit (when published on the public site). */
 export type PublicUnitListingPayload = {
   published: boolean;
@@ -69,18 +61,33 @@ export type PublicUnitListingPayload = {
   galleryImageUrls: string[];
 };
 
-export type PublicSitePayload = PublicContentPayload & {
-  siteSettings: { homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' };
-  properties: Array<{
+/** Inventory slice returned with CMS content when needed for homepage gallery / merge (same shape as full `/site`). */
+export type PublicPropertiesPayload = Array<{
+  id: string;
+  name: string;
+  slug: string;
+  units: Array<{
     id: string;
     name: string;
     slug: string;
-    units: Array<{
-      id: string;
-      name: string;
-      slug: string;
-      kind: string;
-      listing: PublicUnitListingPayload | null;
-    }>;
+    kind: string;
+    listing: PublicUnitListingPayload | null;
   }>;
+}>;
+
+export type PublicContentPayload = {
+  organization: { slug: string; name: string };
+  sections: SiteSectionDto[];
+  media: MediaAssetDto[];
+  reviews: PublicGuestReviewDto[];
+  offers: PublicLandingOfferDto[];
+  /** Included on `/content` when inventory is embedded so `/site` isn’t strictly required for listing photos. */
+  siteSettings?: { homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' };
+  properties?: PublicPropertiesPayload;
+};
+
+/** Full marketing payload from `/site` (CMS + inventory + homepage kind). */
+export type PublicSitePayload = PublicContentPayload & {
+  siteSettings: { homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' };
+  properties: PublicPropertiesPayload;
 };

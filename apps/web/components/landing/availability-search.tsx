@@ -147,7 +147,7 @@ export function AvailabilitySearch({
   const [columns, setColumns] = useState<Column[] | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
 
-  const apiBase = useMemo(() => process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001', []);
+  const apiBase = useMemo(() => (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, ''), []);
 
   const stayLabel = useMemo(() => {
     const hit = stayOptions.find((o) => o.value === stayFilter);

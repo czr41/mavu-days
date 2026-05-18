@@ -12,7 +12,6 @@ import {
   resolveLandingUnitIds,
 } from '../services/landing-availability-matrix.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
-import { toPublicGuestReviewDto } from '../lib/guest-review-dto.js';
 import { buildPublicSitePayload } from '../lib/public-site-dto.js';
 
 const PUBLIC_LANDING_REVIEWS_LIMIT = 12;
@@ -47,7 +46,7 @@ function utcDay(dateStr: string): Date {
 
 export function registerPublicRoutes(app: FastifyInstance) {
   app.get('/public/orgs/:orgSlug/inventory', async (req, reply) => {
-    const slug = (req.params as { orgSlug: string }).orgSlug;
+    const slug = (req.params as { orgSlug: string }).orgSlug.trim();
     const org: OrgInventoryPayload | null = await app.prisma.organization.findUnique({
       where: { slug },
       include: {
@@ -79,7 +78,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
   });
 
   app.get('/public/orgs/:orgSlug/site', async (req, reply) => {
-    const slug = (req.params as { orgSlug: string }).orgSlug;
+    const slug = (req.params as { orgSlug: string }).orgSlug.trim();
     const org = await app.prisma.organization.findUnique({
       where: { slug },
       include: {
@@ -129,10 +128,11 @@ export function registerPublicRoutes(app: FastifyInstance) {
   });
 
   app.get('/public/orgs/:orgSlug/content', async (req, reply) => {
-    const slug = (req.params as { orgSlug: string }).orgSlug;
+    const slug = (req.params as { orgSlug: string }).orgSlug.trim();
     const org = await app.prisma.organization.findUnique({
       where: { slug },
       include: {
+        siteSettings: true,
         sections: {
           where: { published: true },
           orderBy: { sortOrder: 'asc' },
@@ -153,20 +153,42 @@ export function registerPublicRoutes(app: FastifyInstance) {
           ],
           take: PUBLIC_LANDING_REVIEWS_LIMIT,
         },
+        properties: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            units: {
+              orderBy: { slug: 'asc' },
+              include: { listingProfile: true },
+            },
+          },
+        },
       },
     });
     if (!org) return reply.status(404).send({ error: 'Organization not found' });
-    return reply.send({
-      organization: { slug: org.slug, name: org.name },
+
+    const dto = buildPublicSitePayload({
+      organization: org,
+      siteSettings: org.siteSettings,
+      properties: org.properties,
       sections: org.sections,
       media: org.media,
-      reviews: org.guestReviews.map(toPublicGuestReviewDto),
-      offers: org.landingOffers,
+      guestReviews: org.guestReviews,
+      tickerOffers: org.landingOffers,
+    });
+
+    return reply.send({
+      organization: dto.organization,
+      siteSettings: dto.siteSettings,
+      properties: dto.properties,
+      sections: dto.sections,
+      media: dto.media,
+      reviews: dto.reviews,
+      offers: dto.offers,
     });
   });
 
   app.get('/public/orgs/:orgSlug/landing-availability', async (req, reply) => {
-    const orgSlug = (req.params as { orgSlug: string }).orgSlug;
+    const orgSlug = (req.params as { orgSlug: string }).orgSlug.trim();
     const parsed = landingAvailabilityQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return reply.status(400).send({ error: 'checkIn and checkOut must be YYYY-MM-DD dates' });
