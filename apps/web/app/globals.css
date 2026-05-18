@@ -2246,6 +2246,248 @@ img { max-width: 100%; }
   opacity: 0.35;
 }
 
+/* Overview unit calendar */
+.adm-cal-card-header {
+  align-items: flex-start;
+}
+
+.adm-cal-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+  font-weight: 400;
+  max-width: 42rem;
+  line-height: 1.45;
+}
+
+.adm-cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.adm-cal-unit-select {
+  min-width: min(100%, 320px);
+  max-width: 420px;
+}
+
+.adm-cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-left: auto;
+}
+
+.adm-cal-month-label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #1a1a2e;
+  min-width: 10rem;
+  text-align: center;
+}
+
+.adm-cal-grid-wrap {
+  overflow-x: auto;
+}
+
+.adm-cal-dow {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(72px, 1fr));
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.adm-cal-dow-cell {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  text-align: center;
+  padding: 0.35rem 0;
+}
+
+.adm-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(72px, 1fr));
+  gap: 2px;
+  background: #e8ecef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.adm-cal-cell {
+  background: #fff;
+  min-height: 92px;
+  padding: 4px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adm-cal-cell-empty {
+  background: #fafafa;
+  min-height: 92px;
+}
+
+.adm-cal-day-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.adm-cal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-content: flex-start;
+}
+
+.adm-cal-chip {
+  position: relative;
+  border: none;
+  padding: 2px;
+  margin: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  background: #f3f4f6;
+  line-height: 0;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.adm-cal-chip:hover,
+.adm-cal-chip:focus-visible {
+  transform: scale(1.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  outline: none;
+  z-index: 5;
+}
+
+.adm-cal-chip-img {
+  display: block;
+  border-radius: 5px;
+}
+
+.adm-cal-chip-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.adm-cal-chip-tip {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 10px;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  border-radius: 8px;
+  width: max-content;
+  max-width: min(260px, 70vw);
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.adm-cal-chip:hover .adm-cal-chip-tip,
+.adm-cal-chip:focus-visible .adm-cal-chip-tip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.adm-cal-tip-muted {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.68rem;
+}
+
+.adm-cal-tip-warn {
+  color: #fbbf24;
+  font-size: 0.68rem;
+}
+
+.adm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.adm-modal {
+  background: #fff;
+  border-radius: 14px;
+  max-width: 440px;
+  width: 100%;
+  max-height: min(90vh, 560px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-card);
+}
+
+.adm-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.adm-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.adm-modal-close {
+  border: none;
+  background: #f3f4f6;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #374151;
+  flex-shrink: 0;
+}
+
+.adm-modal-close:hover {
+  background: #e5e7eb;
+}
+
+.adm-modal-body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+}
+
+.adm-modal-footer {
+  padding: 0.85rem 1.25rem 1rem;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 /* Alert message */
 .adm-alert {
   padding: 0.75rem 1rem;

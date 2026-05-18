@@ -37,6 +37,8 @@ type Booking = {
   id: string; checkInUtc: string; checkOutUtc: string; status: string; source: string;
   guestName: string | null; guestEmail: string | null; guestPhone: string | null;
   guestCount: number | null; note: string | null;
+  externalProvider?: string | null;
+  externalId?: string | null;
   rentableUnit: { id: string; name: string; slug: string } | null;
   offerSelections?: { landingOffer: { id: string; label: string } }[];
 };
@@ -221,6 +223,195 @@ function segmentFromParams(v: unknown): string {
   return '';
 }
 
+const ICAL_INGEST_PROVIDER = 'ical-ingest';
+
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function bookingOverlapsLocalDay(b: Booking, day: Date): boolean {
+  if (b.status === 'CANCELLED') return false;
+  const ci = new Date(b.checkInUtc).getTime();
+  const co = new Date(b.checkOutUtc).getTime();
+  const s = startOfLocalDay(day).getTime();
+  const e = s + 86400000;
+  return ci < e && co > s;
+}
+
+type OverviewCalendarProps = {
+  units: { id: string; name: string; slug: string; propertyName: string }[];
+  bookings: Booking[];
+  unitId: string;
+  onUnitId: (id: string) => void;
+  viewMonth: Date;
+  onViewMonth: (d: Date) => void;
+  onPickBooking: (b: Booking) => void;
+};
+
+function OverviewBookingCalendar({
+  units,
+  bookings,
+  unitId,
+  onUnitId,
+  viewMonth,
+  onViewMonth,
+  onPickBooking,
+}: OverviewCalendarProps) {
+  const fmtDay = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const unitBookings = bookings.filter((b) => b.rentableUnit?.id === unitId && b.status !== 'CANCELLED');
+
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells: { dayNum: number | null }[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push({ dayNum: null });
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ dayNum: d });
+
+  const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const bookingsForDay = (dayNum: number) => {
+    const day = new Date(year, month, dayNum);
+    return unitBookings.filter((b) => bookingOverlapsLocalDay(b, day));
+  };
+
+  const monthTitle = viewMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+  return (
+    <div className="adm-card adm-cal-card">
+      <div className="adm-card-header adm-cal-card-header">
+        <div>
+          <h2 className="adm-card-title">Unit calendar</h2>
+          <p className="adm-cal-sub">Switch unit to compare stays. Icons: website vs Airbnb calendar import.</p>
+        </div>
+      </div>
+      <div className="adm-card-body">
+        <div className="adm-cal-toolbar">
+          <label className="adm-label" htmlFor="adm-cal-unit">
+            Stay / unit
+          </label>
+          <select
+            id="adm-cal-unit"
+            className="adm-select adm-cal-unit-select"
+            value={unitId}
+            onChange={(e) => onUnitId(e.target.value)}
+          >
+            {units.length === 0 ? (
+              <option value="">No units yet</option>
+            ) : (
+              units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.propertyName} · {u.slug})
+                </option>
+              ))
+            )}
+          </select>
+          <div className="adm-cal-nav">
+            <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => onViewMonth(new Date(year, month - 1, 1))}>
+              ← Prev
+            </button>
+            <span className="adm-cal-month-label">{monthTitle}</span>
+            <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => onViewMonth(new Date(year, month + 1, 1))}>
+              Next →
+            </button>
+          </div>
+        </div>
+
+        {!unitId || units.length === 0 ? (
+          <div className="adm-empty" style={{ padding: '1.5rem' }}>
+            Add properties and units first.
+          </div>
+        ) : (
+          <div className="adm-cal-grid-wrap">
+            <div className="adm-cal-dow">
+              {dowLabels.map((l) => (
+                <div key={l} className="adm-cal-dow-cell">
+                  {l}
+                </div>
+              ))}
+            </div>
+            <div className="adm-cal-grid">
+              {cells.map((c, idx) =>
+                c.dayNum == null ? (
+                  <div key={`pad-${idx}`} className="adm-cal-cell adm-cal-cell-empty" />
+                ) : (
+                  <div key={c.dayNum} className="adm-cal-cell">
+                    <span className="adm-cal-day-num">{c.dayNum}</span>
+                    <div className="adm-cal-chips">
+                      {bookingsForDay(c.dayNum).map((b) => {
+                        const airbnb = b.externalProvider === ICAL_INGEST_PROVIDER;
+                        const site = b.source === 'DIRECT_WEB';
+                        const tip = [
+                          b.guestName ?? 'Guest',
+                          `${fmtDay(b.checkInUtc)} → ${fmtDay(b.checkOutUtc)}`,
+                          b.status,
+                          airbnb ? 'Airbnb (calendar)' : site ? 'Mavu Days website' : `Source: ${b.source}`,
+                          b.guestCount ? `${b.guestCount} guests` : '',
+                          b.note ? `Note: ${b.note}` : '',
+                        ]
+                          .filter(Boolean)
+                          .join('\n');
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            className="adm-cal-chip"
+                            title={tip}
+                            aria-label={`Booking ${b.guestName ?? b.id}: ${tip.replace(/\n/g, ', ')}`}
+                            onClick={() => onPickBooking(b)}
+                          >
+                            <span className="adm-cal-chip-tip">
+                              <strong>{b.guestName ?? 'Guest'}</strong>
+                              <br />
+                              {fmtDay(b.checkInUtc)} — {fmtDay(b.checkOutUtc)}
+                              <br />
+                              <span className="adm-cal-tip-muted">{airbnb ? 'Airbnb' : site ? 'Website' : b.source}</span>
+                              {b.status === 'PENDING' ? (
+                                <>
+                                  <br />
+                                  <span className="adm-cal-tip-warn">Pending</span>
+                                </>
+                              ) : null}
+                            </span>
+                            {airbnb ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src="https://www.airbnb.com/favicon.ico"
+                                alt=""
+                                width={18}
+                                height={18}
+                                className="adm-cal-chip-img"
+                              />
+                            ) : site ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src="/logo.svg" alt="" width={18} height={18} className="adm-cal-chip-img" />
+                            ) : (
+                              <span className="adm-cal-chip-fallback" aria-hidden>
+                                ●
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 /* ─────────────────────────────── Page ─────────────────────────────── */
 export default function OrgAdminPage() {
   const params = useParams();
@@ -249,6 +440,14 @@ export default function OrgAdminPage() {
   } | null>(null);
   const [hostDrafts, setHostDrafts] = useState<Record<string, HostDraftRow>>({});
   const [airbnbAccounts, setAirbnbAccounts] = useState<AirbnbHostAccountRow[]>([]);
+  const [overviewCalMonth, setOverviewCalMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [overviewCalUnitId, setOverviewCalUnitId] = useState('');
+  const [overviewBookingDetail, setOverviewBookingDetail] = useState<Booking | null>(null);
 
   const tok = () => localStorage.getItem('mavu_token') ?? '';
   const ah  = (extra?: Record<string, string>) => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json', ...extra });
@@ -363,7 +562,8 @@ export default function OrgAdminPage() {
     void loadDash();
     void loadProps();
     void loadRev();
-  }, [slug, router, loadDash, loadProps, loadRev]);
+    void loadBk();
+  }, [slug, router, loadDash, loadProps, loadRev, loadBk]);
 
   useEffect(() => {
     if (!slug) return;
@@ -405,6 +605,10 @@ export default function OrgAdminPage() {
 
   // Flat list of all units across all properties (for dropdowns)
   const allUnits = properties.flatMap(p => p.units.map(u => ({ ...u, propertyName: p.name, propertySlug: p.slug })));
+
+  useEffect(() => {
+    if (allUnits.length > 0 && !overviewCalUnitId) setOverviewCalUnitId(allUnits[0].id);
+  }, [allUnits, overviewCalUnitId]);
 
   /* ─── Overview ─── */
   const TabOverview = (
@@ -457,6 +661,16 @@ export default function OrgAdminPage() {
           </table>
         ) : <div className="adm-empty"><CalI size={28}/>No upcoming bookings.</div>}
       </div>
+
+      <OverviewBookingCalendar
+        units={allUnits.map((u) => ({ id: u.id, name: u.name, slug: u.slug, propertyName: u.propertyName }))}
+        bookings={bookings}
+        unitId={overviewCalUnitId}
+        onUnitId={setOverviewCalUnitId}
+        viewMonth={overviewCalMonth}
+        onViewMonth={setOverviewCalMonth}
+        onPickBooking={setOverviewBookingDetail}
+      />
     </>
   );
 
@@ -2043,6 +2257,101 @@ export default function OrgAdminPage() {
           {tab==='team'       && TabTeam}
         </div>
       </div>
+
+      {overviewBookingDetail ? (
+        <div
+          className="adm-modal-backdrop"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setOverviewBookingDetail(null);
+          }}
+        >
+          <div
+            className="adm-modal"
+            role="dialog"
+            aria-modal
+            aria-labelledby="adm-booking-modal-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="adm-modal-header">
+              <h2 id="adm-booking-modal-title" className="adm-modal-title">
+                {overviewBookingDetail.guestName ?? 'Booking'}
+              </h2>
+              <button
+                type="button"
+                className="adm-modal-close"
+                aria-label="Close"
+                onClick={() => setOverviewBookingDetail(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="adm-modal-body">
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem' }}>
+                <strong>Unit</strong> — {overviewBookingDetail.rentableUnit?.name ?? '—'}
+              </p>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem' }}>
+                <strong>Check-in</strong> — {fmtDate(overviewBookingDetail.checkInUtc)}
+              </p>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem' }}>
+                <strong>Check-out</strong> — {fmtDate(overviewBookingDetail.checkOutUtc)}
+              </p>
+              <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <strong>Status</strong> — <StatusBadge s={overviewBookingDetail.status} />
+              </p>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem' }}>
+                <strong>Channel</strong> —{' '}
+                {overviewBookingDetail.externalProvider === ICAL_INGEST_PROVIDER
+                  ? 'Airbnb (calendar import)'
+                  : overviewBookingDetail.source === 'DIRECT_WEB'
+                    ? 'Mavu Days website'
+                    : overviewBookingDetail.source === 'MANUAL'
+                      ? 'Manual'
+                      : overviewBookingDetail.source}
+              </p>
+              {overviewBookingDetail.guestEmail ? (
+                <p style={{ margin: '0 0 0.35rem', fontSize: '0.875rem' }}>
+                  <strong>Email</strong> — {overviewBookingDetail.guestEmail}
+                </p>
+              ) : null}
+              {overviewBookingDetail.guestPhone ? (
+                <p style={{ margin: '0 0 0.35rem', fontSize: '0.875rem' }}>
+                  <strong>Phone</strong> — {overviewBookingDetail.guestPhone}
+                </p>
+              ) : null}
+              {overviewBookingDetail.guestCount != null ? (
+                <p style={{ margin: '0 0 0.35rem', fontSize: '0.875rem' }}>
+                  <strong>Guests</strong> — {overviewBookingDetail.guestCount}
+                </p>
+              ) : null}
+              {overviewBookingDetail.note ? (
+                <p style={{ margin: '0.75rem 0 0', fontSize: '0.84rem', color: '#4B5563', whiteSpace: 'pre-wrap' }}>
+                  <strong>Note</strong> — {overviewBookingDetail.note}
+                </p>
+              ) : null}
+            </div>
+            <div className="adm-modal-footer">
+              <button
+                type="button"
+                className="adm-btn adm-btn-ghost adm-btn-sm"
+                onClick={() => setOverviewBookingDetail(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="adm-btn adm-btn-primary adm-btn-sm"
+                onClick={() => {
+                  setOverviewBookingDetail(null);
+                  setTab('bookings');
+                }}
+              >
+                Open Bookings tab
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2067,8 +2376,6 @@ function StatusBadge({ s }: { s: string }) {
   const m: Record<string, string> = { CONFIRMED:'adm-badge-green', PENDING:'adm-badge-yellow', CANCELLED:'adm-badge-red', BLOCKED:'adm-badge-gray' };
   return <span className={`adm-badge ${m[s]??'adm-badge-blue'}`}>{s}</span>;
 }
-
-function fmtDate(d: string) { return new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }); }
 
 /* ─────────────────── Icons ─────────────────── */
 function GridI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>; }
