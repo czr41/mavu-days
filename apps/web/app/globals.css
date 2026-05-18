@@ -2246,6 +2246,240 @@ img { max-width: 100%; }
   opacity: 0.35;
 }
 
+/* Stay listing gallery editor (CMS) */
+.adm-listing-gallery-field {
+  padding: 1rem;
+  background: linear-gradient(145deg, #fafafa 0%, #f4f7f5 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+.adm-listing-gallery-collapsible > .adm-label {
+  margin-bottom: 0.4rem;
+}
+
+.adm-listing-gallery-trigger-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 0;
+}
+
+.adm-listing-gallery-trigger-main {
+  flex: 1;
+  min-width: min(100%, 200px);
+}
+
+.adm-listing-gallery-trigger-copy {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.adm-listing-gallery-trigger-strip {
+  list-style: none;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.adm-listing-gallery-trigger-strip > li {
+  margin: 0;
+}
+
+.adm-listing-gallery-trigger-thumb-img {
+  width: 44px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  display: block;
+  background: #f3f4f6;
+}
+
+.adm-listing-gallery-trigger-thumb-broken {
+  width: 44px;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px dashed #d1d5db;
+  background: repeating-linear-gradient(-45deg, #f9fafb, #f9fafb 4px, #f3f4f6 4px, #f3f4f6 8px);
+}
+
+.adm-listing-gallery-trigger-more-pill {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #374151;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+}
+
+.adm-listing-gallery-trigger-meta {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.adm-listing-gallery-panel {
+  margin-top: 0.75rem;
+}
+
+.adm-listing-gallery-head {
+  margin-bottom: 0.85rem;
+}
+
+.adm-listing-gallery-count {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.adm-listing-gallery-lead {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.adm-listing-gallery-empty {
+  padding: 1.25rem;
+  text-align: center;
+  font-size: 0.84rem;
+  color: #9ca3af;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  margin-bottom: 0.85rem;
+  background: #fff;
+}
+
+.adm-listing-gallery-grid {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 0.75rem;
+}
+
+.adm-listing-gallery-card {
+  margin: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.adm-listing-gallery-thumb-wrap {
+  aspect-ratio: 4 / 3;
+  background: #f3f4f6;
+}
+
+.adm-listing-gallery-thumb-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.adm-listing-gallery-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.65rem;
+  text-align: center;
+}
+
+.adm-listing-gallery-thumb-fallback-msg {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.adm-listing-gallery-thumb-fallback-url {
+  font-size: 0.62rem;
+  color: #6b7280;
+  word-break: break-all;
+  line-height: 1.35;
+}
+
+.adm-listing-gallery-card-footer {
+  padding: 0.45rem 0.55rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.adm-listing-gallery-card-pos {
+  align-self: flex-start;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--sage, #5c7267);
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+}
+
+.adm-listing-gallery-card-url {
+  font-size: 0.65rem;
+  color: #6b7280;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.adm-listing-gallery-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+}
+
+.adm-listing-gallery-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.adm-listing-gallery-add-row .adm-input {
+  flex: 1;
+  min-width: min(100%, 220px);
+}
+
+.adm-listing-gallery-raw {
+  margin-top: 0.25rem;
+}
+
+.adm-listing-gallery-raw summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #6b7280;
+  font-weight: 600;
+  padding: 0.35rem 0;
+}
+
+.adm-listing-gallery-raw summary:hover {
+  color: #374151;
+}
+
+.adm-listing-gallery-raw .adm-textarea {
+  margin-top: 0.45rem;
+}
+
 /* Overview unit calendar */
 .adm-cal-card-header {
   align-items: flex-start;

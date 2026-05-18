@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -151,6 +151,246 @@ function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
     airbnbListingUrl: lp?.airbnbListingUrl ?? '',
     galleryUrlsText: jsonStringArr(lp?.galleryImageUrls).join('\n'),
   };
+}
+
+const MAX_STAY_GALLERY_URLS = 24;
+
+function parseGalleryUrlsFromText(text: string): string[] {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, MAX_STAY_GALLERY_URLS);
+}
+
+function ListingGalleryThumb({ url }: { url: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) {
+    return (
+      <div className="adm-listing-gallery-thumb-fallback">
+        <span className="adm-listing-gallery-thumb-fallback-msg">Couldn&apos;t load preview</span>
+        <span className="adm-listing-gallery-thumb-fallback-url" title={url}>
+          {url.length > 96 ? `${url.slice(0, 96)}…` : url}
+        </span>
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="" className="adm-listing-gallery-thumb-img" loading="lazy" onError={() => setBroken(true)} />
+  );
+}
+
+function ListingGalleryThumbMini({ url }: { url: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) {
+    return <div className="adm-listing-gallery-trigger-thumb adm-listing-gallery-trigger-thumb-broken" aria-hidden />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      className="adm-listing-gallery-trigger-thumb-img"
+      loading="lazy"
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
+function StayGalleryEditorPanel({
+  value,
+  onChange,
+  addUrlInputId,
+}: {
+  value: string;
+  onChange: (galleryUrlsText: string) => void;
+  addUrlInputId: string;
+}) {
+  const urls = parseGalleryUrlsFromText(value);
+  const [addUrl, setAddUrl] = useState('');
+
+  const commit = (next: string[]) => {
+    onChange(next.slice(0, MAX_STAY_GALLERY_URLS).join('\n'));
+  };
+
+  const move = (i: number, delta: number) => {
+    const j = i + delta;
+    if (j < 0 || j >= urls.length) return;
+    const cp = [...urls];
+    [cp[i], cp[j]] = [cp[j], cp[i]];
+    commit(cp);
+  };
+
+  const removeAt = (i: number) => {
+    commit(urls.filter((_, idx) => idx !== i));
+  };
+
+  const handleAdd = () => {
+    const u = addUrl.trim();
+    if (!u || urls.length >= MAX_STAY_GALLERY_URLS) return;
+    if (urls.includes(u)) {
+      setAddUrl('');
+      return;
+    }
+    commit([...urls, u]);
+    setAddUrl('');
+  };
+
+  return (
+    <div className="adm-listing-gallery-field adm-listing-gallery-panel">
+      <div className="adm-listing-gallery-head">
+        <label className="adm-label" htmlFor={addUrlInputId} style={{ marginBottom: 0 }}>
+          Stay gallery{' '}
+          <span className="adm-listing-gallery-count">
+            ({urls.length}/{MAX_STAY_GALLERY_URLS})
+          </span>
+        </label>
+        <p className="adm-listing-gallery-lead">
+          Photos appear on the public stay page in this order. Use <strong>Host &amp; Airbnb → Pull photos</strong> to import listing URLs,
+          then reorder or remove shots here.
+        </p>
+      </div>
+
+      {urls.length === 0 ? (
+        <div className="adm-listing-gallery-empty">No photos yet — add an image URL below or pull from Airbnb.</div>
+      ) : (
+        <ul className="adm-listing-gallery-grid">
+          {urls.map((url, i) => (
+            <li key={`${url}::${i}`} className="adm-listing-gallery-card">
+              <div className="adm-listing-gallery-thumb-wrap">
+                <ListingGalleryThumb url={url} />
+              </div>
+              <div className="adm-listing-gallery-card-footer">
+                <span className="adm-listing-gallery-card-pos">{i + 1}</span>
+                <span className="adm-listing-gallery-card-url" title={url}>
+                  {url.length > 52 ? `${url.slice(0, 52)}…` : url}
+                </span>
+                <div className="adm-listing-gallery-card-actions">
+                  <button
+                    type="button"
+                    className="adm-btn adm-btn-ghost adm-btn-sm"
+                    disabled={i === 0}
+                    onClick={() => move(i, -1)}
+                    aria-label="Move earlier in gallery"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="adm-btn adm-btn-ghost adm-btn-sm"
+                    disabled={i >= urls.length - 1}
+                    onClick={() => move(i, 1)}
+                    aria-label="Move later in gallery"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="adm-btn adm-btn-ghost adm-btn-sm"
+                    style={{ color: '#B91C1C' }}
+                    onClick={() => removeAt(i)}
+                    aria-label="Remove from gallery"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="adm-listing-gallery-add-row">
+        <input
+          id={addUrlInputId}
+          type="text"
+          className="adm-input"
+          placeholder="https://… or /photos/your-image.jpg"
+          value={addUrl}
+          onChange={(e) => setAddUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="adm-btn adm-btn-primary adm-btn-sm"
+          disabled={urls.length >= MAX_STAY_GALLERY_URLS || !addUrl.trim()}
+          onClick={handleAdd}
+        >
+          Add to gallery
+        </button>
+      </div>
+
+      <details className="adm-listing-gallery-raw">
+        <summary>Paste or edit as plain text (one URL per line)</summary>
+        <textarea
+          className="adm-textarea"
+          rows={5}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={'https://example.com/photo-1.jpg\nhttps://example.com/photo-2.jpg'}
+          spellCheck={false}
+        />
+      </details>
+    </div>
+  );
+}
+
+function StayGalleryCollapsible({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (galleryUrlsText: string) => void;
+}) {
+  const urls = parseGalleryUrlsFromText(value);
+  const [open, setOpen] = useState(false);
+  const addUrlInputId = useId();
+
+  return (
+    <div className="adm-field adm-field-full adm-listing-gallery-collapsible">
+      <label className="adm-label">Stay gallery</label>
+      <div className="adm-listing-gallery-trigger-card">
+        <div className="adm-listing-gallery-trigger-main">
+          {urls.length === 0 ? (
+            <p className="adm-listing-gallery-trigger-copy">No photos on the stay detail page yet.</p>
+          ) : (
+            <ul className="adm-listing-gallery-trigger-strip" aria-hidden>
+              {urls.slice(0, 6).map((url, i) => (
+                <li key={`strip-${url}-${i}`}>
+                  <ListingGalleryThumbMini url={url} />
+                </li>
+              ))}
+              {urls.length > 6 ? (
+                <li className="adm-listing-gallery-trigger-more-pill" aria-hidden>
+                  +{urls.length - 6}
+                </li>
+              ) : null}
+            </ul>
+          )}
+          <p className="adm-listing-gallery-trigger-meta">
+            {urls.length === 0
+              ? `0 of ${MAX_STAY_GALLERY_URLS} slots used`
+              : `${urls.length} image${urls.length === 1 ? '' : 's'} · max ${MAX_STAY_GALLERY_URLS}`}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`adm-btn adm-btn-sm ${open ? 'adm-btn-ghost' : 'adm-btn-primary'}`}
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+        >
+          {open ? 'Hide gallery' : 'Manage gallery'}
+        </button>
+      </div>
+      {open ? <StayGalleryEditorPanel value={value} onChange={onChange} addUrlInputId={addUrlInputId} /> : null}
+    </div>
+  );
 }
 
 const MATRIX_ROLE_OPTS = ['NONE', 'FULL_FARM', 'VILLA_1BHK', 'VILLA_2BHK'] as const;
@@ -1472,37 +1712,10 @@ export default function OrgAdminPage() {
                         ):null}
                       </div>
                     </div>
-                    <div className="adm-field adm-field-full">
-                      <label className="adm-label">Stay gallery image URLs (one per line, HTTPS)</label>
-                      <textarea className="adm-textarea" rows={4} value={listingDraft.galleryUrlsText} onChange={(e)=>setListingDraft((d)=>d?{...d,galleryUrlsText:e.target.value}:d)} placeholder="Shown on the stay detail page · max 24"/>
-                      {listingDraft.galleryUrlsText.trim() ? (
-                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.45rem', alignItems: 'center' }}>
-                          {listingDraft.galleryUrlsText
-                            .split('\n')
-                            .map((l) => l.trim())
-                            .filter((url) => /^https?:\/\//i.test(url))
-                            .slice(0, 12)
-                            .map((url) => (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                key={url}
-                                src={url}
-                                alt=""
-                                style={{
-                                  width: 52,
-                                  height: 40,
-                                  objectFit: 'cover',
-                                  borderRadius: 6,
-                                  border: '1px solid #E5E7EB',
-                                }}
-                              />
-                            ))}
-                        </div>
-                      ) : null}
-                      <p style={{fontSize:'0.78rem',color:'#6B7280',margin:'0.35rem 0 0',lineHeight:1.45}}>
-                        Use <strong>Host &amp; Airbnb → Pull photos from Airbnb</strong> to append listing shots automatically; edit or delete lines here to fine-tune order (first lines appear first on the site).
-                      </p>
-                    </div>
+                    <StayGalleryCollapsible
+                      value={listingDraft.galleryUrlsText}
+                      onChange={(text) => setListingDraft((d) => (d ? { ...d, galleryUrlsText: text } : d))}
+                    />
 
                     <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
                       <button type="button" className="adm-btn adm-btn-primary" disabled={busy} onClick={async()=>{
@@ -1535,7 +1748,7 @@ export default function OrgAdminPage() {
                           detailHeroUrl:listingDraft.detailHeroUrl.trim()||null,
                           airbnbProfileLabel:listingDraft.airbnbProfileLabel.trim()||null,
                           airbnbListingUrl:listingDraft.airbnbListingUrl.trim()||null,
-                          galleryImageUrls:listingDraft.galleryUrlsText.split('\n').map((l)=>l.trim()).filter(Boolean).slice(0,24),
+                          galleryImageUrls:listingDraft.galleryUrlsText.split('\n').map((l)=>l.trim()).filter(Boolean).slice(0,MAX_STAY_GALLERY_URLS),
                         })});
                         setBusy(false);
                         if(!r) return;
