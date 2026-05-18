@@ -728,7 +728,7 @@ p.md-eyebrow-line {
   .md-booking-hero-layout {
     grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr);
     align-items: center;
-    gap: clamp(1.5rem, 3.5vw, 2.75rem);
+    gap: clamp(1.25rem, 2.8vw, 2rem);
   }
 }
 
@@ -748,11 +748,11 @@ p.md-eyebrow-line {
 }
 
 .md-booking-toolbar-card {
-  --md-booking-gap-row: 1rem;
+  --md-booking-gap-field-row: 0.85rem;
   --md-booking-gap-col: clamp(1rem, 2.2vw, 1.35rem);
   --md-booking-control-h: 46px;
 
-  padding: clamp(1.35rem, 3.5vw, 1.85rem);
+  padding: clamp(1.35rem, 3.25vw, 1.75rem);
   min-width: 0;
 }
 
@@ -765,74 +765,69 @@ p.md-eyebrow-line {
 .md-booking-toolbar-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--md-booking-gap-row);
+  gap: 0.75rem;
 }
 
-.md-booking-toolbar-row-main {
+.md-booking-toolbar-row-fields {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--md-booking-gap-row) var(--md-booking-gap-col);
+  gap: var(--md-booking-gap-field-row) var(--md-booking-gap-col);
   width: 100%;
   min-width: 0;
 }
 
-/* Wrapped toolbar: breathable rows + full-width CTA */
-.md-booking-toolbar-row-main > .md-booking-field--date {
+.md-booking-toolbar-row-fields > .md-booking-field--date {
   flex: 1 1 calc(50% - var(--md-booking-gap-col) / 2);
   min-width: min(100%, 11rem);
 }
 
-.md-booking-toolbar-row-main > .md-booking-field--guests {
+.md-booking-toolbar-row-fields > .md-booking-field--guests {
   flex: 1 1 min(100%, 13rem);
   min-width: min(100%, 9rem);
 }
 
-.md-booking-toolbar-row-main > .md-booking-field--stay {
+.md-booking-toolbar-row-fields > .md-booking-field--stay {
   flex: 1 1 min(100%, 16rem);
   min-width: min(100%, 10rem);
 }
 
-.md-booking-toolbar-row-main > .md-booking-search-cell {
-  flex: 1 1 100%;
-}
-
-.md-booking-toolbar-row-main > .md-booking-search-cell .md-booking-search-btn {
-  width: 100%;
-}
-
-@media (min-width: 1280px) {
-  .md-booking-toolbar-row-main {
+@media (min-width: 768px) {
+  .md-booking-toolbar-row-fields {
     flex-wrap: nowrap;
   }
 
-  .md-booking-toolbar-row-main > .md-booking-field--date {
+  .md-booking-toolbar-row-fields > .md-booking-field--date {
     flex: 1 1 0;
-    min-width: 9.75rem;
+    min-width: 9rem;
     max-width: none;
   }
 
-  .md-booking-toolbar-row-main > .md-booking-field--guests {
+  .md-booking-toolbar-row-fields > .md-booking-field--guests {
     flex: 0 1 9.25rem;
-    min-width: 8rem;
+    min-width: 7.75rem;
     max-width: 11rem;
   }
 
-  .md-booking-toolbar-row-main > .md-booking-field--stay {
+  .md-booking-toolbar-row-fields > .md-booking-field--stay {
     flex: 1 1 0;
-    min-width: 9rem;
-    max-width: 15rem;
+    min-width: 8.5rem;
+    max-width: 16rem;
   }
+}
 
-  .md-booking-toolbar-row-main > .md-booking-search-cell {
-    flex: 0 0 auto;
-    min-width: 0;
-    padding-left: 0.35rem;
-  }
+.md-booking-toolbar-row-actions {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding-top: 0.15rem;
+}
 
-  .md-booking-toolbar-row-main > .md-booking-search-cell .md-booking-search-btn {
-    width: auto;
-  }
+.md-booking-toolbar-row-actions .md-booking-search-btn {
+  width: 100%;
+  max-width: min(22rem, 100%);
 }
 
 .md-booking-field {
@@ -988,19 +983,6 @@ p.md-eyebrow-line {
   line-height: 1.35;
 }
 
-.md-booking-search-cell {
-  display: flex;
-  align-items: flex-end;
-  justify-content: stretch;
-  min-width: 0;
-}
-
-@media (min-width: 1280px) {
-  .md-booking-search-cell {
-    justify-content: flex-end;
-  }
-}
-
 .md-booking-search-btn.md-btn {
   box-sizing: border-box;
   height: var(--md-booking-control-h);
@@ -1011,7 +993,7 @@ p.md-eyebrow-line {
   white-space: nowrap;
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 479px) {
   .md-booking-search-btn.md-btn {
     white-space: normal;
     text-align: center;
@@ -1695,8 +1677,9 @@ p.md-eyebrow-line {
   flex-wrap: wrap;
   gap: clamp(1rem, 3vw, 1.75rem);
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: flex-start;
   margin-bottom: clamp(1.35rem, 3vw, 2rem);
+  width: 100%;
 }
 
 .md-gallery-section .md-gallery-bento-copy {
@@ -1763,16 +1746,32 @@ p.md-eyebrow-line {
 
 .md-gallery-unified-outer {
   margin-top: clamp(0.25rem, 1vw, 0.5rem);
+  width: 100%;
+  max-width: 100%;
 }
 
-/* Single homepage bento: one large hero + five labeled squares.
-   2fr + three 1fr columns → hero width ≈ 2× tile width so a 2-row–tall hero reads squarish (not a tall narrow strip). */
+/* Single homepage bento: hero + five tiles share one flush grid (no default figure margins). */
+.md-gallery-section .md-gallery-unified figure {
+  margin: 0;
+}
+
 .md-gallery-unified {
+  --md-gallery-unified-gap: clamp(12px, 1.65vw, 16px);
   display: grid;
-  gap: clamp(10px, 1.5vw, 14px);
+  gap: var(--md-gallery-unified-gap);
   grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  justify-items: stretch;
+  width: 100%;
   min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .md-gallery-unified:not(.md-gallery-unified--no-hero) {
+    /* Gives 1fr row tracks a definite height so hero + tiles share flush top/bottom edges */
+    min-height: clamp(300px, 36vw, 460px);
+  }
 }
 
 .md-gallery-unified--no-hero {
@@ -1789,6 +1788,7 @@ p.md-eyebrow-line {
   grid-column: 1;
   grid-row: 1 / span 2;
   align-self: stretch;
+  height: 100%;
   min-height: 0;
   border-radius: clamp(14px, 1.5vw, 18px);
   overflow: hidden;
@@ -1834,6 +1834,8 @@ p.md-eyebrow-line {
   text-decoration: none;
   color: inherit;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
   border-radius: clamp(12px, 1.35vw, 16px);
   overflow: hidden;
   transition: transform 0.28s ease, box-shadow 0.28s ease;
@@ -1846,8 +1848,9 @@ p.md-eyebrow-line {
 
 .md-gallery-unified-tile {
   position: relative;
-  aspect-ratio: 1 / 1;
   width: 100%;
+  height: 100%;
+  min-height: 0;
   margin: 0;
 }
 
@@ -1870,12 +1873,15 @@ p.md-eyebrow-line {
 @media (max-width: 767px) {
   .md-gallery-unified:not(.md-gallery-unified--no-hero) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto;
+    grid-template-rows: none;
+    align-items: start;
+    min-height: unset;
   }
 
   .md-gallery-unified:not(.md-gallery-unified--no-hero) > .md-gallery-unified-hero {
     grid-column: 1 / -1;
     grid-row: auto;
+    height: auto;
     aspect-ratio: 1 / 1;
     width: 100%;
     max-width: min(100%, 560px);
@@ -1886,6 +1892,12 @@ p.md-eyebrow-line {
   .md-gallery-unified:not(.md-gallery-unified--no-hero) > .md-gallery-unified-tile-wrap:nth-child(n) {
     grid-column: auto;
     grid-row: auto;
+    height: auto;
+  }
+
+  .md-gallery-unified:not(.md-gallery-unified--no-hero) > .md-gallery-unified-tile-wrap .md-gallery-unified-tile {
+    aspect-ratio: 1 / 1;
+    height: auto;
   }
 }
 

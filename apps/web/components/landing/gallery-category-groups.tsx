@@ -13,8 +13,8 @@ const HOMEPAGE_FULL_CATEGORY_PREVIEW = 10;
 type Props = {
   items: GallerySlide[];
   heroImageUrl?: string | null;
-  fullGalleryHref?: string;
-  orgName?: string;
+  /** Base path for category tile links (homepage header already links here). */
+  galleryHref?: string;
 };
 
 function CategoryThumbFill({ slide, phMod }: { slide: GallerySlide; phMod: number }) {
@@ -121,29 +121,24 @@ function CategoryBento({ group, delayStart }: { group: { id: string; label: stri
   );
 }
 
-export function GalleryCategoryGroups({ items, heroImageUrl, fullGalleryHref, orgName }: Props) {
+export function GalleryCategoryGroups({ items, heroImageUrl, galleryHref = '/gallery' }: Props) {
   return (
     <div className="md-gallery-unified-outer">
-      <GalleryLandingUnified items={items} heroImageUrl={heroImageUrl} galleryHref={fullGalleryHref ?? '/gallery'} />
-      {fullGalleryHref ? (
-        <p className="md-gallery-full-cta-wrap">
-          <Link className="md-gallery-bento-cta-outline" href={fullGalleryHref}>
-            View full gallery
-            <span className="md-gallery-bento-cta-arrow" aria-hidden>
-              →
-            </span>
-          </Link>
-          {orgName ? (
-            <span className="md-muted md-gallery-full-cta-hint">All photos for {orgName}</span>
-          ) : null}
-        </p>
-      ) : null}
+      <GalleryLandingUnified items={items} heroImageUrl={heroImageUrl} galleryHref={galleryHref} />
     </div>
   );
 }
 
 /** Full gallery page: hero + every image grouped by category. */
-export function GalleryFullView({ items, heroImageUrl, orgName }: Omit<Props, 'fullGalleryHref'>) {
+export function GalleryFullView({
+  items,
+  heroImageUrl,
+  orgName,
+}: {
+  items: GallerySlide[];
+  heroImageUrl?: string | null;
+  orgName?: string;
+}) {
   const { hero, rest } = splitGalleryHero(items, heroImageUrl);
   const groups = groupGalleryByCategory(rest);
   let delay = 0;

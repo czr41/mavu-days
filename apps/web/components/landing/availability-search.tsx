@@ -338,7 +338,7 @@ export function AvailabilitySearch({
 
           <div className="md-card md-booking-toolbar-card md-booking-search-shell">
             <div className="md-booking-toolbar-rows">
-              <div className="md-booking-toolbar-row md-booking-toolbar-row-main">
+              <div className="md-booking-toolbar-row md-booking-toolbar-row-fields">
                 <BookingDateField label="Check-in" value={checkIn} onChange={setCheckIn} />
                 <BookingDateField label="Check-out" value={checkOut} onChange={setCheckOut} />
                 <label className="md-booking-field md-booking-field--guests">
@@ -378,16 +378,16 @@ export function AvailabilitySearch({
                     ))}
                   </select>
                 </label>
-                <div className="md-booking-search-cell">
-                  <button
-                    type="button"
-                    className="md-btn md-btn-primary md-booking-search-btn"
-                    disabled={loading}
-                    onClick={() => void search()}
-                  >
-                    {loading ? 'Searching…' : 'Check Availability'}
-                  </button>
-                </div>
+              </div>
+              <div className="md-booking-toolbar-row md-booking-toolbar-row-actions">
+                <button
+                  type="button"
+                  className="md-btn md-btn-primary md-booking-search-btn"
+                  disabled={loading}
+                  onClick={() => void search()}
+                >
+                  {loading ? 'Searching…' : 'Check Availability'}
+                </button>
               </div>
             </div>
           </div>

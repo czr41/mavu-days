@@ -394,7 +394,7 @@ export async function LandingView({ path }: { path: Path }) {
               </a>
             </div>
 
-            <GalleryCategoryGroups items={galleryItems} heroImageUrl={merged.heroImageUrl} fullGalleryHref="/gallery" orgName={orgName} />
+            <GalleryCategoryGroups items={galleryItems} heroImageUrl={merged.heroImageUrl} galleryHref="/gallery" />
           </div>
         </RevealSection>
 
