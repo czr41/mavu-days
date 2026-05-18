@@ -1202,6 +1202,56 @@ export default function OrgAdminPage() {
                     }
                   }}>{isOpen ? 'Close' : 'Edit'}</button>
                 </div>
+                {!isOpen ? (
+                  <div style={{ padding: '0 1.5rem 1rem' }}>
+                    {(() => {
+                      const gal = jsonStringArr(row.listingProfile?.galleryImageUrls);
+                      return gal.length ? (
+                        <div>
+                          <p style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', margin: '0 0 0.4rem' }}>
+                            Stay gallery <span style={{ fontWeight: 500, color: '#6B7280' }}>({gal.length}/24)</span>
+                          </p>
+                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {gal.slice(0, 10).map((url) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={url}
+                                src={url}
+                                alt=""
+                                style={{
+                                  width: 52,
+                                  height: 40,
+                                  objectFit: 'cover',
+                                  borderRadius: 6,
+                                  border: '1px solid #E5E7EB',
+                                }}
+                              />
+                            ))}
+                            {gal.length > 10 ? (
+                              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>+{gal.length - 10} more</span>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            className="adm-btn adm-btn-ghost adm-btn-sm"
+                            style={{ marginTop: '0.45rem' }}
+                            onClick={() => {
+                              setListingEditUnitId(row.unit.id);
+                              setListingDraft(listingDraftFromRow(row));
+                            }}
+                          >
+                            Edit listing &amp; gallery
+                          </button>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.78rem', color: '#9CA3AF', margin: 0, lineHeight: 1.45 }}>
+                          No stay-detail photos yet. Use <strong>Edit</strong> to paste URLs, or <strong>Host &amp; Airbnb → Pull photos</strong>{' '}
+                          to import from Airbnb.
+                        </p>
+                      );
+                    })()}
+                  </div>
+                ) : null}
                 {isOpen && listingDraft ? (
                   <div className="adm-card-body" style={{display:'flex',flexDirection:'column',gap:'0.85rem'}}>
                     <label className="adm-toggle-row">
@@ -1250,8 +1300,32 @@ export default function OrgAdminPage() {
                     <div className="adm-field adm-field-full">
                       <label className="adm-label">Stay gallery image URLs (one per line, HTTPS)</label>
                       <textarea className="adm-textarea" rows={4} value={listingDraft.galleryUrlsText} onChange={(e)=>setListingDraft((d)=>d?{...d,galleryUrlsText:e.target.value}:d)} placeholder="Shown on the stay detail page · max 24"/>
+                      {listingDraft.galleryUrlsText.trim() ? (
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.45rem', alignItems: 'center' }}>
+                          {listingDraft.galleryUrlsText
+                            .split('\n')
+                            .map((l) => l.trim())
+                            .filter((url) => /^https?:\/\//i.test(url))
+                            .slice(0, 12)
+                            .map((url) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={url}
+                                src={url}
+                                alt=""
+                                style={{
+                                  width: 52,
+                                  height: 40,
+                                  objectFit: 'cover',
+                                  borderRadius: 6,
+                                  border: '1px solid #E5E7EB',
+                                }}
+                              />
+                            ))}
+                        </div>
+                      ) : null}
                       <p style={{fontSize:'0.78rem',color:'#6B7280',margin:'0.35rem 0 0',lineHeight:1.45}}>
-                        Airbnb listing URL, inbound iCal, outbound feeds, and pulling listing photos are under <strong>Host &amp; Airbnb</strong>.
+                        Use <strong>Host &amp; Airbnb → Pull photos from Airbnb</strong> to append listing shots automatically; edit or delete lines here to fine-tune order (first lines appear first on the site).
                       </p>
                     </div>
 
@@ -1838,40 +1912,114 @@ export default function OrgAdminPage() {
                             method: 'POST',
                             body: JSON.stringify({ listingUrl }),
                           });
-                          setBusy(false);
-                          if (!res) return;
+                          if (!res) {
+                            setBusy(false);
+                            return;
+                          }
                           if (!res.urls.length) {
+                            setBusy(false);
                             notify('No listing photos found — Airbnb may block server fetches or changed their HTML.', false);
                             return;
                           }
-                          setAirbnbPickSession({ unitId: row.unit.id, urls: res.urls, picked: {} });
-                          notify(`Loaded ${res.urls.length} candidate photo URL(s).`);
+                          const patchRes = await apiFetch<{
+                            ok?: boolean;
+                            galleryAppend?: { addedCount: number; galleryTotal: number };
+                          }>(`${base}/rentable-units/${row.unit.id}/host-channel`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ appendGalleryUrls: res.urls }),
+                          });
+                          setBusy(false);
+                          if (!patchRes) {
+                            setAirbnbPickSession({
+                              unitId: row.unit.id,
+                              urls: res.urls,
+                              picked: Object.fromEntries(res.urls.map((u) => [u, true])),
+                            });
+                            notify(
+                              'Photos fetched but saving the gallery failed — use “Add selected to gallery” below, or try again.',
+                              false,
+                            );
+                            return;
+                          }
+                          await loadUnitListings();
+                          setAirbnbPickSession(null);
+                          const ga = patchRes.galleryAppend;
+                          if (ga) {
+                            if (ga.addedCount === 0) {
+                              notify(
+                                `No new photos added (${ga.galleryTotal}/24 in gallery) — fetched URLs were duplicates or the gallery is full.`,
+                              );
+                            } else {
+                              notify(
+                                `Added ${ga.addedCount} new photo(s) to this stay's gallery (${ga.galleryTotal}/24). Open CMS → Stay listings to reorder or remove.`,
+                              );
+                            }
+                          } else {
+                            notify(`Fetched ${res.urls.length} listing photo URL(s).`);
+                          }
                         }}
                       >
                         Pull photos from Airbnb
                       </button>
-                      {link ? (
-                        <>
+                    </div>
+                    {link ? (
+                      <div
+                        className="adm-field adm-field-full"
+                        style={{
+                          marginTop: '1rem',
+                          padding: '0.9rem 1rem',
+                          background: 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)',
+                          borderRadius: 10,
+                          border: '1px solid #BBF7D0',
+                        }}
+                      >
+                        <label className="adm-label" style={{ color: '#14532D' }}>
+                          Outbound iCal for Airbnb (Step 2 — “Other website link”)
+                        </label>
+                        <p style={{ fontSize: '0.78rem', color: '#166534', margin: '0 0 0.65rem', lineHeight: 1.5 }}>
+                          In Airbnb <strong>Sync calendars</strong>, paste this <strong>entire URL</strong> (it ends with{' '}
+                          <code style={{ fontSize: '0.72rem' }}>.ics</code>) into <strong>Other website link</strong>. In{' '}
+                          <strong>Calendar name</strong>, enter a short label only — e.g. <em>Mavu Days</em> — not the URL.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <button
                             type="button"
-                            className="adm-btn adm-btn-ghost adm-btn-sm"
+                            className="adm-btn adm-btn-primary adm-btn-sm"
                             onClick={() => {
                               void navigator.clipboard.writeText(`${api}/feeds/${link.outboundFeedSlug}.ics`);
                               notify('Copied outbound calendar URL.');
                             }}
                           >
-                            Copy outbound iCal URL
+                            Copy full URL
                           </button>
-                          <code style={{ fontSize: '0.72rem', wordBreak: 'break-all', flex: '1', minWidth: '200px' }}>
+                          <code
+                            style={{
+                              fontSize: '0.75rem',
+                              wordBreak: 'break-all',
+                              flex: '1',
+                              minWidth: '200px',
+                              display: 'block',
+                              padding: '0.45rem 0.6rem',
+                              background: '#fff',
+                              borderRadius: 6,
+                              border: '1px solid #D1FAE5',
+                              color: '#1a1a2e',
+                            }}
+                          >
                             {api}/feeds/{link.outboundFeedSlug}.ics
                           </code>
-                        </>
-                      ) : null}
-                    </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.8rem', color: '#9CA3AF', margin: '0.75rem 0 0', lineHeight: 1.45 }}>
+                        After you <strong>Save connection</strong>, your outbound link appears here — paste it into Airbnb’s{' '}
+                        <strong>Other website link</strong> field (must include <code style={{ fontSize: '0.75rem' }}>.ics</code>).
+                      </p>
+                    )}
                     {airbnbPickSession?.unitId === row.unit.id && airbnbPickSession.urls.length ? (
                       <div style={{ marginTop: '0.85rem' }}>
-                        <p style={{ fontSize: '0.82rem', color: '#6B7280', margin: '0 0 0.5rem' }}>
-                          Select photos to append to the stay gallery (max 24 total).
+                        <p style={{ fontSize: '0.82rem', color: '#6B7280', margin: '0 0 0.5rem', lineHeight: 1.45 }}>
+                          Gallery save failed after fetch — select photos below and tap <strong>Add selected to gallery</strong>, or retry the pull.
                         </p>
                         <div
                           style={{

@@ -56,6 +56,24 @@ function galleryUrlsFromJson(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === 'string');
 }
 
+const MAX_STAY_GALLERY_URLS = 24;
+
+/** Append scrape/import URLs without duplicates; preserves existing order and caps length. */
+function mergeGalleryAppend(cur: string[], append: string[]): { urls: string[]; addedCount: number } {
+  const seen = new Set(cur.map((u) => u.trim()));
+  const out = [...cur];
+  let addedCount = 0;
+  for (const raw of append) {
+    const u = raw.trim();
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+    addedCount++;
+    if (out.length >= MAX_STAY_GALLERY_URLS) break;
+  }
+  return { urls: out, addedCount };
+}
+
 async function ensureRentableUnitListingStub(app: FastifyInstance, organizationId: string, unitId: string) {
   const existing = await app.prisma.rentableUnitListing.findUnique({ where: { rentableUnitId: unitId } });
   if (existing) return existing;
@@ -421,7 +439,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       airbnbProfileLabel: z.union([z.string().max(200).trim(), z.literal(''), z.null()]).optional(),
       inboundIcalUrl: z.union([z.string().url(), z.null()]).optional(),
       airbnbHostAccountId: z.union([z.string().uuid(), z.null()]).optional(),
-      appendGalleryUrls: z.array(z.string().url()).max(24).optional(),
+      appendGalleryUrls: z.array(z.string().url()).max(96).optional(),
     });
     const parsed = patchHostChannelBody.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() });
@@ -440,6 +458,8 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     ) {
       return reply.status(400).send({ error: 'Airbnb profile not found for this org' });
     }
+
+    let galleryAppendSummary: { addedCount: number; galleryTotal: number } | undefined;
 
     const needsListingStub =
       d.airbnbListingUrl !== undefined ||
@@ -460,7 +480,9 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       if (d.appendGalleryUrls !== undefined && d.appendGalleryUrls.length > 0) {
         const fresh = await app.prisma.rentableUnitListing.findUnique({ where: { rentableUnitId: unitId } });
         const cur = galleryUrlsFromJson(fresh?.galleryImageUrls);
-        listingPatch.galleryImageUrls = [...cur, ...d.appendGalleryUrls].slice(0, 24);
+        const merged = mergeGalleryAppend(cur, d.appendGalleryUrls);
+        listingPatch.galleryImageUrls = merged.urls;
+        galleryAppendSummary = { addedCount: merged.addedCount, galleryTotal: merged.urls.length };
       }
       if (Object.keys(listingPatch).length > 0) {
         await app.prisma.rentableUnitListing.update({
@@ -522,7 +544,10 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       }
     }
 
-    return reply.send({ ok: true });
+    return reply.send({
+      ok: true,
+      ...(galleryAppendSummary ? { galleryAppend: galleryAppendSummary } : {}),
+    });
   });
 
   /** Pull inbound iCal URLs for this org, upsert mirror bookings, cancel stale mirrors (two-way inbound leg). */
