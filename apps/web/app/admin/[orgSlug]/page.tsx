@@ -238,6 +238,33 @@ function bookingOverlapsLocalDay(b: Booking, day: Date): boolean {
   return ci < e && co > s;
 }
 
+function bookingKind(b: Booking): 'airbnb' | 'site' | 'other' {
+  if (b.externalProvider === ICAL_INGEST_PROVIDER) return 'airbnb';
+  if (b.source === 'DIRECT_WEB') return 'site';
+  return 'other';
+}
+
+function BookingSourceGlyph({ b, size = 18 }: { b: Booking; size?: number }) {
+  const k = bookingKind(b);
+  if (k === 'airbnb') {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src="https://www.airbnb.com/favicon.ico" alt="" width={size} height={size} className="adm-cal-src-img" />
+    );
+  }
+  if (k === 'site') {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src="/logo.svg" alt="" width={size} height={size} className="adm-cal-src-img" />
+    );
+  }
+  return (
+    <span className="adm-cal-src-dot" style={{ width: size, height: size }} aria-hidden>
+      ●
+    </span>
+  );
+}
+
 type OverviewCalendarProps = {
   units: { id: string; name: string; slug: string; propertyName: string }[];
   bookings: Booking[];
@@ -259,6 +286,32 @@ function OverviewBookingCalendar({
 }: OverviewCalendarProps) {
   const fmtDay = (iso: string) =>
     new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const [pinnedDayKey, setPinnedDayKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPinnedDayKey(null);
+  }, [viewMonth]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPinnedDayKey(null);
+    };
+    globalThis.document?.addEventListener('keydown', onKey);
+    return () => globalThis.document?.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (!pinnedDayKey) return;
+    const close = (e: MouseEvent) => {
+      const t = e.target;
+      if (!(t instanceof Node)) return;
+      const anchor = globalThis.document?.querySelector(`[data-cal-day-anchor="${pinnedDayKey}"]`);
+      if (anchor && !anchor.contains(t)) setPinnedDayKey(null);
+    };
+    globalThis.document?.addEventListener('mousedown', close);
+    return () => globalThis.document?.removeEventListener('mousedown', close);
+  }, [pinnedDayKey]);
 
   const selectedSet = new Set(selectedUnitIds);
   const showMultipleUnits = selectedUnitIds.length > 1;
@@ -305,8 +358,7 @@ function OverviewBookingCalendar({
         <div>
           <h2 className="adm-card-title">Units calendar</h2>
           <p className="adm-cal-sub">
-            Select one or more stays; bookings merge onto a single month grid. Icons: website vs Airbnb calendar import.
-            {showMultipleUnits ? ' Chip subtitle shows which unit each booking belongs to.' : ''}
+            Compact source icons per day — hover for a booking list; click a row for full details. One booking on a day opens details directly when you click the icons.
           </p>
         </div>
       </div>
@@ -395,69 +447,110 @@ function OverviewBookingCalendar({
                 c.dayNum == null ? (
                   <div key={`pad-${idx}`} className="adm-cal-cell adm-cal-cell-empty" />
                 ) : (
-                  <div key={c.dayNum} className="adm-cal-cell">
+                  <div
+                    key={c.dayNum}
+                    className={`adm-cal-cell ${pinnedDayKey === `${year}-${month}-${c.dayNum}` ? 'adm-cal-cell--panel-open' : ''}`}
+                    data-cal-day-anchor={`${year}-${month}-${c.dayNum}`}
+                  >
                     <span className="adm-cal-day-num">{c.dayNum}</span>
-                    <div className="adm-cal-chips">
-                      {bookingsForDay(c.dayNum).map((b) => {
-                        const airbnb = b.externalProvider === ICAL_INGEST_PROVIDER;
-                        const site = b.source === 'DIRECT_WEB';
-                        const unitLabel = b.rentableUnit?.name ?? '';
-                        const tip = [
-                          showMultipleUnits && unitLabel ? `Unit: ${unitLabel}` : '',
-                          b.guestName ?? 'Guest',
-                          `${fmtDay(b.checkInUtc)} → ${fmtDay(b.checkOutUtc)}`,
-                          b.status,
-                          airbnb ? 'Airbnb (calendar)' : site ? 'Mavu Days website' : `Source: ${b.source}`,
-                          b.guestCount ? `${b.guestCount} guests` : '',
-                          b.note ? `Note: ${b.note}` : '',
-                        ]
-                          .filter(Boolean)
-                          .join('\n');
+                    <div className="adm-cal-day-slot">
+                      {(() => {
+                        const list = bookingsForDay(c.dayNum);
+                        const dk = `${year}-${month}-${c.dayNum}`;
+                        const pinned = pinnedDayKey === dk;
+                        const ariaDay = `${monthTitle} ${c.dayNum}`;
                         return (
-                          <button
-                            key={b.id}
-                            type="button"
-                            className="adm-cal-chip"
-                            title={tip}
-                            aria-label={`Booking ${b.guestName ?? b.id}: ${tip.replace(/\n/g, ', ')}`}
-                            onClick={() => onPickBooking(b)}
-                          >
-                            <span className="adm-cal-chip-tip">
-                              {showMultipleUnits && unitLabel ? (
-                                <span className="adm-cal-chip-unit">{unitLabel}</span>
-                              ) : null}
-                              <strong>{b.guestName ?? 'Guest'}</strong>
-                              <br />
-                              {fmtDay(b.checkInUtc)} — {fmtDay(b.checkOutUtc)}
-                              <br />
-                              <span className="adm-cal-tip-muted">{airbnb ? 'Airbnb' : site ? 'Website' : b.source}</span>
-                              {b.status === 'PENDING' ? (
+                          <>
+                            <button
+                              type="button"
+                              className={`adm-cal-day-trigger${list.length === 0 ? ' adm-cal-day-trigger--empty' : ''}`}
+                              disabled={list.length === 0}
+                              aria-haspopup={list.length > 1 ? 'menu' : undefined}
+                              aria-expanded={list.length > 1 ? pinned : undefined}
+                              aria-controls={list.length > 0 ? `adm-cal-panel-${dk}` : undefined}
+                              aria-label={
+                                list.length === 0
+                                  ? `${ariaDay}: no bookings`
+                                  : list.length === 1
+                                    ? `${ariaDay}: ${list[0].guestName ?? 'Guest'}, open booking details`
+                                    : `${ariaDay}: ${list.length} bookings — hover or tap for list; tap again to close`
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (list.length === 0) return;
+                                if (list.length === 1) {
+                                  onPickBooking(list[0]);
+                                  setPinnedDayKey(null);
+                                  return;
+                                }
+                                setPinnedDayKey((k) => (k === dk ? null : dk));
+                              }}
+                            >
+                              {list.length === 0 ? (
+                                <span className="adm-cal-day-trigger-placeholder" aria-hidden>
+                                  —
+                                </span>
+                              ) : (
                                 <>
-                                  <br />
-                                  <span className="adm-cal-tip-warn">Pending</span>
+                                  <span className="adm-cal-day-trigger-icons" aria-hidden>
+                                    {list.slice(0, 3).map((b, i) => (
+                                      <span key={b.id} className="adm-cal-day-trigger-icon" style={{ zIndex: 3 - i }}>
+                                        <BookingSourceGlyph b={b} size={14} />
+                                      </span>
+                                    ))}
+                                  </span>
+                                  {list.length > 3 ? (
+                                    <span className="adm-cal-day-trigger-more">+{list.length - 3}</span>
+                                  ) : null}
                                 </>
-                              ) : null}
-                            </span>
-                            {airbnb ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img
-                                src="https://www.airbnb.com/favicon.ico"
-                                alt=""
-                                width={18}
-                                height={18}
-                                className="adm-cal-chip-img"
-                              />
-                            ) : site ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img src="/logo.svg" alt="" width={18} height={18} className="adm-cal-chip-img" />
-                            ) : (
-                              <span className="adm-cal-chip-fallback" aria-hidden>
-                                ●
-                              </span>
-                            )}
-                          </button>
+                              )}
+                            </button>
+                            {list.length > 0 ? (
+                              <div
+                                className={`adm-cal-day-panel ${pinned ? 'adm-cal-day-panel--pinned' : ''}`}
+                                id={`adm-cal-panel-${dk}`}
+                                role={list.length > 1 ? 'menu' : undefined}
+                              >
+                                <div className="adm-cal-day-panel-head">
+                                  {viewMonth.toLocaleDateString('en-IN', { month: 'short' })} {c.dayNum}
+                                </div>
+                                {list.map((b) => {
+                                  const unitLabel = b.rentableUnit?.name ?? '';
+                                  return (
+                                    <button
+                                      key={b.id}
+                                      type="button"
+                                      role={list.length > 1 ? 'menuitem' : undefined}
+                                      className="adm-cal-day-panel-row"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onPickBooking(b);
+                                        setPinnedDayKey(null);
+                                      }}
+                                    >
+                                      <span className="adm-cal-day-panel-row-icon">
+                                        <BookingSourceGlyph b={b} size={16} />
+                                      </span>
+                                      <span className="adm-cal-day-panel-row-text">
+                                        <span className="adm-cal-day-panel-guest">{b.guestName ?? 'Guest'}</span>
+                                        {showMultipleUnits && unitLabel ? (
+                                          <span className="adm-cal-day-panel-unit">{unitLabel}</span>
+                                        ) : null}
+                                        <span className="adm-cal-day-panel-dates">
+                                          {fmtDay(b.checkInUtc)} → {fmtDay(b.checkOutUtc)}
+                                        </span>
+                                      </span>
+                                      {b.status === 'PENDING' ? (
+                                        <span className="adm-cal-day-panel-pending">Pending</span>
+                                      ) : null}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </>
                         );
-                      })}
+                      })()}
                     </div>
                   </div>
                 ),
