@@ -52,13 +52,16 @@ export async function LandingView({ path }: { path: Path }) {
   const waHref = whatsappHref(phone, whatsappBookingMessage('2'));
 
   type GallerySlide = { url: string | null; alt: string; key: string };
+  const cappedGallery = merged.gallery.slice(0, 48);
   const galleryItems: GallerySlide[] =
-    merged.gallery.length > 0
-      ? merged.gallery.map((g) => ({ url: g.url, alt: g.alt, key: g.key }))
+    cappedGallery.length > 0
+      ? cappedGallery.map((g) => ({ url: g.url, alt: g.alt, key: g.key }))
       : galleryFallbackSlots(8).map((p) => ({ url: null, alt: p.alt, key: p.key }));
 
-  // Limit gallery to 8 for the 4×2 grid
-  const galleryGrid = galleryItems.slice(0, 8);
+  /** Desktop hero grid: curated CMS shots first when present */
+  const galleryGridDesktop = galleryItems.slice(0, 8);
+  /** Horizontal scroll / mobile: more room for stay-linked photos appended after CMS */
+  const galleryScrollItems = galleryItems.slice(0, 24);
 
   const verifiedFallbackLabel = 'Verified guest';
   const defaultReviews =
@@ -378,7 +381,7 @@ export async function LandingView({ path }: { path: Path }) {
               <p className="md-lead">{t.galleryIntroDefault || 'A glimpse of the spaces, light, and calm that await you.'}</p>
             </header>
             <div className="md-gallery-grid md-gallery-desktop">
-              {galleryGrid.map((item, i) => (
+              {galleryGridDesktop.map((item, i) => (
                 <RevealFigure key={item.key} delayIndex={i} className="md-gallery-grid-item">
                   {item.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -390,7 +393,7 @@ export async function LandingView({ path }: { path: Path }) {
               ))}
             </div>
             <div className="md-gallery-scroll" aria-label="Photo gallery">
-              {galleryGrid.map((item, i) => (
+              {galleryScrollItems.map((item, i) => (
                 <div key={`m-${item.key}`} className="md-swipe-card">
                   {item.url ? (
                     // eslint-disable-next-line @next/next/no-img-element

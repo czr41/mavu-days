@@ -37,6 +37,13 @@ export async function StayDetailView({ slug }: Props) {
   const pathSeg = listingUrlPath(listing);
   const otherListings = t.listings.filter((l) => listingUrlPath(l) !== pathSeg && l.id !== listing.id);
 
+  /** Deduped stay gallery URLs from admin/CMS (shown only when at least one is set). Hero stays in banner only. */
+  const galleryPhotos: string[] = [
+    ...new Set(
+      [...(listing.galleryImageUrls ?? [])].map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean),
+    ),
+  ];
+
   return (
     <div className="md-page-premium" style={{ background: 'var(--ivory)' }}>
 
@@ -114,13 +121,18 @@ export async function StayDetailView({ slug }: Props) {
                 <h2 className="md-stay-detail-section-title">About this Stay</h2>
                 <p className="md-stay-detail-copy">{listing.copy}</p>
               </section>
-              {listing.galleryImageUrls && listing.galleryImageUrls.length > 0 ? (
+              {galleryPhotos.length > 0 ? (
                 <section className="md-stay-detail-section">
                   <h2 className="md-stay-detail-section-title">Photos</h2>
                   <div className="md-stay-detail-photo-grid">
-                    {listing.galleryImageUrls.map((photoUrl) => (
+                    {galleryPhotos.map((photoUrl, pi) => (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img key={photoUrl} src={photoUrl} alt="" loading="lazy" />
+                      <img
+                        key={`${photoUrl}-${pi}`}
+                        src={photoUrl}
+                        alt={`${listing.title} — photo ${pi + 1}`}
+                        loading={pi < 4 ? 'eager' : 'lazy'}
+                      />
                     ))}
                   </div>
                 </section>

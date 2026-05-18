@@ -1590,6 +1590,7 @@ export default function OrgAdminPage() {
         <>
           <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
             Marketing copy and pricing for each stay—published listings appear on the public site immediately after save.
+            Stay <strong>gallery</strong> URLs also feed the home page Gallery (after CMS Media images keyed <code style={{ fontSize: '0.78rem' }}>landing-gallery-*</code>), without duplicating the same URL twice.
             Airbnb listing URLs and calendar connections are managed separately under <strong>Host &amp; Airbnb</strong>.
           </div>
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}

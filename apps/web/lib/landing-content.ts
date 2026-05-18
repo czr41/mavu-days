@@ -566,6 +566,62 @@ function buildGallery(payload: LandingMergePayload): { url: string; alt: string;
   return items;
 }
 
+/** CMS landing-gallery media first; then deduped shots from published stay listing galleries (property-linked). */
+function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt: string; key: string }[] {
+  const fromCms = buildGallery(payload);
+  const out = [...fromCms];
+  const seen = new Set(out.map((g) => g.url.trim()));
+
+  const seoAltsForStays = [
+    'Mavu Days mango farm stay near Bangalore',
+    'Private 1BHK villa at Mavu Days farm stay',
+    '2BHK villa stay near Bangalore at Mavu Days',
+    'Peaceful farm stay near Bangalore for families',
+    'Weekend getaway near Bangalore at a mango farm',
+  ];
+
+  if (!payload || !('properties' in payload) || !Array.isArray(payload.properties)) {
+    return out;
+  }
+
+  type Row = { sortOrder: number; unitSlug: string; label: string; urls: string[] };
+  const rows: Row[] = [];
+  for (const p of payload.properties) {
+    for (const u of p.units) {
+      const lp = u.listing;
+      if (!lp?.published || !lp.galleryImageUrls?.length) continue;
+      rows.push({
+        sortOrder: lp.sortOrder,
+        unitSlug: u.slug,
+        label: `${p.name} — ${lp.cardTitle || u.name}`,
+        urls: lp.galleryImageUrls.map((raw) => (typeof raw === 'string' ? raw.trim() : '')).filter(Boolean),
+      });
+    }
+  }
+  rows.sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.unitSlug.localeCompare(b.unitSlug);
+  });
+
+  let keyN = 0;
+  let altN = 0;
+  for (const row of rows) {
+    for (const url of row.urls) {
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      const baseAlt = seoAltsForStays[altN % seoAltsForStays.length];
+      altN += 1;
+      out.push({
+        url,
+        alt: `${row.label} · ${baseAlt}`,
+        key: `stay-gallery-${row.unitSlug}-${keyN++}`,
+      });
+    }
+  }
+
+  return out;
+}
+
 /** Merge editable fields from CMS (and published unit listings when present). */
 export function mergeLandingContent(payload: LandingMergePayload): MergedLanding {
   const dm = cloneDefault();
@@ -663,7 +719,7 @@ export function mergeLandingContent(payload: LandingMergePayload): MergedLanding
     payload?.media?.find((m) => m.key.toLowerCase() === MEDIA_KEY.heroCover.toLowerCase()) ?? undefined;
   const heroImageUrl = heroMedia?.publicUrl;
 
-  const gallery = buildGallery(payload);
+  const gallery = mergedLandingGallery(payload);
 
   return { texts: dm, merged, heroImageUrl: heroImageUrl ?? null, gallery, homepageKind };
 }
