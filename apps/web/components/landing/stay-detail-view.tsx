@@ -23,6 +23,30 @@ function fmt(n: number) {
   return '₹' + n.toLocaleString('en-IN');
 }
 
+/** One ordered gallery per stay: API detail hero (or marketing fallback once), then extra URLs — deduped. */
+function orderedStayGallery(slug: string, listing: ListingCard): string[] {
+  const staticCover = STAY_IMAGE[slug] || STAY_IMAGE[listing.id] || '/hero.jpg';
+
+  const raw: string[] = [];
+  const hero = listing.detailHeroUrl?.trim();
+  if (hero) raw.push(hero);
+  else raw.push(staticCover);
+
+  for (const u of listing.galleryImageUrls ?? []) {
+    const t = typeof u === 'string' ? u.trim() : '';
+    if (t) raw.push(t);
+  }
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of raw) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out.length ? out : [staticCover];
+}
+
 export async function StayDetailView({ slug }: Props) {
   const { merged, orgName } = await loadLandingPayload();
   const t = merged.texts;
@@ -32,17 +56,13 @@ export async function StayDetailView({ slug }: Props) {
 
   const phone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.replace(/\D/g, '') ?? '';
   const waHref = whatsappHref(phone, whatsappBookingMessage('2'));
-  const imgSrc = listing.detailHeroUrl?.trim() || STAY_IMAGE[slug] || STAY_IMAGE[listing.id] || '/hero.jpg';
 
   const pathSeg = listingUrlPath(listing);
   const otherListings = t.listings.filter((l) => listingUrlPath(l) !== pathSeg && l.id !== listing.id);
 
-  /** Deduped stay gallery URLs from admin/CMS (shown only when at least one is set). Hero stays in banner only. */
-  const galleryPhotos: string[] = [
-    ...new Set(
-      [...(listing.galleryImageUrls ?? [])].map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean),
-    ),
-  ];
+  const galleryOrdered = orderedStayGallery(slug, listing);
+  const imgSrc = galleryOrdered[0] ?? '/hero.jpg';
+  const galleryThumbs = galleryOrdered.slice(1);
 
   return (
     <div className="md-page-premium" style={{ background: 'var(--ivory)' }}>
@@ -121,16 +141,18 @@ export async function StayDetailView({ slug }: Props) {
                 <h2 className="md-stay-detail-section-title">About this Stay</h2>
                 <p className="md-stay-detail-copy">{listing.copy}</p>
               </section>
-              {galleryPhotos.length > 0 ? (
-                <section className="md-stay-detail-section">
-                  <h2 className="md-stay-detail-section-title">Photos</h2>
+              {galleryThumbs.length > 0 ? (
+                <section className="md-stay-detail-section" aria-labelledby="stay-gallery-heading">
+                  <h2 id="stay-gallery-heading" className="md-stay-detail-section-title">
+                    Gallery
+                  </h2>
                   <div className="md-stay-detail-photo-grid">
-                    {galleryPhotos.map((photoUrl, pi) => (
+                    {galleryThumbs.map((photoUrl, pi) => (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key={`${photoUrl}-${pi}`}
                         src={photoUrl}
-                        alt={`${listing.title} — photo ${pi + 1}`}
+                        alt={`${listing.title} — gallery ${pi + 2}`}
                         loading={pi < 4 ? 'eager' : 'lazy'}
                       />
                     ))}

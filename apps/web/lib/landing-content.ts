@@ -73,8 +73,8 @@ export const SECTION_KEY = {
 } as const;
 
 export const MEDIA_KEY = {
+  /** Main marketing hero + JSON-LD image; may appear first on the aggregated home gallery when not duplicated below. */
   heroCover: 'landing-hero-cover',
-  galleryPrefix: 'landing-gallery-',
 };
 
 export type ListingPricing = {
@@ -102,7 +102,7 @@ export type ListingCard = {
   detailHeroUrl?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
-  /** Listing gallery on `/stays/...` (HTTPS URLs). */
+  /** Per-stay gallery: extra photos after {@link ListingCard.detailHeroUrl} (`/stays/...`). Feeds homepage gallery when aggregated. */
   galleryImageUrls?: readonly string[];
   airbnbProfileLabel?: string | null;
   airbnbListingUrl?: string | null;
@@ -297,7 +297,7 @@ export const DEFAULT_LANDING: LandingTexts = {
     },
     {
       title: 'Pet Parents',
-      body: 'About two fenced acres to run—see our pet-friendly notes just below.',
+      body: 'About two fenced acres to run—peek at our fenced-farm welcome note below the amenities.',
     },
   ],
   petFriendlyEyebrow: 'Pet-friendly stay',
@@ -309,19 +309,27 @@ export const DEFAULT_LANDING: LandingTexts = {
 We genuinely enjoy hosting pet parents. When you skim our house guidelines, anything about animals on the farm refers to how the owners maintain the homestead and resident animals—not a tightening list of restrictions for visiting dogs.
 
 Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
-  locationTitle: 'A Farm Stay Near Bangalore, Without Going Too Far',
+  locationTitle: 'Near Yet Far Enough',
   locationBodyDefault:
-    'Mavu Days sits about 65 km from Bangalore—close enough for a comfortable drive, quiet enough for a real reset.',
+    'Mavu Days sits about 65 km from Bangalore—close enough for a comfortable drive (~1.5 hrs), quiet enough for a real reset.',
   locationBulletsDefault: [
-    'Around 65 km from Bangalore',
-    'Suited for weekend trips',
-    'Good for overnight and two-night stays',
-    'Peaceful farm setting',
-    'Away from city noise',
+    '65 km from Bangalore (~1.5 hrs drive)',
+    '25 km from Channapatna',
+    '35 km from Ramanagara',
+    'Well-connected roads all the way',
   ],
-  amenitiesTitle: 'Amenities at Mavu Days',
-  amenitiesIntroDefault: 'Simple comforts that honour privacy and outdoors time.',
-  amenitiesDefault: ['Private villa options', 'Full farm booking', 'Open farm space', 'Parking', 'Outdoor seating', 'Family-friendly stay'],
+  amenitiesTitle: 'Amenities',
+  amenitiesIntroDefault: '',
+  amenitiesDefault: [
+    'Wi-Fi',
+    'AC Bedrooms',
+    'Fully Equipped Kitchen',
+    'Pet Friendly',
+    'Fenced Ground',
+    'Outdoor Seating & Lawn',
+    'Bonfire (Extra)',
+    'Parking Available',
+  ],
   bannerTitleDefault: 'Ready to Plan Your Farm Stay?',
   bannerCopyDefault: 'Choose your dates, select your preferred stay option, and book a quiet escape at Mavu Days.',
   houseRulesTitle: 'Before You Book',
@@ -536,43 +544,15 @@ function deriveListingsFromSite(properties: PublicSitePayload['properties']): Li
   return rows.map((r) => r.card);
 }
 
-function buildGallery(payload: LandingMergePayload): { url: string; alt: string; key: string }[] {
-  const media = payload?.media ?? [];
-  const seoAlts = [
-    'Mavu Days mango farm stay near Bangalore',
-    'Private 1BHK villa at Mavu Days farm stay',
-    '2BHK villa stay near Bangalore at Mavu Days',
-    'Peaceful farm stay near Bangalore for families',
-    'Weekend getaway near Bangalore at a mango farm',
-  ];
-  let idx = 0;
-  const list = [...media].sort((a, b) => a.key.localeCompare(b.key));
-  const items: { url: string; alt: string; key: string }[] = [];
-  for (const m of list) {
-    const k = m.key.toLowerCase();
-    const isGallery =
-      k === MEDIA_KEY.heroCover.toLowerCase()
-        ? false
-        : k.startsWith(MEDIA_KEY.galleryPrefix) || k.includes('landing-gallery');
-    if (!isGallery) continue;
-    if (k === MEDIA_KEY.heroCover.toLowerCase()) continue;
-    const url = (m.publicUrl ?? '').trim();
-    if (!url) continue;
-    items.push({
-      url,
-      key: m.key,
-      alt: (m.alt?.trim() || seoAlts[idx % seoAlts.length]) ?? seoAlts[0],
-    });
-    idx += 1;
-  }
-  return items;
-}
-
-/** CMS landing-gallery media first; then deduped shots from published stay listing galleries (property-linked). */
+/**
+ * Aggregated homepage gallery:
+ * — Optional site hero (`landing-hero-cover`) once, if set and not reused.
+ * — Then each published listing in order: cover image first (detail hero URL), then that listing’s gallery URLs.
+ * Dedupes by URL across the whole mosaic. Listing CMS `landing-gallery-*` assets are ignored.
+ */
 function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt: string; key: string }[] {
-  const fromCms = buildGallery(payload);
-  const out = [...fromCms];
-  const seen = new Set(out.map((g) => g.url.trim()));
+  const out: { url: string; alt: string; key: string }[] = [];
+  const seen = new Set<string>();
 
   const seoAltsForStays = [
     'Mavu Days mango farm stay near Bangalore',
@@ -582,7 +562,7 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
     'Weekend getaway near Bangalore at a mango farm',
   ];
 
-  if (out.length === 0 && payload?.media?.length) {
+  if (payload?.media?.length) {
     const hero =
       payload.media.find((m) => m.key.toLowerCase() === MEDIA_KEY.heroCover.toLowerCase()) ?? undefined;
     const heroUrl = (hero?.publicUrl ?? '').trim();
@@ -600,21 +580,30 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
     return out;
   }
 
-  type Row = { sortOrder: number; unitSlug: string; label: string; urls: string[]; detailHero: string };
+  type Row = { sortOrder: number; unitSlug: string; label: string; urls: string[] };
   const rows: Row[] = [];
   for (const p of payload.properties) {
     for (const u of p.units) {
       const lp = u.listing;
       if (!lp?.published) continue;
-      const urls = (lp.galleryImageUrls ?? []).map((raw) => (typeof raw === 'string' ? raw.trim() : '')).filter(Boolean);
-      const detailHero = (lp.detailHeroUrl ?? '').trim();
-      if (!urls.length && !detailHero) continue;
+      const cover = (lp.detailHeroUrl ?? '').trim();
+      const gallery = (lp.galleryImageUrls ?? [])
+        .map((raw) => (typeof raw === 'string' ? raw.trim() : ''))
+        .filter(Boolean);
+
+      /** One ordered stream per stay: hero, then extras (still one logical “stay gallery”). */
+      const urls: string[] = [];
+      if (cover) urls.push(cover);
+      for (const g of gallery) {
+        if (!urls.includes(g)) urls.push(g);
+      }
+
+      if (!urls.length) continue;
       rows.push({
         sortOrder: lp.sortOrder,
         unitSlug: u.slug,
         label: `${p.name} — ${lp.cardTitle || u.name}`,
         urls,
-        detailHero,
       });
     }
   }
@@ -634,24 +623,9 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
       out.push({
         url,
         alt: `${row.label} · ${baseAlt}`,
-        key: `stay-gallery-${row.unitSlug}-${keyN++}`,
+        key: `listing-gallery-${row.unitSlug}-${keyN++}`,
       });
     }
-  }
-
-  let heroKeyN = 0;
-  let heroAltN = 0;
-  for (const row of rows) {
-    const url = row.detailHero;
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-    const baseAlt = seoAltsForStays[heroAltN % seoAltsForStays.length];
-    heroAltN += 1;
-    out.push({
-      url,
-      alt: `${row.label} · ${baseAlt}`,
-      key: `stay-hero-${row.unitSlug}-${heroKeyN++}`,
-    });
   }
 
   return out;

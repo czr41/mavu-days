@@ -33,6 +33,7 @@ export type PublicUnitListingDto = {
   };
   guestsHint: number | null;
   bedroomsHint: number | null;
+  extraGuestPriceMinor: number | null;
   seoTitle: string | null;
   seoDescription: string | null;
   detailHeroUrl: string | null;
@@ -92,6 +93,7 @@ export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
     },
     guestsHint: row.guestsHint,
     bedroomsHint: row.bedroomsHint,
+    extraGuestPriceMinor: row.extraGuestPriceMinor,
     seoTitle: row.seoTitle,
     seoDescription: row.seoDescription,
     detailHeroUrl: row.detailHeroUrl,

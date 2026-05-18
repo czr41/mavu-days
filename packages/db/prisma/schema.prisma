@@ -189,6 +189,9 @@ model RentableUnitListing {
   sundayPriceMinor      Int?
   longWeekendPriceMinor Int?
 
+  /// Optional per-person charge for guests above base capacity (same currency as nightly rates).
+  extraGuestPriceMinor Int?
+
   guestsHint            Int?
   bedroomsHint          Int?
 

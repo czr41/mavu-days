@@ -243,17 +243,6 @@ Travellers often find us searching for Bangalore farm stays, quiet villa weekend
 export async function seedLandingCmsIfEmpty(prisma: PrismaClient, organizationId: string) {
   const siteBase = (process.env.SEED_PUBLIC_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
 
-  const gallery: { key: string; publicUrl: string; alt: string }[] = [
-    { key: 'landing-gallery-01', publicUrl: `${siteBase}/hero.jpg`, alt: 'Mavu Days farm and grounds' },
-    { key: 'landing-gallery-02', publicUrl: `${siteBase}/1bhk.jpg`, alt: '1BHK villa' },
-    { key: 'landing-gallery-03', publicUrl: `${siteBase}/2bhk.jpg`, alt: '2BHK villa' },
-    { key: 'landing-gallery-04', publicUrl: `${siteBase}/full-farm.jpg`, alt: 'Full farm stay' },
-    { key: 'landing-gallery-05', publicUrl: `${siteBase}/hero.jpg`, alt: 'Outdoor spaces' },
-    { key: 'landing-gallery-06', publicUrl: `${siteBase}/1bhk.jpg`, alt: 'Private veranda' },
-    { key: 'landing-gallery-07', publicUrl: `${siteBase}/2bhk.jpg`, alt: 'Living space' },
-    { key: 'landing-gallery-08', publicUrl: `${siteBase}/full-farm.jpg`, alt: 'Mango grove' },
-  ];
-
   await prisma.mediaAsset.upsert({
     where: { organizationId_key: { organizationId, key: 'landing-hero-cover' } },
     create: {
@@ -264,14 +253,6 @@ export async function seedLandingCmsIfEmpty(prisma: PrismaClient, organizationId
     },
     update: {},
   });
-
-  for (const g of gallery) {
-    await prisma.mediaAsset.upsert({
-      where: { organizationId_key: { organizationId, key: g.key } },
-      create: { organizationId, key: g.key, publicUrl: g.publicUrl, alt: g.alt },
-      update: {},
-    });
-  }
 
   for (const row of buildSectionRows()) {
     const existing = await prisma.siteSection.findUnique({

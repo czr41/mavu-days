@@ -29,19 +29,76 @@ function galleryFallbackSlots(count = 8) {
   return Array.from({ length: count }, (_, i) => ({ alt: alts[i % alts.length], key: `fallback-${i}` }));
 }
 
+/** Short caption for gallery pill (drops text after · separator). */
+function galleryCaptionLabel(altRaw: string): string {
+  const trimmed = altRaw?.trim();
+  if (!trimmed) return 'Mavu Days';
+  const first = trimmed.split(/\s*[·•|–—]\s*/)[0]?.trim();
+  const base = first && first.length >= 3 ? first : trimmed;
+  if (base.length <= 46) return base;
+  return `${base.slice(0, 43).trimEnd()}…`;
+}
+
+function GalleryBranchGlyph({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="134" height="96" viewBox="0 0 134 96" aria-hidden fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M8 78c18-22 52-42 118-62"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        opacity="0.58"
+      />
+      <path
+        d="M68 54c14-22 42-42 62-54M48 72c28-38 74-62 106-73M94 62c14-26 42-54 74-71"
+        stroke="currentColor"
+        strokeWidth="1.08"
+        strokeLinecap="round"
+        opacity="0.5"
+      />
+      <ellipse cx="58" cy="34" rx="10" ry="5.5" transform="rotate(-28 58 34)" stroke="currentColor" strokeWidth="1.06" opacity="0.55" />
+      <ellipse cx="102" cy="41" rx="12" ry="6" transform="rotate(15 102 41)" stroke="currentColor" strokeWidth="1.06" opacity="0.52" />
+      <ellipse cx="38" cy="56" rx="9" ry="5" transform="rotate(12 38 56)" stroke="currentColor" strokeWidth="1.02" opacity="0.48" />
+    </svg>
+  );
+}
+
+function GalleryBentoThumb({ slide, phMod }: { slide: { url: string | null; alt: string }; phMod: number }) {
+  const cap = galleryCaptionLabel(slide.alt);
+  const ph = (Math.abs(phMod) % 4) + 1;
+  return (
+    <>
+      {slide.url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={slide.url} alt={slide.alt} loading="lazy" className="md-gallery-bento-img" />
+      ) : (
+        <div className={`md-gallery-ph-${ph} md-gallery-bento-ph-fill`} role="img" aria-label={slide.alt} />
+      )}
+      <span className="md-gallery-bento-cap">
+        <svg className="md-gallery-bento-cap-ic" width="14" height="14" viewBox="0 0 24 24" aria-hidden>
+          <rect x="3" y="5" width="18" height="14" rx="2" ry="2" stroke="currentColor" strokeWidth="1.6" fill="none" />
+          <circle cx="8.25" cy="10" r="1.05" fill="currentColor" />
+          <path d="M14 13h4M14 15.5h2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+        <span className="md-gallery-bento-cap-text">{cap}</span>
+      </span>
+    </>
+  );
+}
+
 /** Full marketing homepage */
 export async function LandingView({ path }: { path: Path }) {
   const { orgSlug, merged, orgName, landingReviews, landingOffers } = await loadLandingPayload();
   const stayOptions =
     merged.homepageKind === 'MATRIX_THREE_SKU'
       ? [
-          { value: 'all', label: 'Show all available options' },
+          { value: 'all', label: 'Any' },
           { value: 'fullFarm', label: 'Full Farm' },
-          { value: 'villa1bhk', label: '1BHK Villa' },
           { value: 'villa2bhk', label: '2BHK Villa' },
+          { value: 'villa1bhk', label: '1BHK Villa' },
         ]
       : [
-          { value: 'all', label: 'Show all available options' },
+          { value: 'all', label: 'Any' },
           ...merged.texts.listings.map((L) => ({ value: listingUrlPath(L), label: L.title })),
         ];
   const hasImportedReviews = landingReviews.length > 0;
@@ -50,6 +107,10 @@ export async function LandingView({ path }: { path: Path }) {
   const email = process.env.NEXT_PUBLIC_BOOKING_EMAIL?.trim() ?? '';
 
   const waHref = whatsappHref(phone, whatsappBookingMessage('2'));
+  const waGalleryTourHref = whatsappHref(
+    phone,
+    `Hi! I'd love to see the full photo gallery for ${orgName}.`,
+  );
 
   type GallerySlide = { url: string | null; alt: string; key: string };
   const cappedGallery = merged.gallery.slice(0, 48);
@@ -58,8 +119,24 @@ export async function LandingView({ path }: { path: Path }) {
       ? cappedGallery.map((g) => ({ url: g.url, alt: g.alt, key: g.key }))
       : galleryFallbackSlots(8).map((p) => ({ url: null, alt: p.alt, key: p.key }));
 
-  /** Desktop hero grid: curated CMS shots first when present */
-  const galleryGridDesktop = galleryItems.slice(0, 8);
+  /** Seven slots for desktop bento; mobile strip can show more. */
+  const galleryBentoSlides = galleryItems.slice(0, 7);
+
+  /** Always render seven bento tiles; pad with tonal placeholders matching marketing copy if CMS has fewer. */
+  let bentoFb = 0;
+  const galleryBentoSeven: GallerySlide[] = [...galleryBentoSlides];
+  while (galleryBentoSeven.length < 7) {
+    const f = galleryFallbackSlots(1)[0]!;
+    galleryBentoSeven.push({
+      url: null,
+      alt: f.alt,
+      key: `gallery-bento-fallback-${bentoFb}-${f.key}`,
+    });
+    bentoFb++;
+  }
+
+  const [bzHero, bzWide, bzTri1, bzTri2, bzTri3, bzDuo1, bzDuo2] = galleryBentoSeven;
+
   /** Horizontal scroll / mobile: more room for stay-linked photos appended after CMS */
   const galleryScrollItems = galleryItems.slice(0, 24);
 
@@ -379,26 +456,55 @@ export async function LandingView({ path }: { path: Path }) {
           </div>
         </RevealSection>
 
-        <RevealSection className="md-section md-section-sage" id="gallery">
+        <RevealSection className="md-section md-section-cream md-gallery-section" id="gallery">
           <div className="md-wrap">
-            <header className="md-section-head md-section-head-center">
-              <p className="md-eyebrow-line md-section-label">Gallery</p>
-              <h2 className="md-h2">{t.galleryTitle || 'Inside Mavu Days'}</h2>
-              <p className="md-lead">{t.galleryIntroDefault || 'A glimpse of the spaces, light, and calm that await you.'}</p>
-            </header>
-            <div className="md-gallery-grid md-gallery-desktop">
-              {galleryGridDesktop.map((item, i) => (
-                <RevealFigure key={item.key} delayIndex={i} className="md-gallery-grid-item">
-                  {item.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.url} alt={item.alt} loading="lazy" />
-                  ) : (
-                    <div className={`md-gallery-ph-${(i % 4) + 1}`} role="img" aria-label={item.alt} />
-                  )}
-                </RevealFigure>
-              ))}
+            <div className="md-gallery-bento-head-row">
+              <div className="md-gallery-bento-copy">
+                <GalleryBranchGlyph className="md-gallery-bento-branch" />
+                <p className="md-gallery-bento-eyeb">Inside {orgName}</p>
+                <h2 className="md-h2 md-gallery-bento-h2">{t.galleryTitle || 'A glimpse of life here.'}</h2>
+                <p className="md-lead md-gallery-bento-lead">
+                  {t.galleryIntroDefault ||
+                    'From lush mango orchards and cozy villas to starry nights and slow mornings — this is what awaits you.'}
+                </p>
+              </div>
+              <a className="md-gallery-bento-cta-outline" href={waGalleryTourHref} target="_blank" rel="noreferrer">
+                View Full Gallery
+                <span className="md-gallery-bento-cta-arrow" aria-hidden>
+                  →
+                </span>
+              </a>
             </div>
-            <div className="md-gallery-scroll" aria-label="Photo gallery">
+
+            <div className="md-gallery-bento md-gallery-bento-desktop">
+              <RevealFigure key={bzHero.key} delayIndex={0} className="md-gallery-bento-hero md-gallery-bento-cell">
+                <GalleryBentoThumb slide={bzHero} phMod={0} />
+              </RevealFigure>
+              <RevealFigure key={bzWide.key} delayIndex={1} className="md-gallery-bento-wide md-gallery-bento-cell">
+                <GalleryBentoThumb slide={bzWide} phMod={1} />
+              </RevealFigure>
+              <div className="md-gallery-bento-triple">
+                <RevealFigure key={bzTri1.key} delayIndex={2} className="md-gallery-bento-tile md-gallery-bento-cell">
+                  <GalleryBentoThumb slide={bzTri1} phMod={2} />
+                </RevealFigure>
+                <RevealFigure key={bzTri2.key} delayIndex={3} className="md-gallery-bento-tile md-gallery-bento-cell">
+                  <GalleryBentoThumb slide={bzTri2} phMod={3} />
+                </RevealFigure>
+                <RevealFigure key={bzTri3.key} delayIndex={4} className="md-gallery-bento-tile md-gallery-bento-cell">
+                  <GalleryBentoThumb slide={bzTri3} phMod={4} />
+                </RevealFigure>
+              </div>
+              <div className="md-gallery-bento-duo">
+                <RevealFigure key={bzDuo1.key} delayIndex={5} className="md-gallery-bento-tile md-gallery-bento-cell">
+                  <GalleryBentoThumb slide={bzDuo1} phMod={5} />
+                </RevealFigure>
+                <RevealFigure key={bzDuo2.key} delayIndex={6} className="md-gallery-bento-tile md-gallery-bento-cell">
+                  <GalleryBentoThumb slide={bzDuo2} phMod={6} />
+                </RevealFigure>
+              </div>
+            </div>
+
+            <div className="md-gallery-scroll md-gallery-scroll-bento-mobile" aria-label="Photo gallery">
               {galleryScrollItems.map((item, i) => (
                 <div key={`m-${item.key}`} className="md-swipe-card">
                   {item.url ? (
@@ -411,154 +517,141 @@ export async function LandingView({ path }: { path: Path }) {
               ))}
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: '1.75rem' }}>
-              <a href={waHref} className="md-btn md-btn-secondary" target="_blank" rel="noreferrer">
-                Request Full Photo Tour
+            <p className="md-gallery-bento-foot">
+              Prefer WhatsApp?{' '}
+              <a href={waHref} className="md-gallery-bento-foot-link" target="_blank" rel="noreferrer">
+                Request the full photo tour
               </a>
-            </div>
+              .
+            </p>
           </div>
         </RevealSection>
 
-        <RevealSection className="md-section" id="who">
+        <RevealSection className="md-section md-section-cream md-visit-compact-bundle" id="who">
           <div className="md-wrap">
-            <header className="md-section-head md-section-head-center">
-              <p className="md-eyebrow-line md-section-label">Perfect For</p>
-              <h2 className="md-h2">{t.whoTitle || 'Perfect for Every Kind of Escape'}</h2>
-              <p className="md-lead">{t.whoIntro || 'Whether you seek solitude, celebration, or simple family joy — Mavu Days fits.'}</p>
-            </header>
-            <div className="md-who-grid">
-              {t.whoCards.map((c, wi) => (
-                <RevealArticle key={c.title} delayIndex={wi} className="md-who-card">
-                  <div className="md-who-symbol" aria-hidden>
-                    <WhoGlyph title={c.title} />
-                  </div>
-                  <h3 className="md-h4">{c.title}</h3>
-                  <p className="md-who-snippet">{c.body}</p>
-                </RevealArticle>
-              ))}
-            </div>
-          </div>
-        </RevealSection>
-
-        <RevealSection className="md-section md-section-sage" id="pet-friendly">
-          <div className="md-wrap">
-            <div className="md-pet-friendly-split">
-              <div>
-                <p className="md-eyebrow-line md-section-label">{t.petFriendlyEyebrow || 'Pet-friendly stay'}</p>
-                <h2 className="md-h2" style={{ marginBottom: '0.75rem' }}>
-                  {t.petFriendlyTitle || 'Room for dogs to gallop'}
-                </h2>
-                <p className="md-lead" style={{ marginBottom: '1.25rem' }}>
-                  {t.petFriendlyLead ||
-                    'Fenced acreage gives pups space to roam while you unwind—built with pet parents in mind.'}
-                </p>
-                <div className="md-body md-prose">
-                  {(t.petFriendlyBody || '')
-                    .trim()
-                    .split(/\n\s*\n/)
-                    .filter(Boolean)
-                    .map((para, i) => (
-                      <p key={i} style={i === 0 ? undefined : { marginTop: '0.85rem' }}>
-                        {para}
-                      </p>
-                    ))}
-                </div>
-                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <a href="#booking" className="md-btn md-btn-secondary">
-                    Check dates with your dog →
-                  </a>
-                  <a href={waHref} className="md-btn md-btn-wa" target="_blank" rel="noreferrer">
-                    WhatsApp to book
-                  </a>
-                </div>
-              </div>
-              <div className="md-pet-friendly-icon-panel" aria-hidden>
-                <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4.5 9.5L3 11c-.8.8-.8 2.1 0 2.9l.9.9c.6.6 1.5.8 2.3.4a6 6 0 014.5-.6c.8.2 1.6 0 2.2-.5l1.2-1.1c.7-.6.7-1.7 0-2.3l-1.3-1.2" />
-                  <path d="M8 6.5c.5-1.4 2-2.1 3.3-1.5.6.3 1 .9 1.1 1.6" />
-                  <path d="M16.2 6.3c1.3-.7 2.9 0 3.3 1.5.2.6 0 1.3-.4 1.8" />
-                  <ellipse cx="12" cy="15.5" rx="4.2" ry="3.2" />
-                  <circle cx="9" cy="11" r="1.3" />
-                  <circle cx="15" cy="11" r="1.3" />
-                  <circle cx="10.2" cy="8.8" r="1.1" />
-                  <circle cx="13.8" cy="8.8" r="1.1" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </RevealSection>
-
-        <RevealSection className="md-section md-section-cream" id="location">
-          <div className="md-wrap">
-            <div className="md-split-location">
-              <div className="md-map-shell">
-                <iframe
-                  title="Map — Mavu Days Farm House"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="md-map-frame"
-                  src={MAVU_DAYS_OSM_EMBED_URL}
-                />
-                <span className="md-map-pin-hint">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  Mavu Days Farm House · Near Channapatna, Karnataka
-                </span>
-              </div>
-              <div>
-                <p className="md-section-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Location</p>
-                <h2 className="md-h2" style={{ marginBottom: '1rem' }}>
-                  {t.locationTitle || 'Near Yet Far Enough'}
-                </h2>
-                <p className="md-body md-prose" style={{ marginBottom: '1.25rem' }}>
-                  {t.locationBodyDefault || 'A quick drive from Bangalore takes you worlds away — into quiet farm roads, mango groves, and open skies.'}
-                </p>
-                <ul className="md-tiles" style={{ marginBottom: '1.75rem' }}>
-                  {(t.locationBulletsDefault ?? [
-                    'Around 65 km from Bangalore',
-                    'Easy drive via NICE Road / Kanakapura Road',
-                    'Close to Channapatna & Ramanagara',
-                    'Surrounded by mango farms & nature',
-                    'Perfect for a quick weekend escape',
-                  ]).map((b) => (
-                    <li key={b}>{b}</li>
-                  ))}
-                </ul>
-                <a
-                  className="md-btn md-btn-primary"
-                  href={MAVU_DAYS_DIRECTIONS_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Get Directions
-                </a>
-                <p className="md-muted md-footnote">
-                  Need help finding us?{' '}
-                  <a href={waHref} className="md-link">WhatsApp us</a>.
-                </p>
-              </div>
-            </div>
-          </div>
-        </RevealSection>
-
-        <RevealSection className="md-section md-section-sage" id="amenities">
-          <div className="md-wrap">
-            <header className="md-section-head md-section-head-center">
-              <p className="md-eyebrow-line md-section-label">What&#39;s Included</p>
-              <h2 className="md-h2">{t.amenitiesTitle || 'All You Need, Ready for You'}</h2>
-              {t.amenitiesIntroDefault ? <p className="md-lead">{t.amenitiesIntroDefault}</p> : null}
-            </header>
-            <div className="md-amenities-scroll">
-              <div className="md-amenities md-amenities-row">
-                {t.amenitiesDefault.map((a, ai) => (
-                  <div key={a} className="md-amenity">
-                    <span className="md-amenity-icon" aria-hidden>
-                      <AmenityIcon index={ai} />
-                    </span>
-                    <span>{a}</span>
-                  </div>
+            <div className="md-visit-chunk md-visit-chunk-who">
+              <header className="md-section-head md-section-head-center">
+                <p className="md-eyebrow-line md-section-label">Perfect For</p>
+                <h2 className="md-h2">{t.whoTitle || 'Perfect for Every Kind of Escape'}</h2>
+                <p className="md-lead">{t.whoIntro || 'Whether you seek solitude, celebration, or simple family joy — Mavu Days fits.'}</p>
+              </header>
+              <div className="md-who-grid">
+                {t.whoCards.map((c, wi) => (
+                  <RevealArticle key={c.title} delayIndex={wi} className="md-who-card">
+                    <div className="md-who-symbol" aria-hidden>
+                      <WhoGlyph title={c.title} />
+                    </div>
+                    <h3 className="md-h4">{c.title}</h3>
+                    <p className="md-who-snippet">{c.body}</p>
+                  </RevealArticle>
                 ))}
               </div>
             </div>
+
+            <div className="md-visit-chunk md-visit-chunk-location">
+              <div className="md-split-location">
+                <div className="md-location-copy-block">
+                  <p className="md-eyebrow-line md-section-label">Location</p>
+                  <h2 className="md-h2 md-location-bundle-title">{t.locationTitle || 'Near Yet Far Enough'}</h2>
+                  <p className="md-lead md-location-tagline">Easy to reach. Hard to leave.</p>
+                  <p className="md-body md-prose md-location-lead-copy">
+                    {t.locationBodyDefault ||
+                      'A quick drive from Bangalore takes you worlds away — into quiet farm roads, mango groves, and open skies.'}
+                  </p>
+                  <ul className="md-location-checklist">
+                    {(t.locationBulletsDefault ?? [
+                      '65 km from Bangalore (~1.5 hrs drive)',
+                      '25 km from Channapatna',
+                      '35 km from Ramanagara',
+                      'Well-connected roads all the way',
+                    ]).map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                  <a className="md-btn md-btn-primary" href={MAVU_DAYS_DIRECTIONS_URL} target="_blank" rel="noreferrer">
+                    Get Directions
+                  </a>
+                  <p className="md-muted md-footnote">
+                    Need help finding us?{' '}
+                    <a href={waHref} className="md-link">
+                      WhatsApp us
+                    </a>
+                    .
+                  </p>
+                </div>
+                <div className="md-map-shell md-map-shell-brand">
+                  <div className="md-map-frame-wrap">
+                    <iframe
+                      title="Map — Mavu Days Farm House"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      className="md-map-frame"
+                      src={MAVU_DAYS_OSM_EMBED_URL}
+                    />
+                    <span className="md-map-drive-badge">
+                      ~1.5 hrs drive <span aria-hidden className="md-map-drive-dot">·</span> From Bangalore
+                    </span>
+                  </div>
+                  <span className="md-map-pin-hint md-map-pin-hint-soft">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    Mavu Days Farm House · Near Channapatna, Karnataka
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="md-visit-chunk md-visit-chunk-ameni">
+              <header className="md-section-head md-section-head-center md-amenities-head-tight">
+                <h2 className="md-h2">{t.amenitiesTitle || 'Amenities'}</h2>
+                {t.amenitiesIntroDefault ? <p className="md-lead">{t.amenitiesIntroDefault}</p> : null}
+              </header>
+              <div className="md-amenities-scroll md-amenities-scroll-bundle">
+                <div className="md-amenities md-amenities-row">
+                  {t.amenitiesDefault.map((a, ai) => (
+                    <div key={a} className="md-amenity">
+                      <span className="md-amenity-icon" aria-hidden>
+                        <AmenityIcon index={ai} />
+                      </span>
+                      <span>{a}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <aside id="pet-friendly" className="md-pet-welcome-banner" aria-labelledby="pet-welcome-banner-heading">
+              <span className="md-pet-welcome-banner-graphic" aria-hidden>
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4.5 9.5L3 11c-.8.8-.8 2.1 0 2.9l.9.9c.6.6 1.5.8 2.3.4a6 6 0 014.5-.6c.8.2 1.6 0 2.2-.5l1.2-1.1c.7-.6.7-1.7 0-2.3l-1.3-1.2" />
+                  <ellipse cx="12" cy="15.5" rx="4.2" ry="3.2" />
+                  <circle cx="9" cy="11" r="1.35" />
+                  <circle cx="15" cy="11" r="1.35" />
+                </svg>
+              </span>
+              <div className="md-pet-welcome-banner-body">
+                <h3 id="pet-welcome-banner-heading" className="md-sr-only">
+                  {t.petFriendlyEyebrow || 'Pet-friendly stay'}
+                </h3>
+                <p className="md-pet-welcome-banner-copy">
+                  <strong>No rules for pets on property — only for humans!</strong> Enjoy roughly two fenced acres where your dogs can roam and explore without needless restrictions—we host pups on fenced ground. Our{' '}
+                  <a href="#house-rules" className="md-link">
+                    house guidelines
+                  </a>{' '}
+                  are for humans. Share breed &amp; temperament when you{' '}
+                  <a href="#booking" className="md-link">
+                    book
+                  </a>
+                  &nbsp;/&nbsp;
+                  <a href={waHref} className="md-link" target="_blank" rel="noreferrer">
+                    WhatsApp us
+                  </a>
+                  .
+                </p>
+              </div>
+            </aside>
           </div>
         </RevealSection>
 

@@ -19,12 +19,23 @@ type Props = {
 
 type BookingTarget = { propertySlug: string; unitSlug: string };
 
+type ColumnPricing = {
+  maxGuests: number | null;
+  bedroomsHint: number | null;
+  extraGuestPerNight: number | null;
+  weekdayPerNight: number | null;
+  weekendPerNightTypical: number | null;
+  stayEstimateTotal: number | null;
+  nights: number;
+};
+
 type Column = {
   key: string;
   title: string;
   available: boolean;
   bookingTarget: BookingTarget | null;
   offers: { id: string; label: string }[];
+  pricing?: ColumnPricing | null;
 };
 
 type LandingAvailResponse = {
@@ -34,6 +45,90 @@ type LandingAvailResponse = {
   error?: string;
   message?: string;
 };
+
+function fmtInr(n: number | null | undefined): string | null {
+  if (n == null || Number.isNaN(n)) return null;
+  return '₹' + n.toLocaleString('en-IN');
+}
+
+function fmtNightCell(n: number | null | undefined) {
+  const v = fmtInr(n);
+  if (!v) return null;
+  return (
+    <>
+      <span className="md-price-amt">{v}</span>
+      <span className="md-price-per"> / night</span>
+    </>
+  );
+}
+
+function fmtExtraGuest(n: number | null | undefined) {
+  const v = fmtInr(n);
+  if (!v) return null;
+  return (
+    <>
+      <span className="md-price-amt">{v}</span>
+      <span className="md-price-per"> / person</span>
+    </>
+  );
+}
+
+function BedroomsCell({
+  homepageKind,
+  columnKey,
+  bedrooms,
+}: {
+  homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU';
+  columnKey: string;
+  bedrooms: number | null;
+}) {
+  if (homepageKind === 'MATRIX_THREE_SKU' && columnKey === 'fullFarm') {
+    return <span className="md-booking-bedrooms">Multiple</span>;
+  }
+  if (bedrooms != null && bedrooms > 0) {
+    return (
+      <span className="md-booking-bedrooms">
+        {bedrooms} bedroom{bedrooms === 1 ? '' : 's'}
+      </span>
+    );
+  }
+  return <span className="md-booking-cell-muted">—</span>;
+}
+
+function BookingDateField({
+  label,
+  value,
+  onChange,
+  hintId,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  hintId?: string;
+}) {
+  const hasVal = Boolean(value);
+  return (
+    <label className="md-booking-field">
+      <span className="md-field-label">{label}</span>
+      <div className={`md-booking-date-wrap ${hasVal ? 'md-booking-date-wrap--filled' : ''}`}>
+        <span className="md-booking-date-ph" aria-hidden={hasVal}>
+          Choose date
+        </span>
+        <svg className="md-booking-cal-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          <path d="M16 2v4M8 2v4M3 10h18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        </svg>
+        <input
+          className="md-input md-booking-date-input"
+          type="date"
+          value={value}
+          aria-describedby={hintId}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    </label>
+  );
+}
 
 export function AvailabilitySearch({
   orgSlug,
@@ -92,142 +187,195 @@ export function AvailabilitySearch({
     }
   }, [apiBase, orgSlug, checkIn, checkOut]);
 
-  const label = (ok: boolean) => (ok ? 'Available' : 'Booked');
-
   const visibleColumns = useMemo(() => {
     if (!columns?.length) return [];
     if (stayFilter === 'all') return columns;
     return columns.filter((c) => c.key === stayFilter);
   }, [columns, stayFilter]);
 
-  const showCol = useCallback(
-    (key: string) => {
-      if (stayFilter === 'all') return true;
-      return stayFilter === key;
-    },
-    [stayFilter],
-  );
+  const resultsOpen = Boolean(columns && columns.length > 0);
 
   return (
     <RevealSection className="md-section md-section-booking" id="booking" aria-labelledby="booking-title">
-      <div className="md-wrap">
-        <h2 id="booking-title" className="md-h2">
-          {availabilityTitle}
-        </h2>
-        <p className="md-lead">{availabilitySubtitle}</p>
+      <div className="md-wrap md-booking-wrap">
+        <div className="md-booking-hero-layout">
+          <div className="md-booking-head-text">
+            <h2 id="booking-title" className="md-h2 md-booking-title">
+              {availabilityTitle}
+            </h2>
+            <p className="md-lead md-booking-sub">{availabilitySubtitle}</p>
+          </div>
 
-        <div className="md-card md-booking-grid">
-          <label className="md-field">
-            <span className="md-field-label">Check-in</span>
-            <input className="md-input" type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
-          </label>
-          <label className="md-field">
-            <span className="md-field-label">Check-out</span>
-            <input className="md-input" type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
-          </label>
-          <label className="md-field">
-            <span className="md-field-label">Guests</span>
-            <input
-              className="md-input"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              value={guests}
-              onChange={(e) => setGuests(e.target.value)}
-            />
-          </label>
-          <label className="md-field md-field-span">
-            <span className="md-field-label">Stay type</span>
-            <select className="md-input" value={stayFilter} onChange={(e) => setStayFilter(e.target.value)}>
-              {stayOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="md-field-span md-actions-row">
-            <button type="button" className="md-btn md-btn-primary" disabled={loading} onClick={() => search()}>
-              {loading ? 'Searching…' : 'Search Availability'}
-            </button>
-            <p className="md-microcopy-inline">
-              <strong>Not sure which option?</strong> Select “Show all available options” and we&apos;ll outline what is free for
-              your dates.
-            </p>
+          <div className="md-card md-booking-toolbar-card md-booking-search-shell">
+            <div className="md-booking-toolbar-rows">
+              <div className="md-booking-toolbar-row md-booking-toolbar-row-main">
+                <BookingDateField label="Check-in" value={checkIn} onChange={setCheckIn} />
+                <BookingDateField label="Check-out" value={checkOut} onChange={setCheckOut} />
+                <label className="md-booking-field">
+                  <span className="md-field-label">Guests</span>
+                  <div className="md-booking-select-wrap">
+                    <svg className="md-booking-guest-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                      <path
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"
+                      />
+                    </svg>
+                    <select
+                      className="md-input md-booking-select"
+                      value={guests}
+                      onChange={(e) => setGuests(e.target.value)}
+                      aria-label="Number of guests"
+                    >
+                      {Array.from({ length: 14 }, (_, i) => String(i + 1)).map((n) => (
+                        <option key={n} value={n}>
+                          {n === '1' ? '1 Guest' : `${n} Guests`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
+                <label className="md-booking-field md-booking-field--stay">
+                  <span className="md-field-label">Stay type</span>
+                  <select className="md-input md-booking-select" value={stayFilter} onChange={(e) => setStayFilter(e.target.value)}>
+                    {stayOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="md-booking-search-cell">
+                  <button
+                    type="button"
+                    className="md-btn md-btn-primary md-booking-search-btn"
+                    disabled={loading}
+                    onClick={() => void search()}
+                  >
+                    {loading ? 'Searching…' : 'Check Availability'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {homepageKind === 'MATRIX_THREE_SKU' ? (
-          <p className="md-muted" style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>
-            Availability uses the three-SKU matrix (full farm vs villas). Stay filters match that grid.
+          <p className="md-muted md-booking-micro-foot">
+            Availability uses the three-SKU matrix (full farm vs villas). Filters narrow the table rows below.
           </p>
         ) : (
-          <p className="md-muted" style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>
+          <p className="md-muted md-booking-micro-foot">
             Showing published units only — add or publish listings in the admin when you expand inventory.
           </p>
         )}
 
-        {error && (
+        {error ? (
           <p role="alert" className="md-error">
             {error}
           </p>
-        )}
-        {notConfigured && (
+        ) : null}
+        {notConfigured ? (
           <p className="md-muted">
             We&apos;ll personally confirm calendars for those dates — tap WhatsApp below and we&apos;ll reply with what&apos;s
             available.
           </p>
-        )}
+        ) : null}
 
-        {columns && columns.length > 0 && (
-          <>
-            <div className="md-table-wrap">
-              <table className="md-table" aria-label="Availability for selected dates">
-                <thead>
-                  <tr>
-                    <th scope="col">Stay window</th>
-                    {columns.map((c) =>
-                      showCol(c.key) ? (
-                        <th key={c.key} scope="col">
-                          {c.title}
-                        </th>
-                      ) : null,
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row">
-                      {checkIn} → {checkOut}
-                    </th>
-                    {columns.map((c) => (showCol(c.key) ? <td key={c.key}>{label(c.available)}</td> : null))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+        <div className={`md-booking-results${resultsOpen ? ' md-booking-results--open' : ''}`} aria-live="polite">
+          {resultsOpen ? (
+            <>
+              <div className="md-booking-results-card">
+                <div className="md-booking-price-table-scroll">
+                  <table className="md-booking-price-table" aria-label="Stay options and guide pricing for selected dates">
+                    <thead>
+                      <tr>
+                        <th scope="col">Stay option</th>
+                        <th scope="col">Max guests</th>
+                        <th scope="col">Bedroom(s)</th>
+                        <th scope="col">Weekdays (Mon–Thu)</th>
+                        <th scope="col">Weekends (Fri–Sun)</th>
+                        <th scope="col">Extra guest</th>
+                        <th scope="col">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleColumns.map((c) => {
+                        const p = c.pricing ?? null;
+                        const maxGuests =
+                          p?.maxGuests != null ? (
+                            <>
+                              Max <strong className="md-booking-max-strong">{p.maxGuests}</strong> guests
+                            </>
+                          ) : (
+                            <span className="md-booking-cell-muted">—</span>
+                          );
+                        return (
+                          <tr key={c.key} className={!c.available ? 'md-booking-price-row-muted' : undefined}>
+                            <td className="md-booking-col-stay">{c.title}</td>
+                            <td>{maxGuests}</td>
+                            <td>
+                              <BedroomsCell homepageKind={homepageKind} columnKey={c.key} bedrooms={p?.bedroomsHint ?? null} />
+                            </td>
+                            <td className="md-price-cell">{fmtNightCell(p?.weekdayPerNight ?? null) ?? <span className="md-booking-cell-muted">—</span>}</td>
+                            <td className="md-price-cell">
+                              {fmtNightCell(p?.weekendPerNightTypical ?? null) ?? (
+                                <span className="md-booking-cell-muted">—</span>
+                              )}
+                            </td>
+                            <td className="md-price-cell md-booking-extra-cell">
+                              {fmtExtraGuest(p?.extraGuestPerNight ?? null) ?? (
+                                <span className="md-booking-cell-muted">—</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className={c.available ? 'md-booking-status md-booking-status--ok' : 'md-booking-status md-booking-status--busy'}>
+                                {c.available ? 'Available' : 'Booked'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="md-booking-tax-foot" role="note">
+                  <svg className="md-booking-info-ic" width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+                    <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.75" />
+                    <path d="M12 16v-5M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  <span>
+                    Prices are exclusive of taxes. Long stay discounts available — we&apos;ll confirm your total when you enquire.
+                  </span>
+                </div>
+              </div>
 
-            <div className="md-booking-direct-stack">
-              <p className="md-booking-direct-intro">
-                Book directly on our site when dates show as available. Select any offers that apply — we&apos;ll attach them to
-                your request.
-              </p>
-              {visibleColumns.map((c) => (
-                <DirectBookingPanel
-                  key={c.key}
-                  title={c.title}
-                  columnKey={c.key}
-                  available={c.available}
-                  target={c.bookingTarget}
-                  offers={c.offers}
-                  orgSlug={orgSlug}
-                  apiBase={apiBase}
-                  checkIn={checkIn}
-                  checkOut={checkOut}
-                />
-              ))}
-            </div>
-          </>
-        )}
+              <div className="md-booking-direct-stack">
+                <p className="md-booking-direct-intro">
+                  Book directly below when status shows <strong>Available</strong>. Add offers if they apply — we&apos;ll attach them to
+                  your request.
+                </p>
+                {visibleColumns.map((c) => (
+                  <DirectBookingPanel
+                    key={c.key}
+                    title={c.title}
+                    columnKey={c.key}
+                    available={c.available}
+                    target={c.bookingTarget}
+                    offers={c.offers}
+                    orgSlug={orgSlug}
+                    apiBase={apiBase}
+                    checkIn={checkIn}
+                    checkOut={checkOut}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
 
         <p className="md-muted md-booking-hint">
           Booking requests:{' '}

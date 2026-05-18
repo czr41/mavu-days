@@ -75,6 +75,7 @@ type ListingProfileDto = {
   saturdayPriceMinor: number | null;
   sundayPriceMinor: number | null;
   longWeekendPriceMinor: number | null;
+  extraGuestPriceMinor: number | null;
   guestsHint: number | null;
   bedroomsHint: number | null;
   seoTitle: string | null;
@@ -109,6 +110,7 @@ type ListingDraftState = {
   saturday: string;
   sunday: string;
   longWeekend: string;
+  extraGuest: string;
   guestsHint: string;
   bedroomsHint: string;
   seoTitle: string;
@@ -142,6 +144,7 @@ function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
     saturday: lp?.saturdayPriceMinor != null ? String(lp.saturdayPriceMinor) : '',
     sunday: lp?.sundayPriceMinor != null ? String(lp.sundayPriceMinor) : '',
     longWeekend: lp?.longWeekendPriceMinor != null ? String(lp.longWeekendPriceMinor) : '',
+    extraGuest: lp?.extraGuestPriceMinor != null ? String(lp.extraGuestPriceMinor) : '',
     guestsHint: lp?.guestsHint != null ? String(lp.guestsHint) : '',
     bedroomsHint: lp?.bedroomsHint != null ? String(lp.bedroomsHint) : '',
     seoTitle: lp?.seoTitle ?? '',
@@ -1590,7 +1593,7 @@ export default function OrgAdminPage() {
         <>
           <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
             Marketing copy and pricing for each stay—published listings appear on the public site immediately after save.
-            Stay <strong>gallery</strong> URLs also feed the home page Gallery (after CMS Media images keyed <code style={{ fontSize: '0.78rem' }}>landing-gallery-*</code>), without duplicating the same URL twice.
+            Each listing has one <strong>gallery</strong> (detail hero URL + gallery image URLs below it). Together, published listings populate the homepage gallery — duplicate URLs appear only once.
             Airbnb listing URLs and calendar connections are managed separately under <strong>Host &amp; Airbnb</strong>.
           </div>
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
@@ -1698,6 +1701,7 @@ export default function OrgAdminPage() {
                     <div className="adm-form-grid">
                       <div className="adm-field"><label className="adm-label">Guests hint</label><input className="adm-input" value={listingDraft.guestsHint} onChange={(e)=>setListingDraft((d)=>d?{...d,guestsHint:e.target.value}:d)} placeholder="e.g. 6"/></div>
                       <div className="adm-field"><label className="adm-label">Bedrooms hint</label><input className="adm-input" value={listingDraft.bedroomsHint} onChange={(e)=>setListingDraft((d)=>d?{...d,bedroomsHint:e.target.value}:d)} placeholder="e.g. 2"/></div>
+                      <div className="adm-field adm-field-full"><label className="adm-label">Extra guest (₹ per person / night)</label><input className="adm-input" value={listingDraft.extraGuest} onChange={(e)=>setListingDraft((d)=>d?{...d,extraGuest:e.target.value}:d)} placeholder="Optional · shown on Check Your Dates"/></div>
                     </div>
                     <div className="adm-form-grid">
                       <div className="adm-field adm-field-full"><label className="adm-label">SEO title</label><input className="adm-input" value={listingDraft.seoTitle} onChange={(e)=>setListingDraft((d)=>d?{...d,seoTitle:e.target.value}:d)}/></div>
@@ -1742,6 +1746,7 @@ export default function OrgAdminPage() {
                           saturdayPriceMinor:optionalInt(listingDraft.saturday),
                           sundayPriceMinor:optionalInt(listingDraft.sunday),
                           longWeekendPriceMinor:optionalInt(listingDraft.longWeekend),
+                          extraGuestPriceMinor:optionalInt(listingDraft.extraGuest),
                           guestsHint:optionalInt(listingDraft.guestsHint),
                           bedroomsHint:optionalInt(listingDraft.bedroomsHint),
                           seoTitle:listingDraft.seoTitle.trim()||null,
@@ -1781,7 +1786,7 @@ export default function OrgAdminPage() {
                 Keys: {[...new Set(Object.values(SECTION_KEY) as string[])].sort().join(', ')}
               </p>
               <p style={{fontSize:'0.78rem',color:'#6B7280',margin:0}}>
-                Hero image key: <code>{MEDIA_KEY.heroCover}</code>. Gallery: <code>{MEDIA_KEY.galleryPrefix}01</code> … <code>{MEDIA_KEY.galleryPrefix}08</code>.
+                Marketing hero image key (home top banner + JSON-LD): <code>{MEDIA_KEY.heroCover}</code>. Site-wide photo gallery tiles are aggregated from each published listing’s gallery URLs above — CMS media keys don’t drive gallery tiles anymore.
               </p>
             </div>
           </details>
@@ -1864,8 +1869,8 @@ export default function OrgAdminPage() {
           <div className="adm-card">
             <div className="adm-card-header"><h2 className="adm-card-title">Register Media URL</h2></div>
             <div className="adm-card-body">
-              <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Use a full HTTPS URL or a root-relative path served by your site (e.g. <code>/hero.jpg</code>). Hero key:{' '}
-                <code>{MEDIA_KEY.heroCover}</code>; gallery: <code>{MEDIA_KEY.galleryPrefix}01</code> … <code>{MEDIA_KEY.galleryPrefix}08</code>.</p>
+              <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Use a full HTTPS URL or a root-relative path served by your site (e.g. <code>/hero.jpg</code>). Marketing hero key:{' '}
+                <code>{MEDIA_KEY.heroCover}</code>. Listing galleries are edited per stay above; they feed both <code>/stays/…</code> and the home page mosaic.</p>
               <form onSubmit={async e=>{
                 e.preventDefault(); setBusy(true);
                 const r = await apiFetch(`${base}/cms/media`,{method:'POST',body:JSON.stringify({key:mediaForm.key,publicUrl:mediaForm.publicUrl.trim(),alt:mediaForm.alt||undefined})});

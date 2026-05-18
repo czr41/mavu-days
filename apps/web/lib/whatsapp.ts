@@ -9,7 +9,7 @@ export function whatsappHref(phoneDigits: string, message: string) {
 }
 
 export function formatStayPreference(s?: string): string {
-  if (!s || s === 'all') return 'Show all available options';
+  if (!s || s === 'all') return 'Any';
   return s;
 }
 

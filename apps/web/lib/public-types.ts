@@ -60,6 +60,7 @@ export type PublicUnitListingPayload = {
   };
   guestsHint: number | null;
   bedroomsHint: number | null;
+  extraGuestPriceMinor: number | null;
   seoTitle: string | null;
   seoDescription: string | null;
   detailHeroUrl: string | null;

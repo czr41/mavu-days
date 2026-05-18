@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { BookingStatus, OrgHomepageKind } from '@prisma/client';
 import type { Prisma } from '@mavu/db';
 import { confirmPendingBooking, createPendingBooking } from '../services/booking-flow.js';
+import { buildLandingColumnPricing } from '../services/landing-availability-pricing.js';
 import {
   computeLandingAvailabilityMatrix,
   computePerUnitAvailability,
@@ -200,7 +201,18 @@ export function registerPublicRoutes(app: FastifyInstance) {
       key: string;
       title: string;
       sortOrder: number;
+      listing: NonNullable<(typeof org.properties)[number]['units'][number]['listingProfile']>;
     };
+
+    const listingByUnitId = new Map<
+      string,
+      NonNullable<(typeof org.properties)[number]['units'][number]['listingProfile']>
+    >();
+    for (const prop of org.properties) {
+      for (const u of prop.units) {
+        if (u.listingProfile) listingByUnitId.set(u.id, u.listingProfile);
+      }
+    }
 
     if (homepageKind === OrgHomepageKind.LISTING_GRID) {
       const gridUnits: GridUnit[] = [];
@@ -215,6 +227,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
             key: u.slug,
             title: lp.cardTitle?.trim() || u.name,
             sortOrder: lp.sortOrder,
+            listing: lp,
           });
         }
       }
@@ -249,6 +262,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
           available: availMap.get(g.unitId) ?? false,
           bookingTarget: { propertySlug: g.propertySlug, unitSlug: g.unitSlug },
           offers: await publishedOffersForLandingUnit(app.prisma, org.id, g.unitId),
+          pricing: buildLandingColumnPricing(g.listing, { checkInUtc, checkOutUtc }),
         })),
       );
 
@@ -289,12 +303,13 @@ export function registerPublicRoutes(app: FastifyInstance) {
       bhk2: ids.bhk2,
     });
 
-    const [offFf, offV1, offV2] = await Promise.all([
+    const [offFf, offV2, offV1] = await Promise.all([
       publishedOffersForLandingUnit(app.prisma, org.id, ids.fullFarm),
-      publishedOffersForLandingUnit(app.prisma, org.id, ids.bhk1),
       publishedOffersForLandingUnit(app.prisma, org.id, ids.bhk2),
+      publishedOffersForLandingUnit(app.prisma, org.id, ids.bhk1),
     ]);
 
+    /** Display order matches marketing reference: Full Farm → 2BHK → 1BHK */
     const columns = [
       {
         key: 'fullFarm',
@@ -302,13 +317,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
         available: availability.fullFarm,
         bookingTarget: bookingTargets.fullFarm,
         offers: offFf,
-      },
-      {
-        key: 'villa1bhk',
-        title: '1 BHK Villa',
-        available: availability.villa1bhk,
-        bookingTarget: bookingTargets.villa1bhk,
-        offers: offV1,
+        pricing: buildLandingColumnPricing(listingByUnitId.get(ids.fullFarm), { checkInUtc, checkOutUtc }),
       },
       {
         key: 'villa2bhk',
@@ -316,6 +325,15 @@ export function registerPublicRoutes(app: FastifyInstance) {
         available: availability.villa2bhk,
         bookingTarget: bookingTargets.villa2bhk,
         offers: offV2,
+        pricing: buildLandingColumnPricing(listingByUnitId.get(ids.bhk2), { checkInUtc, checkOutUtc }),
+      },
+      {
+        key: 'villa1bhk',
+        title: '1 BHK Villa',
+        available: availability.villa1bhk,
+        bookingTarget: bookingTargets.villa1bhk,
+        offers: offV1,
+        pricing: buildLandingColumnPricing(listingByUnitId.get(ids.bhk1), { checkInUtc, checkOutUtc }),
       },
     ];
 
