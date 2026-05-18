@@ -1,3 +1,5 @@
+import type { GallerySlide } from './gallery-categories';
+
 /**
  * Listing and CMS image fields may contain absolute URLs seeded with localhost.
  * On production, those load from the visitor's machine — normalize to path-only so the
@@ -32,8 +34,6 @@ export function normalizeMarketingImageUrl(raw: string | null | undefined): stri
 }
 
 /** When the API returns no usable image URLs, still drive the bento from public paths (add files under `apps/web/public/` or use absolute CDN URLs in admin). */
-import type { GallerySlide } from './gallery-categories';
-
 export function marketingGalleryStaticFallback(): GallerySlide[] {
   const slots: { key: string; path: string; alt: string }[] = [
     { key: 'gallery-room-1', path: '/1bhk.jpg', alt: '1BHK bedroom and living space' },
