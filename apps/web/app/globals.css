@@ -605,6 +605,30 @@ body {
 }
 
 .md-lead-balanced { max-width: 52ch; }
+
+/** Tighter marketing copy — shorter line length / rhythm without hiding from crawlers */
+.md-lead-tight {
+  font-size: clamp(0.96rem, 2.1vw, 1.02rem);
+  line-height: 1.52;
+  max-width: 56ch;
+  margin-bottom: 0.65rem !important;
+}
+
+.md-section-head-tight {
+  margin-bottom: clamp(1.1rem, 3vw, 1.85rem);
+}
+
+.md-prose-tight {
+  line-height: 1.55;
+  margin-bottom: 0.75rem;
+}
+
+.md-footnote-compact {
+  margin-top: 0.65rem;
+  margin-bottom: 0;
+  font-size: 0.82rem;
+}
+
 .md-body  { margin: 0 0 1rem; color: var(--body-color); }
 .md-prose { line-height: 1.76; }
 .md-prose-accent { font-size: clamp(1rem, 2.2vw, 1.1rem); line-height: 1.74; }
@@ -1476,7 +1500,7 @@ p.md-eyebrow-line {
   gap: clamp(1rem, 3vw, 2rem);
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: clamp(1.5rem, 4vw, 2.75rem);
+  margin-bottom: clamp(1.15rem, 3.5vw, 2.1rem);
 }
 
 .md-gallery-section .md-gallery-bento-copy {
@@ -1667,22 +1691,6 @@ p.md-eyebrow-line {
   text-overflow: ellipsis;
 }
 
-.md-gallery-section .md-gallery-bento-foot {
-  margin: 1.35rem 0 0;
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-.md-gallery-section .md-gallery-bento-foot-link {
-  color: var(--heading);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.md-gallery-section .md-gallery-bento-foot-link:hover { color: var(--md-gold); }
-
 /* old masonry gallery kept for backward compat */
 .md-gallery {
   display: grid;
@@ -1805,7 +1813,7 @@ p.md-eyebrow-line {
 }
 
 .md-visit-compact-bundle .md-visit-chunk {
-  margin-top: clamp(2.25rem, 5vw, 3.5rem);
+  margin-top: clamp(1.65rem, 4vw, 2.85rem);
 }
 
 .md-visit-compact-bundle .md-visit-chunk-who {
@@ -1956,7 +1964,7 @@ p.md-eyebrow-line {
   display: flex;
   gap: clamp(0.9rem, 2.5vw, 1.35rem);
   align-items: flex-start;
-  margin-top: clamp(1.75rem, 4vw, 2.5rem);
+  margin-top: clamp(1.35rem, 3.5vw, 2.1rem);
   padding: clamp(1rem, 2.8vw, 1.45rem) clamp(1.1rem, 3vw, 1.55rem);
   border-radius: clamp(13px, 1.85vw, 16px);
   background: linear-gradient(135deg, rgba(229, 234, 220, 0.98), rgba(208, 216, 200, 0.97));
@@ -1981,8 +1989,8 @@ p.md-eyebrow-line {
 
 .md-pet-welcome-banner-copy {
   margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.62;
+  font-size: 0.88rem;
+  line-height: 1.55;
   color: var(--body-color);
 }
 

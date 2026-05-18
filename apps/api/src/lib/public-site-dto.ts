@@ -68,8 +68,20 @@ export type PublicSitePayloadDto = {
 };
 
 function jsonStringArray(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  return v.filter((x): x is string => typeof x === 'string');
+  if (Array.isArray(v)) {
+    return v.filter((x): x is string => typeof x === 'string').map((s) => s.trim()).filter(Boolean);
+  }
+  if (typeof v === 'string' && v.trim()) {
+    try {
+      const p = JSON.parse(v) as unknown;
+      if (Array.isArray(p)) {
+        return p.filter((x): x is string => typeof x === 'string').map((s) => s.trim()).filter(Boolean);
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
@@ -109,7 +121,8 @@ function mapUnit(u: RentableUnit & { listingProfile: RentableUnitListing | null 
     name: u.name,
     slug: u.slug,
     kind: u.kind,
-    listing: u.listingProfile?.published ? listingToDto(u.listingProfile) : null,
+    /** Include draft listings so the homepage gallery can show stay photos before go-live. Stay cards still filter `published` in the web app. */
+    listing: u.listingProfile ? listingToDto(u.listingProfile) : null,
   };
 }
 

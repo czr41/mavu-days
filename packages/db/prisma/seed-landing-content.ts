@@ -42,12 +42,12 @@ const WHY_JSON = JSON.stringify(
 
 const WHO_JSON = JSON.stringify(
   [
-    { title: 'Families', body: 'Space to unplug without worrying about pacing or noise.' },
-    { title: 'Couples', body: 'Slow mornings on the villa patio and evenings lit by warm lamp light—not city glare.' },
-    { title: 'Friend Groups', body: 'Take the Full Farm booking and tailor the soundtrack to laughter, not playlists.' },
-    { title: 'Work-from-Nature Guests', body: 'Swap fluorescent calls for breezes through the grove—Wi-Fi permitting, guilt-free slowdown.' },
-    { title: 'Small Celebrations', body: 'Small milestones with the people who matter—house rules favour calm over crowds.' },
-    { title: 'Pet Parents', body: 'About two fenced acres to run—see our pet-friendly notes just below.' },
+    { title: 'Families', body: 'Room to unplug—no pacing or noise worries.' },
+    { title: 'Couples', body: 'Slow mornings on the patio; evenings in lamp light, not city glare.' },
+    { title: 'Friend Groups', body: 'Full Farm or villas—soundtrack of laughter, not playlists.' },
+    { title: 'Work-from-Nature Guests', body: 'Calls with grove breezes—Wi‑Fi when you need it.' },
+    { title: 'Small Celebrations', body: 'Milestones with your people—calm over crowds.' },
+    { title: 'Pet Parents', body: 'Two fenced acres—see the pet note below amenities.' },
   ],
   null,
   2,
@@ -76,7 +76,7 @@ function buildSectionRows(): SectionSeed[] {
       key: 'landing-hero-sub',
       title: 'Hero subcopy',
       bodyMarkdown:
-        'A peaceful 2-acre mango farm stay about 65 km from Bangalore, created for quiet weekends, family time, mindful escapes, and slow mornings in nature.',
+        'Peaceful 2-acre mango farm stay near Bangalore—quiet weekends, family time, and slow mornings in nature.',
       sortOrder: 12,
     },
     { key: 'landing-brand-line', title: 'Brand line', bodyMarkdown: 'A slower kind of weekend, just outside Bangalore.', sortOrder: 13 },
@@ -98,7 +98,7 @@ function buildSectionRows(): SectionSeed[] {
       key: 'landing-availability-intro',
       title: 'Availability intro',
       bodyMarkdown:
-        'Tell us when you’d like to visit—we’ll match you to Full Farm, 1BHK, or 2BHK openings.',
+        'Share your dates—we match openings for Full Farm, 1BHK, or 2BHK.',
       sortOrder: 21,
     },
     { key: 'landing-stays-title', title: 'Stays section title', bodyMarkdown: 'Choose Your Stay', sortOrder: 30 },
@@ -106,7 +106,7 @@ function buildSectionRows(): SectionSeed[] {
       key: 'landing-stays-intro',
       title: 'Stays intro',
       bodyMarkdown:
-        'Quiet couples, young families, or a full-property celebration—stay your way on the same mango farm.',
+        'Couples, families, or the full farm—same mango homestead, your pace.',
       sortOrder: 31,
     },
     { key: 'landing-why-title', title: 'Why section title', bodyMarkdown: 'A Farm Stay Made for Slower Days', sortOrder: 40 },
@@ -121,7 +121,8 @@ function buildSectionRows(): SectionSeed[] {
     {
       key: 'landing-experience-body',
       title: 'Experience body',
-      bodyMarkdown: `Morning is unhurried—coffee on the porch, slow walks beneath the mango canopy, and daylight that feels forgiving. Evening brings quieter air and more room between conversations, with skies that remind you why you left traffic behind.`,
+      bodyMarkdown:
+        'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breathe—your unrushed farm day.',
       sortOrder: 51,
     },
     {
@@ -131,15 +132,15 @@ function buildSectionRows(): SectionSeed[] {
         'Morning walks through the farm\nSlow breakfasts\nFamily time outdoors\nReading and resting\nStargazing\nQuiet conversations\nPrivate villa comfort\nWeekend reset near Bangalore',
       sortOrder: 52,
     },
-    { key: 'landing-gallery-title', title: 'Gallery title', bodyMarkdown: 'See the Farm Before You Arrive', sortOrder: 60 },
+    { key: 'landing-gallery-title', title: 'Gallery title', bodyMarkdown: 'A glimpse of life here.', sortOrder: 60 },
     {
       key: 'landing-gallery-intro',
       title: 'Gallery intro',
-      bodyMarkdown: 'A quick look around the homestead before you arrive.',
+      bodyMarkdown: 'Mango farm, villas, and open skies—about 65 km from Bangalore.',
       sortOrder: 61,
     },
     { key: 'landing-who-title', title: 'Who section title', bodyMarkdown: 'Who Mavu Days is Perfect For', sortOrder: 70 },
-    { key: 'landing-who-for-intro', title: 'Who intro', bodyMarkdown: 'Couples, families, friends, remote weeks, and toast-sized celebrations.', sortOrder: 71 },
+    { key: 'landing-who-for-intro', title: 'Who intro', bodyMarkdown: 'Couples, families, groups, workations, small celebrations.', sortOrder: 71 },
     { key: 'landing-who-cards', title: 'Who cards (JSON)', bodyMarkdown: WHO_JSON, sortOrder: 72 },
     { key: 'landing-pet-friendly-eyebrow', title: 'Pet-friendly eyebrow', bodyMarkdown: 'Pet-friendly stay', sortOrder: 73 },
     { key: 'landing-pet-friendly-title', title: 'Pet-friendly title', bodyMarkdown: 'Room for dogs to gallop—not just tagging along', sortOrder: 74 },
@@ -160,41 +161,39 @@ We genuinely enjoy hosting pet parents. When you skim our house guidelines, anyt
 Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
       sortOrder: 76,
     },
-    { key: 'landing-location-title', title: 'Location title', bodyMarkdown: 'A Farm Stay Near Bangalore, Without Going Too Far', sortOrder: 80 },
+    { key: 'landing-location-title', title: 'Location title', bodyMarkdown: 'Near Yet Far Enough', sortOrder: 80 },
     {
       key: 'landing-location-body',
       title: 'Location body',
-      bodyMarkdown:
-        'Mavu Days sits about 65 km from Bangalore—close enough for a comfortable drive, quiet enough for a real reset.',
+      bodyMarkdown: '~65 km from Bangalore—farm roads, mango groves, and a quiet reset.',
       sortOrder: 81,
     },
     {
       key: 'landing-location-bullets',
       title: 'Location bullets (one per line)',
       bodyMarkdown:
-        'Around 65 km from Bangalore\nSuited for weekend trips\nGood for overnight and two-night stays\nPeaceful farm setting\nAway from city noise',
+        '65 km from Bangalore (~1.5 hrs drive)\n25 km from Channapatna\n35 km from Ramanagara\nWell-connected roads all the way',
       sortOrder: 82,
     },
-    { key: 'landing-amenities-title', title: 'Amenities title', bodyMarkdown: 'Amenities at Mavu Days', sortOrder: 90 },
+    { key: 'landing-amenities-title', title: 'Amenities title', bodyMarkdown: 'Amenities', sortOrder: 90 },
     {
       key: 'landing-amenities-intro',
       title: 'Amenities intro',
-      bodyMarkdown: 'Simple comforts that honour privacy and outdoors time.',
+      bodyMarkdown: '',
       sortOrder: 91,
     },
     {
       key: 'landing-amenities-list',
       title: 'Amenities list (one per line)',
       bodyMarkdown:
-        'Private villa options\nFull farm booking\nOpen farm space\nParking\nOutdoor seating\nFamily-friendly stay',
+        'Wi-Fi\nAC Bedrooms\nFully Equipped Kitchen\nPet Friendly\nFenced Ground\nOutdoor Seating & Lawn\nBonfire (Extra)\nParking Available',
       sortOrder: 92,
     },
-    { key: 'landing-banner-title', title: 'Banner title', bodyMarkdown: 'Ready to Plan Your Farm Stay?', sortOrder: 100 },
+    { key: 'landing-banner-title', title: 'Banner title', bodyMarkdown: 'Ready to book your farm weekend?', sortOrder: 100 },
     {
       key: 'landing-banner-copy',
       title: 'Banner copy',
-      bodyMarkdown:
-        'Choose your dates, select your preferred stay option, and book a quiet escape at Mavu Days.',
+      bodyMarkdown: 'Pick dates and a stay option—then confirm on WhatsApp.',
       sortOrder: 101,
     },
     { key: 'landing-house-rules-title', title: 'House rules title', bodyMarkdown: 'Before You Book', sortOrder: 110 },

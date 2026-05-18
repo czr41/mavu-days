@@ -231,7 +231,7 @@ export async function LandingView({ path }: { path: Path }) {
                   {t.heroH1 || 'Slow Down at\nMavu Days'}
                 </h1>
                 <p className="md-hero-lead">
-                  {t.heroSub || 'A peaceful mango farm stay near Bangalore for slow weekends, family time, and private escapes.'}
+                  {t.heroSub || 'Peaceful mango farm stay near Bangalore—slow weekends, family time, private escapes.'}
                 </p>
                 <div className="md-hero-ctas">
                   <a className="md-btn md-btn-primary" href="#booking">
@@ -422,7 +422,8 @@ export async function LandingView({ path }: { path: Path }) {
                   {t.experienceTitle || 'Where Nature Slows You Down'}
                 </h2>
                 <p className="md-body md-prose" style={{ marginBottom: '1.5rem' }}>
-                  {t.experienceBodyDefault || 'Wake up to birdsong, breathe in fresh air, and lose track of time. At Mavu Days, every moment is an invitation to relax, reconnect, and simply be.'}
+                  {t.experienceBodyDefault ||
+                    'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breathe—your unrushed farm day.'}
                 </p>
                 {t.tiles?.length ? (
                   <ul className="md-tiles" style={{ marginBottom: '1.75rem' }}>
@@ -463,10 +464,9 @@ export async function LandingView({ path }: { path: Path }) {
                 <GalleryBranchGlyph className="md-gallery-bento-branch" />
                 <p className="md-gallery-bento-eyeb">Inside {orgName}</p>
                 <h2 className="md-h2 md-gallery-bento-h2">{t.galleryTitle || 'A glimpse of life here.'}</h2>
-                <p className="md-lead md-gallery-bento-lead">
-                  {t.galleryIntroDefault ||
-                    'From lush mango orchards and cozy villas to starry nights and slow mornings — this is what awaits you.'}
-                </p>
+                {(t.galleryIntroDefault ?? '').trim() ? (
+                  <p className="md-lead md-gallery-bento-lead md-lead-tight">{t.galleryIntroDefault}</p>
+                ) : null}
               </div>
               <a className="md-gallery-bento-cta-outline" href={waGalleryTourHref} target="_blank" rel="noreferrer">
                 View Full Gallery
@@ -517,23 +517,16 @@ export async function LandingView({ path }: { path: Path }) {
               ))}
             </div>
 
-            <p className="md-gallery-bento-foot">
-              Prefer WhatsApp?{' '}
-              <a href={waHref} className="md-gallery-bento-foot-link" target="_blank" rel="noreferrer">
-                Request the full photo tour
-              </a>
-              .
-            </p>
           </div>
         </RevealSection>
 
         <RevealSection className="md-section md-section-cream md-visit-compact-bundle" id="who">
           <div className="md-wrap">
             <div className="md-visit-chunk md-visit-chunk-who">
-              <header className="md-section-head md-section-head-center">
+              <header className="md-section-head md-section-head-center md-section-head-tight">
                 <p className="md-eyebrow-line md-section-label">Perfect For</p>
                 <h2 className="md-h2">{t.whoTitle || 'Perfect for Every Kind of Escape'}</h2>
-                <p className="md-lead">{t.whoIntro || 'Whether you seek solitude, celebration, or simple family joy — Mavu Days fits.'}</p>
+                {(t.whoIntro ?? '').trim() ? <p className="md-lead md-lead-tight">{t.whoIntro}</p> : null}
               </header>
               <div className="md-who-grid">
                 {t.whoCards.map((c, wi) => (
@@ -551,13 +544,11 @@ export async function LandingView({ path }: { path: Path }) {
             <div className="md-visit-chunk md-visit-chunk-location">
               <div className="md-split-location">
                 <div className="md-location-copy-block">
-                  <p className="md-eyebrow-line md-section-label">Location</p>
                   <h2 className="md-h2 md-location-bundle-title">{t.locationTitle || 'Near Yet Far Enough'}</h2>
-                  <p className="md-lead md-location-tagline">Easy to reach. Hard to leave.</p>
-                  <p className="md-body md-prose md-location-lead-copy">
-                    {t.locationBodyDefault ||
-                      'A quick drive from Bangalore takes you worlds away — into quiet farm roads, mango groves, and open skies.'}
-                  </p>
+                  <p className="md-lead md-location-tagline md-lead-tight">Easy to reach. Hard to leave.</p>
+                  {(t.locationBodyDefault ?? '').trim() ? (
+                    <p className="md-body md-prose md-location-lead-copy md-prose-tight">{t.locationBodyDefault}</p>
+                  ) : null}
                   <ul className="md-location-checklist">
                     {(t.locationBulletsDefault ?? [
                       '65 km from Bangalore (~1.5 hrs drive)',
@@ -571,12 +562,10 @@ export async function LandingView({ path }: { path: Path }) {
                   <a className="md-btn md-btn-primary" href={MAVU_DAYS_DIRECTIONS_URL} target="_blank" rel="noreferrer">
                     Get Directions
                   </a>
-                  <p className="md-muted md-footnote">
-                    Need help finding us?{' '}
-                    <a href={waHref} className="md-link">
-                      WhatsApp us
+                  <p className="md-muted md-footnote md-footnote-compact">
+                    <a href={waHref} className="md-link" target="_blank" rel="noreferrer">
+                      WhatsApp for directions
                     </a>
-                    .
                   </p>
                 </div>
                 <div className="md-map-shell md-map-shell-brand">
@@ -636,19 +625,19 @@ export async function LandingView({ path }: { path: Path }) {
                   {t.petFriendlyEyebrow || 'Pet-friendly stay'}
                 </h3>
                 <p className="md-pet-welcome-banner-copy">
-                  <strong>No rules for pets on property — only for humans!</strong> Enjoy roughly two fenced acres where your dogs can roam and explore without needless restrictions—we host pups on fenced ground. Our{' '}
+                  <strong>No rules for pets on property — only for humans!</strong> Roughly two fenced acres for dogs to roam—our{' '}
                   <a href="#house-rules" className="md-link">
                     house guidelines
                   </a>{' '}
-                  are for humans. Share breed &amp; temperament when you{' '}
+                  target people, not pups.{' '}
                   <a href="#booking" className="md-link">
-                    book
-                  </a>
-                  &nbsp;/&nbsp;
+                    Book
+                  </a>{' '}
+                  or{' '}
                   <a href={waHref} className="md-link" target="_blank" rel="noreferrer">
-                    WhatsApp us
-                  </a>
-                  .
+                    WhatsApp
+                  </a>{' '}
+                  with breed &amp; temperament.
                 </p>
               </div>
             </aside>

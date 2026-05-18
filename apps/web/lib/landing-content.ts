@@ -161,7 +161,7 @@ export const DEFAULT_LANDING: LandingTexts = {
   heroEyebrow: 'Private Mango Farm Stay Near Bangalore',
   heroH1: 'Slow Down at Mavu Days',
   heroSub:
-    'A peaceful 2-acre mango farm stay about 65 km from Bangalore, created for quiet weekends, family time, mindful escapes, and slow mornings in nature.',
+    'Peaceful 2-acre mango farm stay near Bangalore—quiet weekends, family time, and slow mornings in nature.',
   brandLine: 'A slower kind of weekend, just outside Bangalore.',
   chips: [
     '2-Acre Mango Farm',
@@ -178,9 +178,9 @@ export const DEFAULT_LANDING: LandingTexts = {
     '2-Acre Mango Farm',
   ],
   availabilityTitle: 'Check Your Dates',
-  availabilitySubtitle: 'Tell us when you’d like to visit—we’ll match you to Full Farm, 1BHK, or 2BHK openings.',
+  availabilitySubtitle: 'Share your dates—we match openings for Full Farm, 1BHK, or 2BHK.',
   staysTitle: 'Choose Your Stay',
-  staysSubtitle: 'Quiet couples, young families, or a full-property celebration—stay your way on the same mango farm.',
+  staysSubtitle: 'Couples, families, or the full farm—same mango homestead, your pace.',
   listings: [
     {
       id: 'full-farm',
@@ -259,7 +259,8 @@ export const DEFAULT_LANDING: LandingTexts = {
     { title: 'Nature Without Overplanning', text: 'No forced itinerary. Just arrive, settle in, and enjoy the farm at your pace.' },
   ],
   experienceTitle: 'What a Day at Mavu Days Feels Like',
-  experienceBodyDefault: `Morning is unhurried—coffee on the porch, slow walks beneath the mango canopy, and daylight that feels forgiving. Evening brings quieter air and more room between conversations, with skies that remind you why you left traffic behind.`,
+  experienceBodyDefault:
+    'Slow mornings under the mango canopy, unhurried afternoons, evenings with space between conversations—your farm day, unrushed.',
   tiles: [
     'Morning walks through the farm',
     'Slow breakfasts',
@@ -270,34 +271,34 @@ export const DEFAULT_LANDING: LandingTexts = {
     'Private villa comfort',
     'Weekend reset near Bangalore',
   ],
-  galleryTitle: 'See the Farm Before You Arrive',
-  galleryIntroDefault: 'A quick look around the homestead before you arrive.',
+  galleryTitle: 'A glimpse of life here.',
+  galleryIntroDefault: 'Mango farm, villas, and open skies—about 65 km from Bangalore.',
   whoTitle: 'Who Mavu Days is Perfect For',
-  whoIntro: 'Couples, families, friends, remote weeks, and toast-sized celebrations.',
+  whoIntro: 'Couples, families, groups, workations, small celebrations.',
   whoCards: [
     {
       title: 'Families',
-      body: 'Space to unplug without worrying about pacing or noise.',
+      body: 'Room to unplug—no pacing or noise worries.',
     },
     {
       title: 'Couples',
-      body: 'Slow mornings on the villa patio and evenings lit by warm lamp light—not city glare.',
+      body: 'Slow mornings on the patio; evenings in lamp light, not city glare.',
     },
     {
       title: 'Friend Groups',
-      body: 'Take the Full Farm booking and tailor the soundtrack to laughter, not playlists.',
+      body: 'Full Farm or villas—soundtrack of laughter, not playlists.',
     },
     {
       title: 'Work-from-Nature Guests',
-      body: 'Swap fluorescent calls for breezes through the grove—Wi-Fi permitting, guilt-free slowdown.',
+      body: 'Calls with grove breezes—Wi‑Fi when you need it.',
     },
     {
       title: 'Small Celebrations',
-      body: 'Small milestones with the people who matter—house rules favour calm over crowds.',
+      body: 'Milestones with your people—calm over crowds.',
     },
     {
       title: 'Pet Parents',
-      body: 'About two fenced acres to run—peek at our fenced-farm welcome note below the amenities.',
+      body: 'Two fenced acres—see the pet note below amenities.',
     },
   ],
   petFriendlyEyebrow: 'Pet-friendly stay',
@@ -311,7 +312,7 @@ We genuinely enjoy hosting pet parents. When you skim our house guidelines, anyt
 Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
   locationTitle: 'Near Yet Far Enough',
   locationBodyDefault:
-    'Mavu Days sits about 65 km from Bangalore—close enough for a comfortable drive (~1.5 hrs), quiet enough for a real reset.',
+    '~65 km from Bangalore—farm roads, mango groves, and a quiet reset.',
   locationBulletsDefault: [
     '65 km from Bangalore (~1.5 hrs drive)',
     '25 km from Channapatna',
@@ -330,8 +331,8 @@ Mention breed and temperament when you book so we ready the right greeting; then
     'Bonfire (Extra)',
     'Parking Available',
   ],
-  bannerTitleDefault: 'Ready to Plan Your Farm Stay?',
-  bannerCopyDefault: 'Choose your dates, select your preferred stay option, and book a quiet escape at Mavu Days.',
+  bannerTitleDefault: 'Ready to book your farm weekend?',
+  bannerCopyDefault: 'Pick dates and a stay option—then confirm on WhatsApp.',
   houseRulesTitle: 'Before You Book',
   houseRulesIntroDefault:
     'Mavu Days is designed as a peaceful farm stay. To keep the experience comfortable for all guests and respectful to the land, please review the stay guidelines before booking.',
@@ -547,8 +548,8 @@ function deriveListingsFromSite(properties: PublicSitePayload['properties']): Li
 /**
  * Aggregated homepage gallery:
  * — Optional site hero (`landing-hero-cover`) once, if set and not reused.
- * — Then each published listing in order: cover image first (detail hero URL), then that listing’s gallery URLs.
- * Dedupes by URL across the whole mosaic. Listing CMS `landing-gallery-*` assets are ignored.
+ * — Then each unit with a listing profile in order: cover first (`detailHeroUrl`), then `galleryImageUrls`.
+ *   Includes **draft** listings when they have at least one image (homepage mosaic); dedupes by URL.
  */
 function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt: string; key: string }[] {
   const out: { url: string; alt: string; key: string }[] = [];
@@ -585,7 +586,7 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
   for (const p of payload.properties) {
     for (const u of p.units) {
       const lp = u.listing;
-      if (!lp?.published) continue;
+      if (!lp) continue;
       const cover = (lp.detailHeroUrl ?? '').trim();
       const gallery = (lp.galleryImageUrls ?? [])
         .map((raw) => (typeof raw === 'string' ? raw.trim() : ''))
