@@ -17,7 +17,6 @@ const prisma = new PrismaClient();
 async function main() {
   const orgSlug = process.env.SEED_ORG_SLUG ?? 'mavu-days';
   const propertySlug = process.env.SEED_PROPERTY_SLUG ?? 'mavu-farm';
-  const siteBase = (process.env.SEED_PUBLIC_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
 
   const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
   if (!org) {
@@ -113,8 +112,8 @@ async function main() {
       seoTitle: 'Full Farm Stay | Mavu Days — Private Mango Farm Near Bangalore',
       seoDescription:
         'Book the entire Mavu Days mango farm near Bangalore. Exclusive use of both villas, open lawns, pool, and all spaces for up to 12 guests.',
-      detailHeroUrl: `${siteBase}/full-farm.jpg`,
-      galleryImageUrls: [`${siteBase}/hero.jpg`, `${siteBase}/1bhk.jpg`, `${siteBase}/2bhk.jpg`],
+      detailHeroUrl: `/full-farm.jpg`,
+      galleryImageUrls: [`/hero.jpg`, `/1bhk.jpg`, `/2bhk.jpg`],
     },
     update: {
       published: true,
@@ -147,8 +146,8 @@ async function main() {
       seoTitle: 'Full Farm Stay | Mavu Days — Private Mango Farm Near Bangalore',
       seoDescription:
         'Book the entire Mavu Days mango farm near Bangalore. Exclusive use of both villas, open lawns, pool, and all spaces for up to 12 guests.',
-      detailHeroUrl: `${siteBase}/full-farm.jpg`,
-      galleryImageUrls: [`${siteBase}/hero.jpg`, `${siteBase}/1bhk.jpg`, `${siteBase}/2bhk.jpg`],
+      detailHeroUrl: `/full-farm.jpg`,
+      galleryImageUrls: [`/hero.jpg`, `/1bhk.jpg`, `/2bhk.jpg`],
     },
   });
 
@@ -186,8 +185,8 @@ async function main() {
       seoTitle: '1BHK Villa Stay | Mavu Days — Private Mango Farm Near Bangalore',
       seoDescription:
         'A cosy 1BHK private villa tucked into the mango grove at Mavu Days, near Bangalore. Perfect for couples and small families.',
-      detailHeroUrl: `${siteBase}/1bhk.jpg`,
-      galleryImageUrls: [`${siteBase}/hero.jpg`, `${siteBase}/full-farm.jpg`, `${siteBase}/2bhk.jpg`],
+      detailHeroUrl: `/1bhk.jpg`,
+      galleryImageUrls: [`/hero.jpg`, `/full-farm.jpg`, `/2bhk.jpg`],
     },
     update: {
       published: true,
@@ -220,8 +219,8 @@ async function main() {
       seoTitle: '1BHK Villa Stay | Mavu Days — Private Mango Farm Near Bangalore',
       seoDescription:
         'A cosy 1BHK private villa tucked into the mango grove at Mavu Days, near Bangalore. Perfect for couples and small families.',
-      detailHeroUrl: `${siteBase}/1bhk.jpg`,
-      galleryImageUrls: [`${siteBase}/hero.jpg`, `${siteBase}/full-farm.jpg`, `${siteBase}/2bhk.jpg`],
+      detailHeroUrl: `/1bhk.jpg`,
+      galleryImageUrls: [`/hero.jpg`, `/full-farm.jpg`, `/2bhk.jpg`],
     },
   });
 
@@ -259,8 +258,8 @@ async function main() {
       seoTitle: '2BHK Villa Stay | Mavu Days — Private Mango Farm Near Bangalore',
       seoDescription:
         'Spacious 2BHK private villa at Mavu Days, a mango farm stay near Bangalore. Ideal for families and small groups.',
-      detailHeroUrl: `${siteBase}/2bhk.jpg`,
-      galleryImageUrls: [`${siteBase}/hero.jpg`, `${siteBase}/full-farm.jpg`, `${siteBase}/1bhk.jpg`],
+      detailHeroUrl: `/2bhk.jpg`,
+      galleryImageUrls: [`/hero.jpg`, `/full-farm.jpg`, `/1bhk.jpg`],
     },
     update: {
       published: true,
@@ -293,8 +292,8 @@ async function main() {
       seoTitle: '2BHK Villa Stay | Mavu Days — Private Mango Farm Near Bangalore',
       seoDescription:
         'Spacious 2BHK private villa at Mavu Days, a mango farm stay near Bangalore. Ideal for families and small groups.',
-      detailHeroUrl: `${siteBase}/2bhk.jpg`,
-      galleryImageUrls: [`${siteBase}/hero.jpg`, `${siteBase}/full-farm.jpg`, `${siteBase}/1bhk.jpg`],
+      detailHeroUrl: `/2bhk.jpg`,
+      galleryImageUrls: [`/hero.jpg`, `/full-farm.jpg`, `/1bhk.jpg`],
     },
   });
 

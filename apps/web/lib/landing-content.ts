@@ -5,6 +5,7 @@
  */
 
 import type { PublicContentPayload, PublicSitePayload, SiteSectionDto } from './public-types';
+import { marketingGalleryStaticFallback, normalizeMarketingImageUrl } from './marketing-image-url';
 
 /** Canonical Google Maps link for directions (place pin). */
 export const MAVU_DAYS_DIRECTIONS_URL = 'https://maps.app.goo.gl/H3Y5mzF4gbhUReeM9';
@@ -528,10 +529,15 @@ function deriveListingsFromSite(properties: PublicSitePayload['properties']): Li
           highlights: lp.highlights,
           amenities: lp.amenities,
           pricing: pricingFromPayload(lp),
-          detailHeroUrl: lp.detailHeroUrl,
+          detailHeroUrl: normalizeMarketingImageUrl(lp.detailHeroUrl) ?? undefined,
           seoTitle: lp.seoTitle,
           seoDescription: lp.seoDescription,
-          galleryImageUrls: lp.galleryImageUrls?.length ? lp.galleryImageUrls : undefined,
+          galleryImageUrls: (() => {
+            const urls = (lp.galleryImageUrls ?? [])
+              .map((u) => normalizeMarketingImageUrl(u))
+              .filter((x): x is string => Boolean(x));
+            return urls.length ? urls : undefined;
+          })(),
           airbnbProfileLabel: lp.airbnbProfileLabel,
           airbnbListingUrl: lp.airbnbListingUrl,
         },
@@ -566,7 +572,7 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
   if (payload?.media?.length) {
     const hero =
       payload.media.find((m) => m.key.toLowerCase() === MEDIA_KEY.heroCover.toLowerCase()) ?? undefined;
-    const heroUrl = (hero?.publicUrl ?? '').trim();
+    const heroUrl = normalizeMarketingImageUrl(hero?.publicUrl ?? '');
     if (heroUrl) {
       seen.add(heroUrl);
       out.push({
@@ -587,10 +593,10 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
     for (const u of p.units) {
       const lp = u.listing;
       if (!lp) continue;
-      const cover = (lp.detailHeroUrl ?? '').trim();
+      const cover = normalizeMarketingImageUrl(lp.detailHeroUrl ?? '');
       const gallery = (lp.galleryImageUrls ?? [])
-        .map((raw) => (typeof raw === 'string' ? raw.trim() : ''))
-        .filter(Boolean);
+        .map((raw) => normalizeMarketingImageUrl(typeof raw === 'string' ? raw : ''))
+        .filter((x): x is string => Boolean(x));
 
       /** One ordered stream per stay: hero, then extras (still one logical “stay gallery”). */
       const urls: string[] = [];
@@ -629,6 +635,9 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
     }
   }
 
+  if (out.length === 0) {
+    return marketingGalleryStaticFallback();
+  }
   return out;
 }
 
@@ -727,7 +736,7 @@ export function mergeLandingContent(payload: LandingMergePayload): MergedLanding
 
   const heroMedia =
     payload?.media?.find((m) => m.key.toLowerCase() === MEDIA_KEY.heroCover.toLowerCase()) ?? undefined;
-  const heroImageUrl = heroMedia?.publicUrl;
+  const heroImageUrl = normalizeMarketingImageUrl(heroMedia?.publicUrl ?? '');
 
   const gallery = mergedLandingGallery(payload);
 

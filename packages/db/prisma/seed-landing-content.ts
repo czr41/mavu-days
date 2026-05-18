@@ -240,14 +240,12 @@ Travellers often find us searching for Bangalore farm stays, quiet villa weekend
 }
 
 export async function seedLandingCmsIfEmpty(prisma: PrismaClient, organizationId: string) {
-  const siteBase = (process.env.SEED_PUBLIC_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
-
   await prisma.mediaAsset.upsert({
     where: { organizationId_key: { organizationId, key: 'landing-hero-cover' } },
     create: {
       organizationId,
       key: 'landing-hero-cover',
-      publicUrl: `${siteBase}/hero.jpg`,
+      publicUrl: '/hero.jpg',
       alt: 'Mavu Days — private mango farm stay near Bangalore',
     },
     update: {},
@@ -270,5 +268,5 @@ export async function seedLandingCmsIfEmpty(prisma: PrismaClient, organizationId
     });
   }
 
-  console.log(`[seed] Landing CMS sections + media ensured for org (${siteBase}).`);
+  console.log(`[seed] Landing CMS sections + media ensured for org.`);
 }
