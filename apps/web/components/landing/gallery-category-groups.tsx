@@ -60,7 +60,7 @@ function GalleryThumb({
 
 function GalleryFeaturedTile({ slide, delayIndex = 0 }: { slide: GallerySlide; delayIndex?: number }) {
   return (
-    <RevealFigure delayIndex={delayIndex} className="md-gallery-featured md-gallery-bento-cell" aria-label={slide.alt}>
+    <RevealFigure delayIndex={delayIndex} className="md-gallery-featured md-gallery-cat-cell" aria-label={slide.alt}>
       <GalleryThumb slide={slide} phMod={0} showCaption={false} />
     </RevealFigure>
   );
@@ -75,7 +75,7 @@ function CategoryBento({ group, delayStart }: { group: { label: string; items: G
     <section className="md-gallery-cat-block" aria-label={group.label}>
       <h3 className="md-gallery-cat-title">{group.label}</h3>
       <div className={`md-gallery-cat-bento${thumbs.length === 0 ? ' md-gallery-cat-bento--solo' : ''}`}>
-        <RevealFigure delayIndex={delayStart} className="md-gallery-cat-feature md-gallery-bento-cell">
+        <RevealFigure delayIndex={delayStart} className="md-gallery-cat-feature md-gallery-cat-cell">
           <GalleryThumb slide={feature} phMod={delayStart} showCaption={false} />
         </RevealFigure>
         {thumbs.length > 0 ? (
@@ -84,7 +84,7 @@ function CategoryBento({ group, delayStart }: { group: { label: string; items: G
               <RevealFigure
                 key={slide.key}
                 delayIndex={delayStart + i + 1}
-                className="md-gallery-cat-thumb md-gallery-bento-cell"
+                className="md-gallery-cat-thumb md-gallery-cat-cell"
               >
                 <GalleryThumb slide={slide} phMod={delayStart + i + 1} showCaption={false} />
               </RevealFigure>

@@ -411,7 +411,7 @@ export async function LandingView({ path }: { path: Path }) {
                 <p className="md-gallery-bento-eyeb">Inside {orgName}</p>
                 <h2 className="md-h2 md-gallery-bento-h2">{t.galleryTitle || 'A glimpse of life here.'}</h2>
                 {(t.galleryIntroDefault ?? '').trim() ? (
-                  <p className="md-lead md-gallery-bento-lead md-lead-tight">{t.galleryIntroDefault}</p>
+                  <p className="md-lead md-gallery-bento-intro md-lead-tight">{t.galleryIntroDefault}</p>
                 ) : null}
               </div>
               <a className="md-gallery-bento-cta-outline" href="/gallery">
