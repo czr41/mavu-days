@@ -26,6 +26,9 @@ const app = Fastify({
 await app.register(cors, {
   origin: true,
   credentials: true,
+  /** @fastify/cors v11+ defaults to GET,HEAD,POST only — admin uses PATCH etc. cross-origin */
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
 });
 
 await app.register(jwtPlugin);
