@@ -389,6 +389,8 @@ Replace with your real host:
 
 ### 8.2 Import the project
 
+**Canonical Next.js project:** **`mavu-days-web`** (Root **`apps/web`**). If you already have it linked to **`czr41/mavu-days`**, skip importing again — duplicate projects fire duplicate builds on every push.
+
 1. From **Dashboard**, click **Add New…** → **Project**.  
 2. Under **Import Git Repository**, find your **`mavu-days`** (or your repo name) → **Import**.  
 3. If the repo is missing, click **Adjust GitHub App Permissions** and allow the correct org/repo.

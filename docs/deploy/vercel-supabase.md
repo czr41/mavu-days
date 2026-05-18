@@ -52,12 +52,22 @@ You do **not** need `DATABASE_URL` on Vercel for the current web code (no Prisma
 
 ## 4. Vercel project settings
 
+**Canonical production project:** **`mavu-days-web`** — one Next.js deployment for repo **`czr41/mavu-days`**, Root Directory **`apps/web`**.
+
+Do **not** keep multiple Vercel projects importing the same GitHub repo for “the website”: every push to `main` triggers **one build per project**, which queues builds and makes it unclear which `.vercel.app` URL or env vars are authoritative.
+
+**Cleanup duplicates (Vercel dashboard only — Git cannot remove projects):**
+
+1. Confirm **`mavu-days-web`** has **Root Directory** **`apps/web`**, all **Domains** you need, and **Environment Variables** copied from any legacy project.
+2. Deploy **`mavu-days-web`** once on latest `main` and verify the site.
+3. For extra projects (**`mavu-days`**, **`mavu-days-app`**, **`mavu-days-app-new`**, etc.): **Settings → Git → Disconnect** or **Delete Project** so they stop consuming builds.
+
 | Setting | Value |
 | ------- | ----- |
 | Framework preset | **Next.js** |
 | Root Directory | **`apps/web`** |
-| Install Command | *(from [`apps/web/vercel.json`](../../apps/web/vercel.json))* `cd ../.. && npm ci` |
-| Build Command | `cd ../.. && npm run build -w @mavu/web` |
+| Install Command | *(from [`apps/web/vercel.json`](../../apps/web/vercel.json))* `npm ci --prefix ../..` |
+| Build Command | *(from [`apps/web/vercel.json`](../../apps/web/vercel.json))* `npm --prefix ../.. run build -w @mavu/web` |
 | Output | Default Next.js (no manual `outputDirectory`) |
 
 ## 5. One-time: migrations against Supabase
@@ -95,7 +105,7 @@ Push as usual; ensure `.env` is **never** committed.
 
 ### Vercel
 
-1. New project → import repo.
+1. Use **one** project (**`mavu-days-web`** for production); see §4 above before adding another import of this repo.
 2. Root Directory **`apps/web`** (install/build pick up [`vercel.json`](../../apps/web/vercel.json)).
 3. Add **`NEXT_PUBLIC_*`** env vars above.
 4. Deploy.

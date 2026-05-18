@@ -53,7 +53,7 @@ Set `MOCK_PAYMENTS=true` in `.env` to auto-confirm direct-site bookings in dev.
 - Manual pull: `POST /orgs/:orgSlug/channels/sync-ical` (admin JWT) — same logic as the worker for one org
 - Webhooks (Phase 2): `/hooks/meta/whatsapp` · `/hooks/meta/instagram` (`FEATURE_PHASE2_MESSAGES`)
 
-- **Vercel + Supabase:** [docs/deploy/vercel-supabase.md](docs/deploy/vercel-supabase.md).
+- **Vercel + Supabase:** [docs/deploy/vercel-supabase.md](docs/deploy/vercel-supabase.md). Production Next.js should live in **one** Vercel project (**`mavu-days-web`**); disconnect duplicate imports of this repo so pushes do not queue multiple builds.
 - **API on Oracle VM + web on Vercel:** [docs/deploy/oracle-api-vercel-web.md](docs/deploy/oracle-api-vercel-web.md) (includes **Part 10 — push-to-deploy API** via GitHub Actions).
 - **Cursor AI + Supabase:** edit `.cursor/mcp.json` (replace `YOUR_SUPABASE_PROJECT_REF`), then reload MCP in Cursor; see top of [vercel-supabase.md](docs/deploy/vercel-supabase.md).
 - **No Docker / low disk:** [docs/deploy/cloud-lite.md](docs/deploy/cloud-lite.md) (Neon + hosted API + Vercel).
