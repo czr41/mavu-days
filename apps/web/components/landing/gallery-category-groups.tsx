@@ -1,4 +1,4 @@
-import { groupGalleryByCategory, type GallerySlide } from '@/lib/gallery-categories';
+import { flattenGalleryByCategory, type GallerySlide } from '@/lib/gallery-categories';
 import { RevealFigure } from '@/components/landing/reveal-section';
 
 function galleryCaptionLabel(altRaw: string): string {
@@ -17,9 +17,9 @@ function GalleryThumb({ slide, phMod }: { slide: GallerySlide; phMod: number }) 
     <>
       {slide.url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={slide.url} alt={slide.alt} loading="lazy" className="md-gallery-square-img" />
+        <img src={slide.url} alt={slide.alt} loading="lazy" className="md-gallery-bento-img" />
       ) : (
-        <div className={`md-gallery-ph-${ph} md-gallery-square-ph`} role="img" aria-label={slide.alt} />
+        <div className={`md-gallery-ph-${ph} md-gallery-bento-ph-fill`} role="img" aria-label={slide.alt} />
       )}
       <span className="md-gallery-bento-cap">
         <svg className="md-gallery-bento-cap-ic" width="14" height="14" viewBox="0 0 24 24" aria-hidden>
@@ -33,43 +33,55 @@ function GalleryThumb({ slide, phMod }: { slide: GallerySlide; phMod: number }) 
   );
 }
 
-export function GalleryCategoryGroups({ items }: { items: GallerySlide[] }) {
-  const groups = groupGalleryByCategory(items);
-  if (!groups.length) return null;
+function padBentoSlots(slides: GallerySlide[], count = 7): GallerySlide[] {
+  const out = [...slides];
+  let n = 0;
+  while (out.length < count) {
+    out.push({
+      url: null,
+      alt: 'Mavu Days farm stay',
+      key: `gallery-bento-pad-${n}`,
+    });
+    n += 1;
+  }
+  return out.slice(0, count);
+}
 
-  let delay = 0;
+/**
+ * Original single homepage bento grid — square tiles only (no tall side column).
+ * Photos are ordered by category behind the scenes; layout stays one mosaic.
+ */
+export function GalleryCategoryGroups({ items }: { items: GallerySlide[] }) {
+  const ordered = flattenGalleryByCategory(items, 7);
+  const [lead, wide, tri1, tri2, tri3, duo1, duo2] = padBentoSlots(ordered, 7);
+
   return (
-    <div className="md-gallery-categories">
-      {groups.map((group) => {
-        const [featured, ...rest] = group.items;
-        const groupDelay = delay;
-        delay += 1;
-        return (
-          <section key={group.id} className="md-gallery-category" aria-labelledby={`gallery-cat-${group.id}`}>
-            <h3 id={`gallery-cat-${group.id}`} className="md-gallery-category-title">
-              {group.label}
-            </h3>
-            <div className="md-gallery-category-layout">
-              <RevealFigure delayIndex={groupDelay} className="md-gallery-category-feature md-gallery-square-cell">
-                <GalleryThumb slide={featured} phMod={groupDelay} />
-              </RevealFigure>
-              {rest.length > 0 ? (
-                <div className="md-gallery-category-grid">
-                  {rest.map((slide, i) => (
-                    <RevealFigure
-                      key={slide.key}
-                      delayIndex={groupDelay + i + 1}
-                      className="md-gallery-category-tile md-gallery-square-cell"
-                    >
-                      <GalleryThumb slide={slide} phMod={groupDelay + i + 1} />
-                    </RevealFigure>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </section>
-        );
-      })}
+    <div className="md-gallery-bento md-gallery-bento-unified md-gallery-bento-desktop" aria-label="Property photo gallery">
+      <RevealFigure key={lead.key} delayIndex={0} className="md-gallery-bento-lead md-gallery-bento-cell md-gallery-bento-square">
+        <GalleryThumb slide={lead} phMod={0} />
+      </RevealFigure>
+      <RevealFigure key={wide.key} delayIndex={1} className="md-gallery-bento-wide md-gallery-bento-cell">
+        <GalleryThumb slide={wide} phMod={1} />
+      </RevealFigure>
+      <div className="md-gallery-bento-triple">
+        <RevealFigure key={tri1.key} delayIndex={2} className="md-gallery-bento-tile md-gallery-bento-cell md-gallery-bento-square">
+          <GalleryThumb slide={tri1} phMod={2} />
+        </RevealFigure>
+        <RevealFigure key={tri2.key} delayIndex={3} className="md-gallery-bento-tile md-gallery-bento-cell md-gallery-bento-square">
+          <GalleryThumb slide={tri2} phMod={3} />
+        </RevealFigure>
+        <RevealFigure key={tri3.key} delayIndex={4} className="md-gallery-bento-tile md-gallery-bento-cell md-gallery-bento-square">
+          <GalleryThumb slide={tri3} phMod={4} />
+        </RevealFigure>
+      </div>
+      <div className="md-gallery-bento-duo">
+        <RevealFigure key={duo1.key} delayIndex={5} className="md-gallery-bento-tile md-gallery-bento-cell md-gallery-bento-square">
+          <GalleryThumb slide={duo1} phMod={5} />
+        </RevealFigure>
+        <RevealFigure key={duo2.key} delayIndex={6} className="md-gallery-bento-tile md-gallery-bento-cell md-gallery-bento-square">
+          <GalleryThumb slide={duo2} phMod={6} />
+        </RevealFigure>
+      </div>
     </div>
   );
 }

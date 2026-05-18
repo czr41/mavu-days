@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import {
   listingUrlPath,
   MAVU_DAYS_DIRECTIONS_URL,
@@ -423,6 +423,19 @@ export async function LandingView({ path }: { path: Path }) {
             </div>
 
             <GalleryCategoryGroups items={galleryItems} />
+
+            <div className="md-gallery-scroll md-gallery-scroll-bento-mobile" aria-label="Photo gallery">
+              {galleryItems.slice(0, 24).map((item, i) => (
+                <div key={`m-${item.key}`} className="md-swipe-card">
+                  {item.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.url} alt={item.alt} className="md-swipe-img" loading="lazy" />
+                  ) : (
+                    <div className={`md-gallery-ph md-gallery-ph-${(i % 4) + 1}`} role="img" aria-label={item.alt} style={{ height: 220 }} />
+                  )}
+                </div>
+              ))}
+            </div>
 
           </div>
         </RevealSection>

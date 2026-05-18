@@ -61,6 +61,18 @@ export function inferGalleryCategory(item: GallerySlide): GalleryCategoryId {
   return 'other';
 }
 
+/** Flatten by category (room → outdoor → porch → view → other) for one shared bento grid. */
+export function flattenGalleryByCategory(items: GallerySlide[], max = 7): GallerySlide[] {
+  const flat: GallerySlide[] = [];
+  for (const group of groupGalleryByCategory(items)) {
+    for (const item of group.items) {
+      if (flat.length >= max) return flat;
+      flat.push(item);
+    }
+  }
+  return flat;
+}
+
 export function groupGalleryByCategory(items: GallerySlide[]): GalleryCategoryGroup[] {
   const buckets = new Map<GalleryCategoryId, GallerySlide[]>();
   for (const def of GALLERY_CATEGORY_DEFS) {
