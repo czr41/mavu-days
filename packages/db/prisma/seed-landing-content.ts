@@ -240,23 +240,34 @@ Travellers often find us searching for Bangalore farm stays, quiet villa weekend
 }
 
 export async function seedLandingCmsIfEmpty(prisma: PrismaClient, organizationId: string) {
-  const mediaRows: { key: string; publicUrl: string; alt: string }[] = [
+  const mediaRows: {
+    key: string;
+    publicUrl: string;
+    alt: string;
+    galleryCategory?: 'ROOM' | 'OUTDOOR' | 'PORCH' | 'VIEW' | 'OTHER';
+  }[] = [
     {
       key: 'landing-hero-cover',
       publicUrl: '/hero.jpg',
       alt: 'Mavu Days — private mango farm stay near Bangalore',
     },
-    { key: 'gallery-room-1', publicUrl: '/1bhk.jpg', alt: '1BHK bedroom and living space' },
-    { key: 'gallery-room-2', publicUrl: '/2bhk.jpg', alt: '2BHK villa interior' },
-    { key: 'gallery-outdoor-1', publicUrl: '/full-farm.jpg', alt: 'Farm lawn and outdoor areas' },
-    { key: 'gallery-porch-1', publicUrl: '/hero.jpg', alt: 'Porch and sitout seating' },
-    { key: 'gallery-view-1', publicUrl: '/full-farm.jpg', alt: 'Open sky and farm views' },
+    { key: 'gallery-room-1', publicUrl: '/1bhk.jpg', alt: '1BHK bedroom and living space', galleryCategory: 'ROOM' },
+    { key: 'gallery-room-2', publicUrl: '/2bhk.jpg', alt: '2BHK villa interior', galleryCategory: 'ROOM' },
+    {
+      key: 'gallery-outdoor-1',
+      publicUrl: '/full-farm.jpg',
+      alt: 'Farm lawn and outdoor areas',
+      galleryCategory: 'OUTDOOR',
+    },
+    { key: 'gallery-porch-1', publicUrl: '/hero.jpg', alt: 'Porch and sitout seating', galleryCategory: 'PORCH' },
+    { key: 'gallery-view-1', publicUrl: '/2bhk.jpg', alt: 'Open sky and farm views', galleryCategory: 'VIEW' },
   ];
   for (const row of mediaRows) {
+    const { galleryCategory, ...rest } = row;
     await prisma.mediaAsset.upsert({
       where: { organizationId_key: { organizationId, key: row.key } },
-      create: { organizationId, ...row },
-      update: {},
+      create: { organizationId, ...rest, galleryCategory: galleryCategory ?? null },
+      update: { galleryCategory: galleryCategory ?? null },
     });
   }
 

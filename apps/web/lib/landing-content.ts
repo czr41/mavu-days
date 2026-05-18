@@ -5,6 +5,7 @@
  */
 
 import type { PublicContentPayload, PublicSitePayload, SiteSectionDto } from './public-types';
+import { galleryCategoryFromPrisma, type GallerySlide } from './gallery-categories';
 import { marketingGalleryStaticFallback, normalizeMarketingImageUrl } from './marketing-image-url';
 
 /** Canonical Google Maps link for directions (place pin). */
@@ -476,7 +477,7 @@ export type MergedLanding = {
   texts: LandingTexts;
   merged: Record<string, string>;
   heroImageUrl?: string | null;
-  gallery: { url: string; alt: string; key: string }[];
+  gallery: GallerySlide[];
   homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU';
 };
 
@@ -557,7 +558,7 @@ function deriveListingsFromSite(properties: PublicSitePayload['properties']): Li
  * — Then each unit with a listing profile in order: cover first (`detailHeroUrl`), then `galleryImageUrls`.
  *   Includes **draft** listings when they have at least one image (homepage mosaic); dedupes by URL.
  */
-function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt: string; key: string }[] {
+function mergedLandingGallery(payload: LandingMergePayload): GallerySlide[] {
   const out: { url: string; alt: string; key: string }[] = [];
   const seen = new Set<string>();
 
@@ -583,6 +584,7 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
         url,
         key: m.key,
         alt: m.alt?.trim() || seoAltsForStays[0],
+        category: galleryCategoryFromPrisma(m.galleryCategory ?? undefined),
       });
     }
   }

@@ -10,6 +10,7 @@ import {
   RentableUnitKind,
   RentableUnitMatrixRole,
   ReviewPlatform,
+  GalleryCategory,
 } from '@prisma/client';
 import type { Prisma } from '@mavu/db';
 import { getMembership, requireUser } from '../lib/org-access.js';
@@ -924,6 +925,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   app.post('/orgs/:orgSlug/cms/media', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, opsRoles);
     if (!m) return;
+    const galleryCategoryEnum = z.enum(['ROOM', 'OUTDOOR', 'PORCH', 'VIEW', 'OTHER']);
     const body = z
       .object({
         key: z.string().min(1).regex(/^[a-z0-9-]+$/),
@@ -935,6 +937,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
             'Use an http(s) URL or a root-relative path like /hero.jpg',
           ),
         alt: z.string().optional(),
+        galleryCategory: galleryCategoryEnum.optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
@@ -945,6 +948,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           key: body.data.key,
           publicUrl: body.data.publicUrl,
           alt: body.data.alt,
+          galleryCategory: body.data.galleryCategory,
         },
       });
       return reply.send({ media: row });
@@ -957,6 +961,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     const m = await membershipForRoles(app, req, reply, opsRoles);
     if (!m) return;
     const mediaId = (req.params as { mediaId: string }).mediaId;
+    const galleryCategoryEnum = z.enum(['ROOM', 'OUTDOOR', 'PORCH', 'VIEW', 'OTHER']);
     const body = z
       .object({
         publicUrl: z
@@ -968,6 +973,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           )
           .optional(),
         alt: z.union([z.string(), z.null()]).optional(),
+        galleryCategory: z.union([galleryCategoryEnum, z.null()]).optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
@@ -977,9 +983,10 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     });
     if (!existing) return reply.status(404).send({ error: 'Media asset not found' });
 
-    const data: { publicUrl?: string; alt?: string | null } = {};
+    const data: { publicUrl?: string; alt?: string | null; galleryCategory?: GalleryCategory | null } = {};
     if (body.data.publicUrl !== undefined) data.publicUrl = body.data.publicUrl;
     if (body.data.alt !== undefined) data.alt = body.data.alt;
+    if (body.data.galleryCategory !== undefined) data.galleryCategory = body.data.galleryCategory;
 
     if (Object.keys(data).length === 0) {
       return reply.status(400).send({ error: 'No fields to update' });

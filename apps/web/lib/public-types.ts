@@ -11,6 +11,7 @@ export type MediaAssetDto = {
   key: string;
   publicUrl: string;
   alt?: string | null;
+  galleryCategory?: 'ROOM' | 'OUTDOOR' | 'PORCH' | 'VIEW' | 'OTHER' | null;
 };
 
 export type PublicGuestReviewDto = {

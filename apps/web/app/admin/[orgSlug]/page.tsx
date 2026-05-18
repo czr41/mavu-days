@@ -1,6 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import {
+  GALLERY_CATEGORY_OPTIONS,
+  galleryCategoryFromPrisma,
+  galleryCategoryToPrisma,
+  type GalleryCategoryId,
+} from '@/lib/gallery-categories';
 import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -57,7 +63,13 @@ type LandingOfferRow = {
   published: boolean;
   rentableUnitId: string | null;
 };
-type MediaAsset  = { id: string; key: string; publicUrl: string; alt: string | null };
+type MediaAsset = {
+  id: string;
+  key: string;
+  publicUrl: string;
+  alt: string | null;
+  galleryCategory?: string | null;
+};
 type ListingProfileDto = {
   id: string;
   published: boolean;
@@ -1537,9 +1549,18 @@ export default function OrgAdminPage() {
   const [secForm, setSecForm] = useState({key:'',title:'',bodyMarkdown:'',published:true});
   const [editSec, setEditSec] = useState<string|null>(null);
   const [editSecPatch, setEditSecPatch] = useState({title:'',bodyMarkdown:'',published:true});
-  const [mediaForm, setMediaForm] = useState({ key: '', publicUrl: '', alt: '' });
+  const [mediaForm, setMediaForm] = useState({
+    key: '',
+    publicUrl: '',
+    alt: '',
+    galleryCategory: 'room' as GalleryCategoryId,
+  });
   const [editMediaId, setEditMediaId] = useState<string | null>(null);
-  const [editMediaDraft, setEditMediaDraft] = useState({ publicUrl: '', alt: '' });
+  const [editMediaDraft, setEditMediaDraft] = useState({
+    publicUrl: '',
+    alt: '',
+    galleryCategory: '' as GalleryCategoryId | '',
+  });
   const [editOffer, setEditOffer] = useState<string|null>(null);
   const [editOfferPatch, setEditOfferPatch] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
   const [offerForm, setOfferForm] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
@@ -1858,6 +1879,7 @@ export default function OrgAdminPage() {
                   <thead>
                     <tr>
                       <th>Key</th>
+                      <th>Category</th>
                       <th>Alt</th>
                       <th>URL</th>
                       <th style={{ width: '7rem' }}>Actions</th>
@@ -1867,11 +1889,30 @@ export default function OrgAdminPage() {
                     {media.map((m) =>
                       editMediaId === m.id ? (
                         <tr key={m.id}>
-                          <td colSpan={4} style={{ padding: '1rem 1.25rem', background: '#FAFAF9' }}>
+                          <td colSpan={5} style={{ padding: '1rem 1.25rem', background: '#FAFAF9' }}>
                             <div style={{ marginBottom: '0.65rem', fontSize: '0.82rem', color: '#57534E' }}>
                               Key <code>{m.key}</code>
                             </div>
                             <div className="adm-form-grid">
+                              <div className="adm-field">
+                                <label className="adm-label">Gallery category</label>
+                                <select
+                                  className="adm-input"
+                                  value={editMediaDraft.galleryCategory}
+                                  onChange={(e) =>
+                                    setEditMediaDraft((d) => ({
+                                      ...d,
+                                      galleryCategory: e.target.value as GalleryCategoryId,
+                                    }))
+                                  }
+                                >
+                                  {GALLERY_CATEGORY_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                               <div className="adm-field adm-field-full">
                                 <label className="adm-label">Alt text</label>
                                 <input
@@ -1909,6 +1950,9 @@ export default function OrgAdminPage() {
                                     body: JSON.stringify({
                                       publicUrl,
                                       alt: editMediaDraft.alt.trim() === '' ? null : editMediaDraft.alt.trim(),
+                                      galleryCategory: galleryCategoryToPrisma(
+                                        editMediaDraft.galleryCategory as GalleryCategoryId,
+                                      ),
                                     }),
                                   });
                                   setBusy(false);
@@ -1936,6 +1980,11 @@ export default function OrgAdminPage() {
                           <td>
                             <code style={{ fontSize: '0.8rem' }}>{m.key}</code>
                           </td>
+                          <td style={{ fontSize: '0.84rem' }}>
+                            {GALLERY_CATEGORY_OPTIONS.find(
+                              (o) => o.value === galleryCategoryFromPrisma(m.galleryCategory ?? undefined),
+                            )?.label ?? '—'}
+                          </td>
                           <td style={{ fontSize: '0.84rem' }}>{m.alt ?? '—'}</td>
                           <td>
                             <a
@@ -1954,7 +2003,12 @@ export default function OrgAdminPage() {
                               className="adm-btn adm-btn-ghost adm-btn-sm"
                               onClick={() => {
                                 setEditMediaId(m.id);
-                                setEditMediaDraft({ publicUrl: m.publicUrl, alt: m.alt ?? '' });
+                                setEditMediaDraft({
+                                  publicUrl: m.publicUrl,
+                                  alt: m.alt ?? '',
+                                  galleryCategory:
+                                    galleryCategoryFromPrisma(m.galleryCategory ?? undefined) ?? 'other',
+                                });
                               }}
                             >
                               Edit
@@ -1971,18 +2025,27 @@ export default function OrgAdminPage() {
             <div className="adm-card-header"><h2 className="adm-card-title">Register Media URL</h2></div>
             <div className="adm-card-body">
               <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>
-                Use a full HTTPS URL or a root-relative path (e.g. <code>/hero.jpg</code>). Edit existing rows below to fix{' '}
-                <code>http://localhost…</code> links for production. Marketing hero key: <code>{MEDIA_KEY.heroCover}</code>.
-                Listing galleries are edited per stay above.
+                Use a full HTTPS URL or a root-relative path (e.g. <code>/hero.jpg</code>). Pick a{' '}
+                <strong>gallery category</strong> for homepage bento groups (Room, Outdoor, Porch, View, Others). Hero key:{' '}
+                <code>{MEDIA_KEY.heroCover}</code> (no category — shows as the large banner). Listing stay photos are edited per stay above.
               </p>
               <form onSubmit={async e=>{
                 e.preventDefault(); setBusy(true);
-                const r = await apiFetch(`${base}/cms/media`,{method:'POST',body:JSON.stringify({key:mediaForm.key,publicUrl:mediaForm.publicUrl.trim(),alt:mediaForm.alt||undefined})});
+                const r = await apiFetch(`${base}/cms/media`, {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    key: mediaForm.key,
+                    publicUrl: mediaForm.publicUrl.trim(),
+                    alt: mediaForm.alt || undefined,
+                    galleryCategory: galleryCategoryToPrisma(mediaForm.galleryCategory),
+                  }),
+                });
                 setBusy(false); if(!r) return;
-                setMediaForm({ key: '', publicUrl: '', alt: '' }); await loadCms(); notify('Media registered.');
+                setMediaForm({ key: '', publicUrl: '', alt: '', galleryCategory: 'room' }); await loadCms(); notify('Media registered.');
               }}>
                 <div className="adm-form-grid">
-                  <div className="adm-field"><label className="adm-label">Key</label><input className="adm-input" required pattern="[a-z0-9-]+" placeholder="e.g. landing-hero-cover" value={mediaForm.key} onChange={e=>setMediaForm(s=>({...s,key:e.target.value}))}/></div>
+                  <div className="adm-field"><label className="adm-label">Key</label><input className="adm-input" required pattern="[a-z0-9-]+" placeholder="e.g. gallery-room-01" value={mediaForm.key} onChange={e=>setMediaForm(s=>({...s,key:e.target.value}))}/></div>
+                  <div className="adm-field"><label className="adm-label">Gallery category</label><select className="adm-input" value={mediaForm.galleryCategory} onChange={e=>setMediaForm(s=>({...s,galleryCategory:e.target.value as GalleryCategoryId}))}>{GALLERY_CATEGORY_OPTIONS.map((o)=><option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
                   <div className="adm-field"><label className="adm-label">Alt Text</label><input className="adm-input" placeholder="Describe the image" value={mediaForm.alt} onChange={e=>setMediaForm(s=>({...s,alt:e.target.value}))}/></div>
                   <div className="adm-field adm-field-full"><label className="adm-label">Public URL or path</label><input className="adm-input" required placeholder="https://cdn…/photo.jpg or /hero.jpg" value={mediaForm.publicUrl} onChange={e=>setMediaForm(s=>({...s,publicUrl:e.target.value}))}/></div>
                 </div>

@@ -414,28 +414,15 @@ export async function LandingView({ path }: { path: Path }) {
                   <p className="md-lead md-gallery-bento-lead md-lead-tight">{t.galleryIntroDefault}</p>
                 ) : null}
               </div>
-              <a className="md-gallery-bento-cta-outline" href={waGalleryTourHref} target="_blank" rel="noreferrer">
-                View Full Gallery
+              <a className="md-gallery-bento-cta-outline" href="/gallery">
+                View full gallery
                 <span className="md-gallery-bento-cta-arrow" aria-hidden>
-                  â†’
+                  →
                 </span>
               </a>
             </div>
 
-            <GalleryCategoryGroups items={galleryItems} />
-
-            <div className="md-gallery-scroll md-gallery-scroll-bento-mobile" aria-label="Photo gallery">
-              {galleryItems.slice(0, 24).map((item, i) => (
-                <div key={`m-${item.key}`} className="md-swipe-card">
-                  {item.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.url} alt={item.alt} className="md-swipe-img" loading="lazy" />
-                  ) : (
-                    <div className={`md-gallery-ph md-gallery-ph-${(i % 4) + 1}`} role="img" aria-label={item.alt} style={{ height: 220 }} />
-                  )}
-                </div>
-              ))}
-            </div>
+            <GalleryCategoryGroups items={galleryItems} heroImageUrl={merged.heroImageUrl} orgName={orgName} />
 
           </div>
         </RevealSection>

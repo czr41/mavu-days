@@ -356,12 +356,21 @@ model SiteSection {
   @@unique([organizationId, key])
 }
 
+enum GalleryCategory {
+  ROOM
+  OUTDOOR
+  PORCH
+  VIEW
+  OTHER
+}
+
 model MediaAsset {
-  id             String @id @default(uuid())
-  organizationId String
-  key            String
-  publicUrl      String
-  alt            String?
+  id              String            @id @default(uuid())
+  organizationId  String
+  key             String
+  publicUrl       String
+  alt             String?
+  galleryCategory GalleryCategory?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

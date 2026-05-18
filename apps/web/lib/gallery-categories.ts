@@ -1,4 +1,4 @@
-/** Homepage gallery groups (CMS keys: `gallery-{id}-…`). */
+/** Homepage gallery groups — CMS `galleryCategory` or keys `gallery-{id}-…`. */
 export const GALLERY_CATEGORY_DEFS = [
   { id: 'room', label: 'Room pictures', keyPrefix: 'gallery-room' },
   { id: 'outdoor', label: 'Outdoor', keyPrefix: 'gallery-outdoor' },
@@ -9,7 +9,12 @@ export const GALLERY_CATEGORY_DEFS = [
 
 export type GalleryCategoryId = (typeof GALLERY_CATEGORY_DEFS)[number]['id'];
 
-export type GallerySlide = { url: string | null; alt: string; key: string };
+export type GallerySlide = {
+  url: string | null;
+  alt: string;
+  key: string;
+  category?: GalleryCategoryId;
+};
 
 export type GalleryCategoryGroup = {
   id: GalleryCategoryId;
@@ -19,14 +24,47 @@ export type GalleryCategoryGroup = {
 
 const CATEGORY_IDS = new Set<string>(GALLERY_CATEGORY_DEFS.map((c) => c.id));
 
+const PRISMA_TO_ID: Record<string, GalleryCategoryId> = {
+  ROOM: 'room',
+  OUTDOOR: 'outdoor',
+  PORCH: 'porch',
+  VIEW: 'view',
+  OTHER: 'other',
+};
+
+const ID_TO_PRISMA: Record<GalleryCategoryId, string> = {
+  room: 'ROOM',
+  outdoor: 'OUTDOOR',
+  porch: 'PORCH',
+  view: 'VIEW',
+  other: 'OTHER',
+};
+
 export function isGalleryCategoryId(id: string): id is GalleryCategoryId {
   return CATEGORY_IDS.has(id);
 }
 
-/** Resolve category from CMS media key (`gallery-room-1`, `gallery-outdoor-pool`, …). */
+export function galleryCategoryFromPrisma(value: string | null | undefined): GalleryCategoryId | undefined {
+  if (!value) return undefined;
+  return PRISMA_TO_ID[value.toUpperCase()] ?? undefined;
+}
+
+export function galleryCategoryToPrisma(
+  id: GalleryCategoryId | null | undefined,
+): 'ROOM' | 'OUTDOOR' | 'PORCH' | 'VIEW' | 'OTHER' | undefined {
+  if (!id) return undefined;
+  return ID_TO_PRISMA[id] as 'ROOM' | 'OUTDOOR' | 'PORCH' | 'VIEW' | 'OTHER';
+}
+
+export const GALLERY_CATEGORY_OPTIONS = GALLERY_CATEGORY_DEFS.map((c) => ({
+  value: c.id,
+  label: c.label,
+}));
+
+/** Resolve category from CMS media key (`gallery-room-1`, …). */
 export function categoryFromMediaKey(key: string): GalleryCategoryId | null {
   const k = key.toLowerCase();
-  if (k === 'landing-hero-cover') return 'view';
+  if (k === 'landing-hero-cover') return null;
   for (const def of GALLERY_CATEGORY_DEFS) {
     const p = def.keyPrefix;
     if (k === p || k.startsWith(`${p}-`)) return def.id;
@@ -34,11 +72,7 @@ export function categoryFromMediaKey(key: string): GalleryCategoryId | null {
   return null;
 }
 
-/** Heuristic bucket for listing-derived keys and alt/url text. */
-export function inferGalleryCategory(item: GallerySlide): GalleryCategoryId {
-  const fromKey = categoryFromMediaKey(item.key);
-  if (fromKey) return fromKey;
-
+function inferGalleryCategoryFromText(item: GallerySlide): GalleryCategoryId {
   const blob = `${item.key} ${item.alt} ${item.url ?? ''}`.toLowerCase();
 
   if (/porch|sitout|sit-out|veranda|verandah|sit\s*out/.test(blob)) return 'porch';
@@ -61,16 +95,11 @@ export function inferGalleryCategory(item: GallerySlide): GalleryCategoryId {
   return 'other';
 }
 
-/** Flatten by category (room → outdoor → porch → view → other) for one shared bento grid. */
-export function flattenGalleryByCategory(items: GallerySlide[], max = 7): GallerySlide[] {
-  const flat: GallerySlide[] = [];
-  for (const group of groupGalleryByCategory(items)) {
-    for (const item of group.items) {
-      if (flat.length >= max) return flat;
-      flat.push(item);
-    }
-  }
-  return flat;
+export function resolveGalleryCategory(item: GallerySlide): GalleryCategoryId {
+  if (item.category) return item.category;
+  const fromKey = categoryFromMediaKey(item.key);
+  if (fromKey) return fromKey;
+  return inferGalleryCategoryFromText(item);
 }
 
 export function groupGalleryByCategory(items: GallerySlide[]): GalleryCategoryGroup[] {
@@ -79,7 +108,7 @@ export function groupGalleryByCategory(items: GallerySlide[]): GalleryCategoryGr
     buckets.set(def.id, []);
   }
   for (const item of items) {
-    const cat = inferGalleryCategory(item);
+    const cat = resolveGalleryCategory(item);
     buckets.get(cat)!.push(item);
   }
   return GALLERY_CATEGORY_DEFS.map((def) => ({
@@ -87,4 +116,35 @@ export function groupGalleryByCategory(items: GallerySlide[]): GalleryCategoryGr
     label: def.label,
     items: buckets.get(def.id) ?? [],
   })).filter((g) => g.items.length > 0);
+}
+
+/** Pull marketing hero out of the stream used for category bentos. */
+export function splitGalleryHero(
+  items: GallerySlide[],
+  heroImageUrl?: string | null,
+): { hero: GallerySlide | null; rest: GallerySlide[] } {
+  const heroUrl = heroImageUrl?.trim() || null;
+  let hero: GallerySlide | null = null;
+  const rest: GallerySlide[] = [];
+
+  for (const item of items) {
+    const isHeroKey = item.key.toLowerCase() === 'landing-hero-cover';
+    const matchesHeroUrl = heroUrl && item.url === heroUrl;
+    if (!hero && (isHeroKey || matchesHeroUrl)) {
+      hero = item;
+      continue;
+    }
+    if (matchesHeroUrl) continue;
+    rest.push(item);
+  }
+
+  if (!hero && heroUrl) {
+    hero = {
+      url: heroUrl,
+      alt: 'Mavu Days farm stay',
+      key: 'landing-hero-cover',
+    };
+  }
+
+  return { hero, rest };
 }
