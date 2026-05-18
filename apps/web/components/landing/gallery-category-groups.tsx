@@ -2,12 +2,13 @@ import Link from 'next/link';
 
 import {
   groupGalleryByCategory,
+  representativesPerCategory,
   splitGalleryHero,
   type GallerySlide,
 } from '@/lib/gallery-categories';
 import { RevealFigure } from '@/components/landing/reveal-section';
 
-const HOMEPAGE_CATEGORY_PREVIEW = 10;
+const HOMEPAGE_FULL_CATEGORY_PREVIEW = 10;
 
 type Props = {
   items: GallerySlide[];
@@ -16,67 +17,91 @@ type Props = {
   orgName?: string;
 };
 
-function galleryCaptionLabel(altRaw: string): string {
-  const trimmed = altRaw?.trim();
-  if (!trimmed) return 'Mavu Days';
-  const first = trimmed.split(/\s*[·•|–—]\s*/)[0]?.trim();
-  const base = first && first.length >= 3 ? first : trimmed;
-  if (base.length <= 46) return base;
-  return `${base.slice(0, 43).trimEnd()}…`;
-}
-
-function GalleryThumb({
-  slide,
-  phMod,
-  showCaption = true,
-}: {
-  slide: GallerySlide;
-  phMod: number;
-  showCaption?: boolean;
-}) {
-  const cap = galleryCaptionLabel(slide.alt);
+function CategoryThumbFill({ slide, phMod }: { slide: GallerySlide; phMod: number }) {
   const ph = (Math.abs(phMod) % 4) + 1;
-  return (
-    <>
-      {slide.url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={slide.url} alt={slide.alt} loading="lazy" className="md-gallery-bento-img" />
-      ) : (
-        <div className={`md-gallery-ph-${ph} md-gallery-bento-ph-fill`} role="img" aria-label={slide.alt} />
-      )}
-      {showCaption ? (
-        <span className="md-gallery-bento-cap">
-          <svg className="md-gallery-bento-cap-ic" width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-            <rect x="3" y="5" width="18" height="14" rx="2" ry="2" stroke="currentColor" strokeWidth="1.6" fill="none" />
-            <circle cx="8.25" cy="10" r="1.05" fill="currentColor" />
-            <path d="M14 13h4M14 15.5h2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
-          <span className="md-gallery-bento-cap-text">{cap}</span>
-        </span>
-      ) : null}
-    </>
+  return slide.url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={slide.url} alt={slide.alt} loading="lazy" className="md-gallery-bento-img" />
+  ) : (
+    <div className={`md-gallery-ph-${ph} md-gallery-bento-ph-fill`} role="img" aria-label={slide.alt} />
   );
 }
 
-function GalleryFeaturedTile({ slide, delayIndex = 0 }: { slide: GallerySlide; delayIndex?: number }) {
+/** Homepage: single hero tile (no label), same image as marketing hero when available. */
+function GalleryHeroTile({ slide, delayIndex = 0 }: { slide: GallerySlide; delayIndex?: number }) {
   return (
-    <RevealFigure delayIndex={delayIndex} className="md-gallery-featured md-gallery-cat-cell" aria-label={slide.alt}>
-      <GalleryThumb slide={slide} phMod={0} showCaption={false} />
+    <RevealFigure delayIndex={delayIndex} className="md-gallery-unified-hero md-gallery-cat-cell" aria-label={slide.alt}>
+      <CategoryThumbFill slide={slide} phMod={0} />
     </RevealFigure>
   );
 }
 
-function CategoryBento({ group, delayStart }: { group: { label: string; items: GallerySlide[] }; delayStart: number }) {
-  const preview = group.items.slice(0, HOMEPAGE_CATEGORY_PREVIEW);
+function GalleryCategorySquareLinked({
+  slot,
+  delayIndex,
+  galleryHref,
+}: {
+  slot: { id: string; label: string; slide: GallerySlide | null };
+  delayIndex: number;
+  galleryHref: string;
+}) {
+  const slide: GallerySlide =
+    slot.slide ??
+    ({
+      url: null,
+      alt: slot.label,
+      key: `placeholder-${slot.id}`,
+    } as GallerySlide);
+
+  return (
+    <Link href={`${galleryHref}#gallery-${slot.id}`} className="md-gallery-unified-tile-wrap md-gallery-cat-cell">
+      <RevealFigure delayIndex={delayIndex} className="md-gallery-unified-tile">
+        <CategoryThumbFill slide={slide} phMod={delayIndex} />
+        <span className="md-gallery-unified-label">{slot.label}</span>
+      </RevealFigure>
+    </Link>
+  );
+}
+
+/** Single homepage gallery: hero + five labeled squares (one section). */
+export function GalleryLandingUnified({
+  items,
+  heroImageUrl,
+  galleryHref,
+}: {
+  items: GallerySlide[];
+  heroImageUrl?: string | null;
+  galleryHref?: string;
+}) {
+  const href = galleryHref ?? '/gallery';
+  const { hero, rest } = splitGalleryHero(items, heroImageUrl);
+  const slots = representativesPerCategory(rest);
+  const hasHero = Boolean(hero?.url);
+
+  return (
+    <div
+      className={`md-gallery-unified${hasHero ? '' : ' md-gallery-unified--no-hero'}`}
+      aria-label="Photo gallery preview"
+    >
+      {hasHero && hero ? <GalleryHeroTile slide={hero} /> : null}
+      {slots.map((slot, i) => (
+        <GalleryCategorySquareLinked key={slot.id} slot={slot} delayIndex={i + 1} galleryHref={href} />
+      ))}
+    </div>
+  );
+}
+
+function CategoryBento({ group, delayStart }: { group: { id: string; label: string; items: GallerySlide[] }; delayStart: number }) {
+  const preview = group.items.slice(0, HOMEPAGE_FULL_CATEGORY_PREVIEW);
   const [feature, ...thumbs] = preview;
   if (!feature) return null;
 
   return (
-    <section className="md-gallery-cat-block" aria-label={group.label}>
+    <section className="md-gallery-cat-block" id={`gallery-${group.id}`} aria-label={group.label}>
       <h3 className="md-gallery-cat-title">{group.label}</h3>
       <div className={`md-gallery-cat-bento${thumbs.length === 0 ? ' md-gallery-cat-bento--solo' : ''}`}>
         <RevealFigure delayIndex={delayStart} className="md-gallery-cat-feature md-gallery-cat-cell">
-          <GalleryThumb slide={feature} phMod={delayStart} showCaption={false} />
+          <CategoryThumbFill slide={feature} phMod={delayStart} />
         </RevealFigure>
         {thumbs.length > 0 ? (
           <div className="md-gallery-cat-thumbs">
@@ -86,7 +111,7 @@ function CategoryBento({ group, delayStart }: { group: { label: string; items: G
                 delayIndex={delayStart + i + 1}
                 className="md-gallery-cat-thumb md-gallery-cat-cell"
               >
-                <GalleryThumb slide={slide} phMod={delayStart + i + 1} showCaption={false} />
+                <CategoryThumbFill slide={slide} phMod={delayStart + i + 1} />
               </RevealFigure>
             ))}
           </div>
@@ -97,47 +122,27 @@ function CategoryBento({ group, delayStart }: { group: { label: string; items: G
 }
 
 export function GalleryCategoryGroups({ items, heroImageUrl, fullGalleryHref, orgName }: Props) {
-  const { hero, rest } = splitGalleryHero(items, heroImageUrl);
-  const groups = groupGalleryByCategory(rest);
-
-  const renderCategoryBlocks = (idPrefix: string) => {
-    let d = 0;
-    return groups.map((group) => {
-      const block = <CategoryBento key={`${idPrefix}-${group.id}`} group={group} delayStart={d + 1} />;
-      d += Math.min(group.items.length, HOMEPAGE_CATEGORY_PREVIEW);
-      return block;
-    });
-  };
-
   return (
-    <>
-      <div className="md-gallery-stack md-gallery-bento-desktop">
-        {hero?.url ? <GalleryFeaturedTile slide={hero} /> : null}
-        {renderCategoryBlocks('d')}
-        {fullGalleryHref ? (
-          <p className="md-gallery-full-cta-wrap">
-            <Link className="md-gallery-bento-cta-outline" href={fullGalleryHref}>
-              View full gallery
-              <span className="md-gallery-bento-cta-arrow" aria-hidden>
-                →
-              </span>
-            </Link>
-            {orgName ? (
-              <span className="md-muted md-gallery-full-cta-hint">All photos for {orgName}, grouped by area</span>
-            ) : null}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="md-gallery-mobile-stack" aria-label="Photo gallery">
-        {hero?.url ? <GalleryFeaturedTile slide={hero} /> : null}
-        {renderCategoryBlocks('m')}
-      </div>
-    </>
+    <div className="md-gallery-unified-outer">
+      <GalleryLandingUnified items={items} heroImageUrl={heroImageUrl} galleryHref={fullGalleryHref ?? '/gallery'} />
+      {fullGalleryHref ? (
+        <p className="md-gallery-full-cta-wrap">
+          <Link className="md-gallery-bento-cta-outline" href={fullGalleryHref}>
+            View full gallery
+            <span className="md-gallery-bento-cta-arrow" aria-hidden>
+              →
+            </span>
+          </Link>
+          {orgName ? (
+            <span className="md-muted md-gallery-full-cta-hint">All photos for {orgName}</span>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
-/** Full gallery page: every image in each category. */
+/** Full gallery page: hero + every image grouped by category. */
 export function GalleryFullView({ items, heroImageUrl, orgName }: Omit<Props, 'fullGalleryHref'>) {
   const { hero, rest } = splitGalleryHero(items, heroImageUrl);
   const groups = groupGalleryByCategory(rest);
@@ -156,7 +161,11 @@ export function GalleryFullView({ items, heroImageUrl, orgName }: Omit<Props, 'f
           </p>
         </header>
 
-        {hero?.url ? <GalleryFeaturedTile slide={hero} /> : null}
+        {hero?.url ? (
+          <div className="md-gallery-full-hero-wrap">
+            <GalleryHeroTile slide={hero} />
+          </div>
+        ) : null}
 
         {groups.map((group) => {
           const block = <CategoryBento key={group.id} group={group} delayStart={delay + 1} />;

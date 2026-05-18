@@ -273,8 +273,8 @@ export const DEFAULT_LANDING: LandingTexts = {
     'Private villa comfort',
     'Weekend reset near Bangalore',
   ],
-  galleryTitle: 'A glimpse of life here.',
-  galleryIntroDefault: 'Mango farm, villas, and open skies—about 65 km from Bangalore.',
+  galleryTitle: 'See the farm before you arrive',
+  galleryIntroDefault: '',
   whoTitle: 'Who Mavu Days is Perfect For',
   whoIntro: 'Couples, families, groups, workations, small celebrations.',
   whoCards: [

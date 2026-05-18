@@ -1,8 +1,8 @@
-/** Homepage gallery groups — CMS `galleryCategory` or keys `gallery-{id}-…`. */
+/** Homepage gallery — CMS `galleryCategory` or keys `gallery-{id}-…`. Display order on landing bento. */
 export const GALLERY_CATEGORY_DEFS = [
   { id: 'room', label: 'Room pictures', keyPrefix: 'gallery-room' },
-  { id: 'outdoor', label: 'Outdoor', keyPrefix: 'gallery-outdoor' },
-  { id: 'porch', label: 'Porch and Sitout', keyPrefix: 'gallery-porch' },
+  { id: 'porch', label: 'Sitout and Porch', keyPrefix: 'gallery-porch' },
+  { id: 'outdoor', label: 'Farm Outdoors', keyPrefix: 'gallery-outdoor' },
   { id: 'view', label: 'The view', keyPrefix: 'gallery-view' },
   { id: 'other', label: 'Others', keyPrefix: 'gallery-other' },
 ] as const;
@@ -116,6 +116,28 @@ export function groupGalleryByCategory(items: GallerySlide[]): GalleryCategoryGr
     label: def.label,
     items: buckets.get(def.id) ?? [],
   })).filter((g) => g.items.length > 0);
+}
+
+/** One preview slide per category (landing bento squares), always five slots in definition order. */
+export type CategoryRepresentativeSlot = {
+  id: GalleryCategoryId;
+  label: string;
+  slide: GallerySlide | null;
+};
+
+export function representativesPerCategory(items: GallerySlide[]): CategoryRepresentativeSlot[] {
+  const buckets = new Map<GalleryCategoryId, GallerySlide[]>();
+  for (const def of GALLERY_CATEGORY_DEFS) {
+    buckets.set(def.id, []);
+  }
+  for (const item of items) {
+    buckets.get(resolveGalleryCategory(item))!.push(item);
+  }
+  return GALLERY_CATEGORY_DEFS.map((def) => ({
+    id: def.id,
+    label: def.label,
+    slide: buckets.get(def.id)![0] ?? null,
+  }));
 }
 
 /** Pull marketing hero out of the stream used for category bentos. */

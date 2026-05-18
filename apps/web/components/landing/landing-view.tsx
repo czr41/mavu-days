@@ -30,30 +30,6 @@ function galleryFallbackSlots(count = 8) {
   return Array.from({ length: count }, (_, i) => ({ alt: alts[i % alts.length], key: `fallback-${i}` }));
 }
 
-function GalleryBranchGlyph({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="134" height="96" viewBox="0 0 134 96" aria-hidden fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M8 78c18-22 52-42 118-62"
-        stroke="currentColor"
-        strokeWidth="1.35"
-        strokeLinecap="round"
-        opacity="0.58"
-      />
-      <path
-        d="M68 54c14-22 42-42 62-54M48 72c28-38 74-62 106-73M94 62c14-26 42-54 74-71"
-        stroke="currentColor"
-        strokeWidth="1.08"
-        strokeLinecap="round"
-        opacity="0.5"
-      />
-      <ellipse cx="58" cy="34" rx="10" ry="5.5" transform="rotate(-28 58 34)" stroke="currentColor" strokeWidth="1.06" opacity="0.55" />
-      <ellipse cx="102" cy="41" rx="12" ry="6" transform="rotate(15 102 41)" stroke="currentColor" strokeWidth="1.06" opacity="0.52" />
-      <ellipse cx="38" cy="56" rx="9" ry="5" transform="rotate(12 38 56)" stroke="currentColor" strokeWidth="1.02" opacity="0.48" />
-    </svg>
-  );
-}
-
 /** Full marketing homepage */
 export async function LandingView({ path }: { path: Path }) {
   const { orgSlug, merged, orgName, landingReviews, landingOffers } = await loadLandingPayload();
@@ -75,10 +51,6 @@ export async function LandingView({ path }: { path: Path }) {
   const email = process.env.NEXT_PUBLIC_BOOKING_EMAIL?.trim() ?? '';
 
   const waHref = whatsappHref(phone, whatsappBookingMessage('2'));
-  const waGalleryTourHref = whatsappHref(
-    phone,
-    `Hi! I'd love to see the full photo gallery for ${orgName}.`,
-  );
 
   const cappedGallery = merged.gallery.slice(0, 48);
   const galleryItems =
@@ -407,9 +379,9 @@ export async function LandingView({ path }: { path: Path }) {
           <div className="md-wrap">
             <div className="md-gallery-bento-head-row">
               <div className="md-gallery-bento-copy">
-                <GalleryBranchGlyph className="md-gallery-bento-branch" />
-                <p className="md-gallery-bento-eyeb">Inside {orgName}</p>
-                <h2 className="md-h2 md-gallery-bento-h2">{t.galleryTitle || 'A glimpse of life here.'}</h2>
+                <h2 className="md-h2 md-gallery-bento-h2">
+                  {t.galleryTitle || 'See the farm before you arrive'}
+                </h2>
                 {(t.galleryIntroDefault ?? '').trim() ? (
                   <p className="md-lead md-gallery-bento-intro md-lead-tight">{t.galleryIntroDefault}</p>
                 ) : null}
@@ -422,8 +394,7 @@ export async function LandingView({ path }: { path: Path }) {
               </a>
             </div>
 
-            <GalleryCategoryGroups items={galleryItems} heroImageUrl={merged.heroImageUrl} orgName={orgName} />
-
+            <GalleryCategoryGroups items={galleryItems} heroImageUrl={merged.heroImageUrl} fullGalleryHref="/gallery" orgName={orgName} />
           </div>
         </RevealSection>
 
