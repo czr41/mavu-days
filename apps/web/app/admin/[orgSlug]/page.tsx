@@ -1537,7 +1537,9 @@ export default function OrgAdminPage() {
   const [secForm, setSecForm] = useState({key:'',title:'',bodyMarkdown:'',published:true});
   const [editSec, setEditSec] = useState<string|null>(null);
   const [editSecPatch, setEditSecPatch] = useState({title:'',bodyMarkdown:'',published:true});
-  const [mediaForm, setMediaForm] = useState({key:'',publicUrl:'',alt:''});
+  const [mediaForm, setMediaForm] = useState({ key: '', publicUrl: '', alt: '' });
+  const [editMediaId, setEditMediaId] = useState<string | null>(null);
+  const [editMediaDraft, setEditMediaDraft] = useState({ publicUrl: '', alt: '' });
   const [editOffer, setEditOffer] = useState<string|null>(null);
   const [editOfferPatch, setEditOfferPatch] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
   const [offerForm, setOfferForm] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
@@ -1853,15 +1855,114 @@ export default function OrgAdminPage() {
               ? <div className="adm-empty"><EditI size={28}/>No media registered yet.</div>
               : (
                 <table className="adm-table">
-                  <thead><tr><th>Key</th><th>Alt</th><th>URL</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Key</th>
+                      <th>Alt</th>
+                      <th>URL</th>
+                      <th style={{ width: '7rem' }}>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {media.map(m=>(
-                      <tr key={m.id}>
-                        <td><code style={{fontSize:'0.8rem'}}>{m.key}</code></td>
-                        <td style={{fontSize:'0.84rem'}}>{m.alt??'—'}</td>
-                        <td><a href={m.publicUrl} target="_blank" rel="noreferrer" style={{fontSize:'0.78rem',color:'var(--sage)',wordBreak:'break-all'}}>{m.publicUrl.slice(0,60)}{m.publicUrl.length>60?'…':''}</a></td>
-                      </tr>
-                    ))}
+                    {media.map((m) =>
+                      editMediaId === m.id ? (
+                        <tr key={m.id}>
+                          <td colSpan={4} style={{ padding: '1rem 1.25rem', background: '#FAFAF9' }}>
+                            <div style={{ marginBottom: '0.65rem', fontSize: '0.82rem', color: '#57534E' }}>
+                              Key <code>{m.key}</code>
+                            </div>
+                            <div className="adm-form-grid">
+                              <div className="adm-field adm-field-full">
+                                <label className="adm-label">Alt text</label>
+                                <input
+                                  className="adm-input"
+                                  value={editMediaDraft.alt}
+                                  onChange={(e) => setEditMediaDraft((d) => ({ ...d, alt: e.target.value }))}
+                                  placeholder="Describe the image"
+                                />
+                              </div>
+                              <div className="adm-field adm-field-full">
+                                <label className="adm-label">Public URL or path</label>
+                                <input
+                                  className="adm-input"
+                                  required
+                                  value={editMediaDraft.publicUrl}
+                                  onChange={(e) => setEditMediaDraft((d) => ({ ...d, publicUrl: e.target.value }))}
+                                  placeholder="https://… or /hero.jpg"
+                                />
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                              <button
+                                className="adm-btn adm-btn-primary adm-btn-sm"
+                                type="button"
+                                disabled={busy}
+                                onClick={async () => {
+                                  const publicUrl = editMediaDraft.publicUrl.trim();
+                                  if (!publicUrl) {
+                                    notify('URL or path is required.', false);
+                                    return;
+                                  }
+                                  setBusy(true);
+                                  const r = await apiFetch(`${base}/cms/media/${encodeURIComponent(m.id)}`, {
+                                    method: 'PATCH',
+                                    body: JSON.stringify({
+                                      publicUrl,
+                                      alt: editMediaDraft.alt.trim() === '' ? null : editMediaDraft.alt.trim(),
+                                    }),
+                                  });
+                                  setBusy(false);
+                                  if (!r) return;
+                                  setEditMediaId(null);
+                                  await loadCms();
+                                  notify('Media updated.');
+                                }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                className="adm-btn adm-btn-ghost adm-btn-sm"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setEditMediaId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={m.id}>
+                          <td>
+                            <code style={{ fontSize: '0.8rem' }}>{m.key}</code>
+                          </td>
+                          <td style={{ fontSize: '0.84rem' }}>{m.alt ?? '—'}</td>
+                          <td>
+                            <a
+                              href={m.publicUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ fontSize: '0.78rem', color: 'var(--sage)', wordBreak: 'break-all' }}
+                            >
+                              {m.publicUrl.slice(0, 60)}
+                              {m.publicUrl.length > 60 ? '…' : ''}
+                            </a>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="adm-btn adm-btn-ghost adm-btn-sm"
+                              onClick={() => {
+                                setEditMediaId(m.id);
+                                setEditMediaDraft({ publicUrl: m.publicUrl, alt: m.alt ?? '' });
+                              }}
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ),
+                    )}
                   </tbody>
                 </table>
               )}
@@ -1869,13 +1970,16 @@ export default function OrgAdminPage() {
           <div className="adm-card">
             <div className="adm-card-header"><h2 className="adm-card-title">Register Media URL</h2></div>
             <div className="adm-card-body">
-              <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Use a full HTTPS URL or a root-relative path served by your site (e.g. <code>/hero.jpg</code>). Marketing hero key:{' '}
-                <code>{MEDIA_KEY.heroCover}</code>. Listing galleries are edited per stay above; they feed both <code>/stays/…</code> and the home page mosaic.</p>
+              <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>
+                Use a full HTTPS URL or a root-relative path (e.g. <code>/hero.jpg</code>). Edit existing rows below to fix{' '}
+                <code>http://localhost…</code> links for production. Marketing hero key: <code>{MEDIA_KEY.heroCover}</code>.
+                Listing galleries are edited per stay above.
+              </p>
               <form onSubmit={async e=>{
                 e.preventDefault(); setBusy(true);
                 const r = await apiFetch(`${base}/cms/media`,{method:'POST',body:JSON.stringify({key:mediaForm.key,publicUrl:mediaForm.publicUrl.trim(),alt:mediaForm.alt||undefined})});
                 setBusy(false); if(!r) return;
-                setMediaForm({key:'',publicUrl:'',alt:''}); await loadCms(); notify('Media registered.');
+                setMediaForm({ key: '', publicUrl: '', alt: '' }); await loadCms(); notify('Media registered.');
               }}>
                 <div className="adm-form-grid">
                   <div className="adm-field"><label className="adm-label">Key</label><input className="adm-input" required pattern="[a-z0-9-]+" placeholder="e.g. landing-hero-cover" value={mediaForm.key} onChange={e=>setMediaForm(s=>({...s,key:e.target.value}))}/></div>

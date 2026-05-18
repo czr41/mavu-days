@@ -953,6 +953,45 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     }
   });
 
+  app.patch('/orgs/:orgSlug/cms/media/:mediaId', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const mediaId = (req.params as { mediaId: string }).mediaId;
+    const body = z
+      .object({
+        publicUrl: z
+          .string()
+          .min(1)
+          .refine(
+            (s) => /^https?:\/\/.+/i.test(s) || /^\/[^\s]+$/.test(s),
+            'Use an http(s) URL or a root-relative path like /hero.jpg',
+          )
+          .optional(),
+        alt: z.union([z.string(), z.null()]).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const existing = await app.prisma.mediaAsset.findFirst({
+      where: { id: mediaId, organizationId: m.organizationId },
+    });
+    if (!existing) return reply.status(404).send({ error: 'Media asset not found' });
+
+    const data: { publicUrl?: string; alt?: string | null } = {};
+    if (body.data.publicUrl !== undefined) data.publicUrl = body.data.publicUrl;
+    if (body.data.alt !== undefined) data.alt = body.data.alt;
+
+    if (Object.keys(data).length === 0) {
+      return reply.status(400).send({ error: 'No fields to update' });
+    }
+
+    const row = await app.prisma.mediaAsset.update({
+      where: { id: mediaId },
+      data,
+    });
+    return reply.send({ media: row });
+  });
+
   app.get('/orgs/:orgSlug/cms/offers', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
