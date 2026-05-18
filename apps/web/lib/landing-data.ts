@@ -4,7 +4,7 @@ import type { LandingMergePayload } from './landing-content';
 import { mergeLandingContent } from './landing-content';
 
 export async function loadLandingPayload() {
-  const envSlug = (process.env.NEXT_PUBLIC_ORG_SLUG ?? 'mavu-days').trim();
+  const envSlug = (process.env.NEXT_PUBLIC_ORG_SLUG ?? 'mavu-days').trim().toLowerCase();
   let mergePayload: LandingMergePayload = await fetchPublicOrgSite(envSlug);
   if (!mergePayload) {
     mergePayload = await fetchPublicOrgContent(envSlug);

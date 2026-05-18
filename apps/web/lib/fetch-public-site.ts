@@ -1,9 +1,9 @@
 import type { PublicSitePayload } from './public-types';
+import { publicApiBaseUrl } from './public-api-base';
 
 /** Marketing site payload: CMS + inventory + homepage layout kind. */
 export async function fetchPublicOrgSite(orgSlug: string): Promise<PublicSitePayload | null> {
-  const rawBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-  const base = rawBase.replace(/\/+$/, '');
+  const base = publicApiBaseUrl();
   const slug = orgSlug.trim();
   try {
     const res = await fetch(`${base}/public/orgs/${encodeURIComponent(slug)}/site`, {

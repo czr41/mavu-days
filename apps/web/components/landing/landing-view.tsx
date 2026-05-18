@@ -404,9 +404,9 @@ export async function LandingView({ path }: { path: Path }) {
                     <span className="md-glyph md-feature-icon-wrap" aria-hidden>
                       <FeatureGlyph index={fi} />
                     </span>
-                    <h3 className="md-h4">{b.title}</h3>
+                    <h3 className="md-h4 md-feature-title">{b.title}</h3>
                   </div>
-                  <p>{b.text}</p>
+                  <p className="md-feature-copy">{b.text}</p>
                 </RevealBlock>
               ))}
             </div>

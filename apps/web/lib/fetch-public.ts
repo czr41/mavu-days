@@ -1,8 +1,8 @@
 import type { PublicContentPayload } from './public-types';
+import { publicApiBaseUrl } from './public-api-base';
 
 export async function fetchPublicOrgContent(orgSlug: string): Promise<PublicContentPayload | null> {
-  const rawBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-  const base = rawBase.replace(/\/+$/, '');
+  const base = publicApiBaseUrl();
   const slug = orgSlug.trim();
   try {
     const res = await fetch(`${base}/public/orgs/${encodeURIComponent(slug)}/content`, {

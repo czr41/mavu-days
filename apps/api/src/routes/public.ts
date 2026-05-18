@@ -44,11 +44,16 @@ function utcDay(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00.000Z`);
 }
 
+/** Match URL slug to {@link Organization.slug} without tripping on harmless casing drift (PostgreSQL). */
+function whereOrgSlugParam(slug: string): Prisma.OrganizationWhereInput {
+  return { slug: { equals: slug.trim(), mode: 'insensitive' } };
+}
+
 export function registerPublicRoutes(app: FastifyInstance) {
   app.get('/public/orgs/:orgSlug/inventory', async (req, reply) => {
     const slug = (req.params as { orgSlug: string }).orgSlug.trim();
-    const org: OrgInventoryPayload | null = await app.prisma.organization.findUnique({
-      where: { slug },
+    const org: OrgInventoryPayload | null = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(slug),
       include: {
         properties: {
           include: {
@@ -79,8 +84,8 @@ export function registerPublicRoutes(app: FastifyInstance) {
 
   app.get('/public/orgs/:orgSlug/site', async (req, reply) => {
     const slug = (req.params as { orgSlug: string }).orgSlug.trim();
-    const org = await app.prisma.organization.findUnique({
-      where: { slug },
+    const org = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(slug),
       include: {
         siteSettings: true,
         sections: {
@@ -129,8 +134,8 @@ export function registerPublicRoutes(app: FastifyInstance) {
 
   app.get('/public/orgs/:orgSlug/content', async (req, reply) => {
     const slug = (req.params as { orgSlug: string }).orgSlug.trim();
-    const org = await app.prisma.organization.findUnique({
-      where: { slug },
+    const org = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(slug),
       include: {
         siteSettings: true,
         sections: {
@@ -194,8 +199,8 @@ export function registerPublicRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'checkIn and checkOut must be YYYY-MM-DD dates' });
     }
 
-    const org = await app.prisma.organization.findUnique({
-      where: { slug: orgSlug },
+    const org = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(orgSlug),
       include: {
         siteSettings: true,
         properties: {
@@ -370,7 +375,7 @@ export function registerPublicRoutes(app: FastifyInstance) {
   });
 
   app.post('/public/orgs/:orgSlug/bookings', async (req, reply) => {
-    const orgSlug = (req.params as { orgSlug: string }).orgSlug;
+    const orgSlug = (req.params as { orgSlug: string }).orgSlug.trim();
     const body = z
       .object({
         propertySlug: z.string().min(1),
@@ -385,8 +390,8 @@ export function registerPublicRoutes(app: FastifyInstance) {
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
 
-    const org = await app.prisma.organization.findUnique({
-      where: { slug: orgSlug },
+    const org = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(orgSlug),
       include: {
         properties: {
           where: { slug: body.data.propertySlug },

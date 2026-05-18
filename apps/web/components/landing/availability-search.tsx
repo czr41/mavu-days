@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { RevealSection } from '@/components/landing/reveal-section';
+import { publicApiBaseUrl } from '@/lib/public-api-base';
 import type { StayFilter } from '@/lib/whatsapp';
 import { formatStayPreference, whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 
@@ -147,7 +148,7 @@ export function AvailabilitySearch({
   const [columns, setColumns] = useState<Column[] | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
 
-  const apiBase = useMemo(() => (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, ''), []);
+  const apiBase = useMemo(() => publicApiBaseUrl(), []);
 
   const stayLabel = useMemo(() => {
     const hit = stayOptions.find((o) => o.value === stayFilter);
@@ -172,7 +173,12 @@ export function AvailabilitySearch({
       const res = await fetch(`${apiBase}/public/orgs/${encodeURIComponent(orgSlug)}/landing-availability?${q}`);
       const data = (await res.json()) as LandingAvailResponse;
       if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : 'Could not load availability.');
+        const rawMsg = typeof data.error === 'string' ? data.error : 'Could not load availability.';
+        const hint404 =
+          res.status === 404 && rawMsg === 'Organization not found'
+            ? 'Organization not found — check NEXT_PUBLIC_ORG_SLUG vs database Organization.slug and that NEXT_PUBLIC_API_URL is your live API (then redeploy).'
+            : rawMsg;
+        setError(hint404);
         return;
       }
       if (data.configured === false) {
