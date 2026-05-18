@@ -556,8 +556,10 @@ function buildGallery(payload: LandingMergePayload): { url: string; alt: string;
         : k.startsWith(MEDIA_KEY.galleryPrefix) || k.includes('landing-gallery');
     if (!isGallery) continue;
     if (k === MEDIA_KEY.heroCover.toLowerCase()) continue;
+    const url = (m.publicUrl ?? '').trim();
+    if (!url) continue;
     items.push({
-      url: m.publicUrl,
+      url,
       key: m.key,
       alt: (m.alt?.trim() || seoAlts[idx % seoAlts.length]) ?? seoAlts[0],
     });
@@ -580,21 +582,39 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
     'Weekend getaway near Bangalore at a mango farm',
   ];
 
+  if (out.length === 0 && payload?.media?.length) {
+    const hero =
+      payload.media.find((m) => m.key.toLowerCase() === MEDIA_KEY.heroCover.toLowerCase()) ?? undefined;
+    const heroUrl = (hero?.publicUrl ?? '').trim();
+    if (heroUrl) {
+      seen.add(heroUrl);
+      out.push({
+        url: heroUrl,
+        key: MEDIA_KEY.heroCover,
+        alt: hero?.alt?.trim() || seoAltsForStays[0],
+      });
+    }
+  }
+
   if (!payload || !('properties' in payload) || !Array.isArray(payload.properties)) {
     return out;
   }
 
-  type Row = { sortOrder: number; unitSlug: string; label: string; urls: string[] };
+  type Row = { sortOrder: number; unitSlug: string; label: string; urls: string[]; detailHero: string };
   const rows: Row[] = [];
   for (const p of payload.properties) {
     for (const u of p.units) {
       const lp = u.listing;
-      if (!lp?.published || !lp.galleryImageUrls?.length) continue;
+      if (!lp?.published) continue;
+      const urls = (lp.galleryImageUrls ?? []).map((raw) => (typeof raw === 'string' ? raw.trim() : '')).filter(Boolean);
+      const detailHero = (lp.detailHeroUrl ?? '').trim();
+      if (!urls.length && !detailHero) continue;
       rows.push({
         sortOrder: lp.sortOrder,
         unitSlug: u.slug,
         label: `${p.name} — ${lp.cardTitle || u.name}`,
-        urls: lp.galleryImageUrls.map((raw) => (typeof raw === 'string' ? raw.trim() : '')).filter(Boolean),
+        urls,
+        detailHero,
       });
     }
   }
@@ -617,6 +637,21 @@ function mergedLandingGallery(payload: LandingMergePayload): { url: string; alt:
         key: `stay-gallery-${row.unitSlug}-${keyN++}`,
       });
     }
+  }
+
+  let heroKeyN = 0;
+  let heroAltN = 0;
+  for (const row of rows) {
+    const url = row.detailHero;
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    const baseAlt = seoAltsForStays[heroAltN % seoAltsForStays.length];
+    heroAltN += 1;
+    out.push({
+      url,
+      alt: `${row.label} · ${baseAlt}`,
+      key: `stay-hero-${row.unitSlug}-${heroKeyN++}`,
+    });
   }
 
   return out;

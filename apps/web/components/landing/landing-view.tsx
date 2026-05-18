@@ -360,7 +360,13 @@ export async function LandingView({ path }: { path: Path }) {
               </div>
               <RevealFigure delayIndex={1} className="md-story-img-wrap">
                 {(() => {
-                  const shot = galleryItems.find((g) => g.url) ?? galleryItems[0];
+                  const fromGallery = galleryItems.find((g) => g.url?.trim());
+                  const heroFb = merged.heroImageUrl?.trim();
+                  const shot = fromGallery?.url
+                    ? fromGallery
+                    : heroFb
+                      ? { url: heroFb, alt: `${orgName} — overview`, key: 'story-hero-fallback' }
+                      : galleryItems[0];
                   return shot?.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={shot.url} alt={shot.alt} loading="lazy" />
