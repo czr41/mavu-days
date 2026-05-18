@@ -313,6 +313,27 @@ export function AvailabilitySearch({
               {availabilityTitle}
             </h2>
             <p className="md-lead md-booking-sub">{availabilitySubtitle}</p>
+            {homepageKind === 'MATRIX_THREE_SKU' ? (
+              <p className="md-muted md-booking-micro-foot">
+                Availability uses the three-SKU matrix (full farm vs villas). Filters narrow the table rows below.
+              </p>
+            ) : (
+              <p className="md-muted md-booking-micro-foot">
+                Showing published units only — add or publish listings in the admin when you expand inventory.
+              </p>
+            )}
+            <p className="md-muted md-booking-hint md-booking-hint--inline">
+              Booking requests:{' '}
+              <a
+                className="md-link"
+                href={whatsappHref(
+                  whatsappDigits,
+                  whatsappBookingMessage(guests, { checkIn, checkOut, stay: stayFilter, stayLabel }),
+                )}
+              >
+                WhatsApp with these dates
+              </a>
+            </p>
           </div>
 
           <div className="md-card md-booking-toolbar-card md-booking-search-shell">
@@ -371,16 +392,6 @@ export function AvailabilitySearch({
             </div>
           </div>
         </div>
-
-        {homepageKind === 'MATRIX_THREE_SKU' ? (
-          <p className="md-muted md-booking-micro-foot">
-            Availability uses the three-SKU matrix (full farm vs villas). Filters narrow the table rows below.
-          </p>
-        ) : (
-          <p className="md-muted md-booking-micro-foot">
-            Showing published units only — add or publish listings in the admin when you expand inventory.
-          </p>
-        )}
 
         {error ? (
           <p role="alert" className="md-error">
@@ -483,19 +494,6 @@ export function AvailabilitySearch({
             </>
           ) : null}
         </div>
-
-        <p className="md-muted md-booking-hint">
-          Booking requests:{' '}
-          <a
-            className="md-link"
-            href={whatsappHref(
-              whatsappDigits,
-              whatsappBookingMessage(guests, { checkIn, checkOut, stay: stayFilter, stayLabel }),
-            )}
-          >
-            WhatsApp with these dates
-          </a>
-        </p>
       </div>
     </RevealSection>
   );
