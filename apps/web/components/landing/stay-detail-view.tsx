@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { listingUrlPath, type ListingCard } from '@/lib/landing-content';
+import type { GallerySlide } from '@/lib/gallery-categories';
 import { loadLandingPayload } from '@/lib/landing-data';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { RevealSection, RevealBlock } from '@/components/landing/reveal-section';
@@ -50,14 +51,14 @@ function orderedStayGallery(slug: string, listing: ListingCard): string[] {
 /** Homepage mosaic stores per-unit URLs under keys `listing-gallery-${unitSlug}-…` (see mergedLandingGallery). */
 function homepageGalleryUrlsForUnit(
   pathSeg: string,
-  homepageGallery: readonly { url: string; key: string }[],
+  homepageGallery: readonly GallerySlide[],
 ): string[] {
   const prefix = `listing-gallery-${pathSeg}-`;
   const seen = new Set<string>();
   const out: string[] = [];
   for (const g of homepageGallery) {
     if (!g.key.startsWith(prefix)) continue;
-    const u = g.url.trim();
+    const u = g.url?.trim() ?? '';
     if (!u || seen.has(u)) continue;
     seen.add(u);
     out.push(u);
@@ -69,7 +70,7 @@ function homepageGalleryUrlsForUnit(
 function mergedStayGalleryOrdered(
   routeSlug: string,
   listing: ListingCard,
-  homepageGallery: readonly { url: string; key: string }[],
+  homepageGallery: readonly GallerySlide[],
 ): string[] {
   const base = orderedStayGallery(routeSlug, listing);
   const pathSeg = listingUrlPath(listing);
@@ -119,7 +120,7 @@ export async function StayDetailView({ slug }: Props) {
   const galleryThumbs = galleryOrdered.slice(1);
 
   const thumbAlt = (photoUrl: string, pi: number) => {
-    const hit = merged.gallery.find((g) => g.url.trim() === photoUrl);
+    const hit = merged.gallery.find((g) => g.url?.trim() === photoUrl);
     const fromCms = hit?.alt?.trim();
     return fromCms || `${listing.title} — gallery ${pi + 2}`;
   };
