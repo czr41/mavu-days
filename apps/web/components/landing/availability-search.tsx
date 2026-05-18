@@ -341,7 +341,7 @@ export function AvailabilitySearch({
               <div className="md-booking-toolbar-row md-booking-toolbar-row-main">
                 <BookingDateField label="Check-in" value={checkIn} onChange={setCheckIn} />
                 <BookingDateField label="Check-out" value={checkOut} onChange={setCheckOut} />
-                <label className="md-booking-field">
+                <label className="md-booking-field md-booking-field--guests">
                   <span className="md-field-label">Guests</span>
                   <div className="md-booking-select-wrap">
                     <svg className="md-booking-guest-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden>
