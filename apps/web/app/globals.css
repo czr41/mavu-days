@@ -1637,7 +1637,59 @@ p.md-eyebrow-line {
 }
 
 .md-experience-unified .md-feature-flip--usp-only {
-  --md-flip-h: clamp(6.85rem, 10.2vw, 8.85rem);
+  --md-flip-h: clamp(10.75rem, 21vw, 14.25rem);
+}
+
+.md-feature-flip-front--usp {
+  gap: clamp(0.45rem, 1.2vw, 0.65rem);
+  padding: clamp(0.72rem, 2vw, 1rem) 0.6rem;
+  justify-content: center;
+  text-align: center;
+}
+
+.md-feature-flip-front-title {
+  margin: 0;
+  padding: 0 0.1rem;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(0.68rem, 1.42vw, 0.855rem);
+  font-weight: 580;
+  line-height: 1.26;
+  letter-spacing: -0.018em;
+  color: var(--heading);
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.md-feature-flip-icon.md-feature-flip-icon--minimal {
+  flex-shrink: 0;
+}
+
+.md-feature-flip--usp-only .md-feature-flip-icon--minimal svg {
+  width: clamp(44px, 7.5vw, 48px);
+  height: clamp(44px, 7.5vw, 48px);
+  color: rgba(127, 148, 101, 0.92);
+}
+
+.md-feature-flip-back--usp {
+  justify-content: center;
+  overflow: visible !important;
+  text-align: center;
+  align-items: center;
+  gap: 0;
+  padding: clamp(0.92rem, 2.2vw, 1.2rem);
+}
+
+.md-feature-flip-copy--usp-back {
+  margin: 0 auto;
+  max-width: min(52ch, 100%);
+  font-size: clamp(0.742rem, 1.38vw, 0.848rem);
+  font-weight: 450;
+  line-height: 1.44;
+  color: rgba(46, 59, 41, 0.88);
+  text-wrap: balance;
 }
 
 .md-feature-flip-grid {
@@ -1782,6 +1834,15 @@ p.md-eyebrow-line {
     justify-content: center;
     min-height: 0;
   }
+
+  /* Taller stack when front carries title + icon */
+  .md-feature-flip--usp-only .md-feature-flip-front--usp {
+    min-height: 8.85rem;
+  }
+
+  .md-feature-flip--usp-only .md-feature-flip-back--usp {
+    min-height: 6.85rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1805,11 +1866,6 @@ p.md-eyebrow-line {
   margin-top: clamp(0.45rem, 1.5vw, 1rem);
   padding-top: clamp(0.65rem, 2vw, 1.25rem);
   border-top: none;
-}
-
-.md-day-at-mavu--unified .md-day-at-mavu-tail {
-  margin-top: clamp(1.65rem, 3.6vw, 2.65rem);
-  padding-top: clamp(1.4rem, 3vw, 2.35rem);
 }
 
 .md-day-at-mavu-split-inner {
@@ -1864,8 +1920,16 @@ p.md-eyebrow-line {
   margin-bottom: 0;
 }
 
-.md-day-at-mavu-story-cta {
+.md-day-at-mavu-story-ctas {
+  justify-content: flex-start;
   align-self: flex-start;
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.md-day-at-mavu-story-gallery-note {
+  margin-top: 0.15rem;
+  text-align: left;
 }
 
 .md-day-at-mavu-visual {

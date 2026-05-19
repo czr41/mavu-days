@@ -343,14 +343,14 @@ export async function LandingView({ path }: { path: Path }) {
                     aria-label={`${b.title}. ${b.text}`}
                   >
                     <div className="md-feature-flip-inner">
-                      <div className="md-feature-flip-face md-feature-flip-front" aria-hidden>
-                        <div className="md-feature-flip-icon">
-                          <FeatureGlyph index={fi} />
-                        </div>
+                      <div className="md-feature-flip-face md-feature-flip-front md-feature-flip-front--usp">
+                        <span className="md-feature-flip-icon md-feature-flip-icon--minimal" aria-hidden>
+                          <FeatureGlyph index={fi} variant="minimal" />
+                        </span>
+                        <h3 className="md-feature-flip-front-title">{b.title}</h3>
                       </div>
-                      <div className="md-feature-flip-face md-feature-flip-back">
-                        <h3 className="md-feature-flip-title">{b.title}</h3>
-                        <p className="md-feature-flip-copy">{b.text}</p>
+                      <div className="md-feature-flip-face md-feature-flip-back md-feature-flip-back--usp">
+                        <p className="md-feature-flip-copy md-feature-flip-copy--usp-back">{b.text}</p>
                       </div>
                     </div>
                   </div>
@@ -373,9 +373,23 @@ export async function LandingView({ path }: { path: Path }) {
                     <p className="md-body md-prose">{t.experienceStoryP1}</p>
                     <p className="md-body md-prose">{t.experienceStoryP2}</p>
                   </div>
-                  <a className="md-btn md-btn-primary md-day-at-mavu-story-cta" href="#about">
-                    {t.experienceStoryCta}
-                  </a>
+                  <div className="md-day-at-mavu-ctas md-day-at-mavu-story-ctas">
+                    <a className="md-btn md-btn-primary" href="#booking">
+                      Book Now
+                    </a>
+                    <a
+                      className="md-btn md-btn-secondary"
+                      href={longStayCtaHref}
+                      {...(longStayCtaHref.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
+                    >
+                      Get special pricing on longer stays
+                    </a>
+                  </div>
+                  <div className="md-day-at-mavu-gallery-note md-day-at-mavu-story-gallery-note">
+                    <a href="#gallery" className="md-link md-day-at-mavu-gallery-link">
+                      View gallery {'\u2192'}
+                    </a>
+                  </div>
                 </div>
                 <figure className="md-day-at-mavu-visual">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -389,51 +403,6 @@ export async function LandingView({ path }: { path: Path }) {
                     decoding="async"
                   />
                 </figure>
-              </div>
-
-              <div className="md-day-at-mavu-tail">
-                <LandingSectionHead
-                  className="md-day-at-mavu-tail-head md-section-head-tight"
-                  eyebrow={t.experienceRhythmEyebrow}
-                  eyebrowDecoration
-                  title={
-                    <h3 id="day-at-mavu-rhythm-heading" className="md-day-at-mavu-rhythm-heading">
-                      {t.experienceTitle}
-                    </h3>
-                  }
-                  lead={
-                    <div className="md-day-at-mavu-body md-day-at-mavu-body--center">
-                      <p className="md-body md-prose md-day-at-mavu-lead">
-                        {t.experienceBodyDefault ||
-                          'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breathe\u2014your unrushed farm day.'}
-                      </p>
-                      {t.tiles?.length ? (
-                        <ul className="md-day-at-mavu-tiles">
-                          {t.tiles.slice(0, 5).map((tile) => (
-                            <li key={tile}>{tile}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  }
-                />
-                <div className="md-day-at-mavu-ctas">
-                  <a className="md-btn md-btn-primary" href="#booking">
-                    Book now
-                  </a>
-                  <a
-                    className="md-btn md-btn-secondary"
-                    href={longStayCtaHref}
-                    {...(longStayCtaHref.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
-                  >
-                    Get special price on long stay
-                  </a>
-                </div>
-                <div className="md-day-at-mavu-gallery-note">
-                  <a href="#gallery" className="md-link md-day-at-mavu-gallery-link">
-                    View gallery {'\u2192'}
-                  </a>
-                </div>
               </div>
             </div>
           </div>
