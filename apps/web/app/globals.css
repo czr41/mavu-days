@@ -2118,6 +2118,12 @@ p.md-eyebrow-line {
   margin-bottom: 1rem;
 }
 
+/* Higher specificity than .md-day-at-mavu-ctas alone; story column should align CTAs with text */
+.md-day-at-mavu-ctas.md-day-at-mavu-story-ctas {
+  justify-content: flex-start;
+  align-items: center;
+}
+
 .md-day-at-mavu-gallery-note {
   font-size: 0.92rem;
   color: var(--muted);
