@@ -1,6 +1,6 @@
 /**
  * Idempotent bootstrap: CMS sections + gallery media aligned with DEFAULT_LANDING in the web app.
- * Uses SEED_PUBLIC_ORIGIN (default http://localhost:3000) for image URLs.
+ * Prefer root-relative URLs (e.g. `/hero.jpg`) so they work after deploy — avoid `http://localhost:…` in production DB.
  */
 import type { PrismaClient } from '@prisma/client';
 

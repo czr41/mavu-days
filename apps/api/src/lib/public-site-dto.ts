@@ -12,11 +12,13 @@ import type {
   SiteSection,
 } from '@prisma/client';
 
+import { normalizePublicImageUrl } from './marketing-image-url.js';
+import { toPublicGuestReviewDto } from './guest-review-dto.js';
+
 /** Media rows loaded with CMS → listing links so shared photos merge into `/stays/[slug]` galleries. */
 export type MediaAssetWithListingLinks = MediaAsset & {
   linkedUnits: { rentableUnitId: string }[];
 };
-import { toPublicGuestReviewDto } from './guest-review-dto.js';
 
 export type PublicUnitListingDto = {
   published: boolean;
@@ -90,6 +92,9 @@ function jsonStringArray(v: unknown): string[] {
 }
 
 export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
+  const galleries = jsonStringArray(row.galleryImageUrls)
+    .map((u) => normalizePublicImageUrl(u))
+    .filter((u): u is string => Boolean(u));
   return {
     published: row.published,
     sortOrder: row.sortOrder,
@@ -113,10 +118,10 @@ export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
     extraGuestPriceMinor: row.extraGuestPriceMinor,
     seoTitle: row.seoTitle,
     seoDescription: row.seoDescription,
-    detailHeroUrl: row.detailHeroUrl,
+    detailHeroUrl: normalizePublicImageUrl(row.detailHeroUrl),
     airbnbProfileLabel: row.airbnbProfileLabel,
     airbnbListingUrl: row.airbnbListingUrl,
-    galleryImageUrls: jsonStringArray(row.galleryImageUrls),
+    galleryImageUrls: galleries,
   };
 }
 
@@ -137,7 +142,7 @@ export function listingToDtoWithLinkedMedia(row: RentableUnitListing, linkedUrls
 function listingUrlsFromLinkedMedia(media: readonly MediaAssetWithListingLinks[]): Map<string, string[]> {
   const byUnit = new Map<string, string[]>();
   for (const ma of media) {
-    const url = typeof ma.publicUrl === 'string' ? ma.publicUrl.trim() : '';
+    const url = normalizePublicImageUrl(ma.publicUrl) ?? '';
     if (!url) continue;
     for (const lk of ma.linkedUnits) {
       const prev = byUnit.get(lk.rentableUnitId) ?? [];
@@ -185,7 +190,10 @@ export function buildPublicSitePayload(args: {
       units: p.units.map((u) => mapUnit(u, galleryExtrasByUnitId.get(u.id))),
     })),
     sections: args.sections,
-    media: args.media.map(({ linkedUnits: _links, ...row }) => row),
+    media: args.media.map(({ linkedUnits: _links, ...row }) => ({
+      ...row,
+      publicUrl: normalizePublicImageUrl(row.publicUrl) ?? row.publicUrl,
+    })),
     reviews: args.guestReviews.map(toPublicGuestReviewDto),
     offers: args.tickerOffers.map((o) => ({ id: o.id, label: o.label })),
   };

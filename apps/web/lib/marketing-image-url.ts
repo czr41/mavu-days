@@ -24,8 +24,21 @@ export function normalizeMarketingImageUrl(raw: string | null | undefined): stri
     const u = new URL(s);
     const h = u.hostname.toLowerCase();
     if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') {
-      const path = `${u.pathname}${u.search}${u.hash}`;
-      return path.length > 0 ? path : null;
+      const pathOnly = `${u.pathname}${u.search}${u.hash}`;
+      return pathOnly.length > 0 ? pathOnly : null;
+    }
+    /** Pastes like `https://mavudays.com/hero.jpg` in CMS → use path only so previews work on all domains. */
+    const siteRaw = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SITE_URL?.trim() : undefined;
+    if (siteRaw) {
+      try {
+        const canon = new URL(siteRaw.includes('://') ? siteRaw : `https://${siteRaw}`);
+        if (u.origin === canon.origin) {
+          const pathOnly = `${u.pathname}${u.search}${u.hash}`;
+          return pathOnly.length > 0 ? pathOnly : null;
+        }
+      } catch {
+        /* ignore malformed env */
+      }
     }
     return s;
   } catch {

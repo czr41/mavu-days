@@ -8,6 +8,7 @@ import {
   type GalleryCategoryId,
 } from '@/lib/gallery-categories';
 import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
+import { normalizeMarketingImageUrl } from '@/lib/marketing-image-url';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
@@ -2349,7 +2350,7 @@ export default function OrgAdminPage() {
                       <div style={{ aspectRatio: '4/3', borderRadius: 8, overflow: 'hidden', background: '#f5f5f4', marginBottom: '0.45rem' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={m.publicUrl}
+                          src={normalizeMarketingImageUrl(m.publicUrl) ?? m.publicUrl}
                           alt={m.alt ?? ''}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -2415,7 +2416,7 @@ export default function OrgAdminPage() {
                       <td style={{ width: '4.5rem' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={m.publicUrl}
+                          src={normalizeMarketingImageUrl(m.publicUrl) ?? m.publicUrl}
                           alt=""
                           style={{ width: 52, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E7EB', display: 'block' }}
                         />
