@@ -28,7 +28,13 @@ type RentableUnit = {
   listingLinks?: ListingLink[];
   children: RentableUnit[];
 };
-type Property = { id: string; name: string; slug: string; units: RentableUnit[] };
+type Property = {
+  id: string;
+  name: string;
+  slug: string;
+  googlePlaceId?: string | null;
+  units: RentableUnit[];
+};
 
 type AirbnbHostAccountRow = {
   id: string;
@@ -855,10 +861,8 @@ export default function OrgAdminPage() {
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null);
   const [busy, setBusy]           = useState(false);
   const [homepageKind, setHomepageKind] = useState<'LISTING_GRID' | 'MATRIX_THREE_SKU'>('LISTING_GRID');
-  const [googlePlaceId, setGooglePlaceId] = useState('');
-  const [airbnbReviewsListingUrl, setAirbnbReviewsListingUrl] = useState('');
   const [reviewSyncBusy, setReviewSyncBusy] = useState(false);
-  const [reviewsConnBusy, setReviewsConnBusy] = useState(false);
+  const [propertyGooglePlaces, setPropertyGooglePlaces] = useState<Record<string, string>>({});
   const [unitBundles, setUnitBundles] = useState<UnitListingBundle[]>([]);
   const [listingEditUnitId, setListingEditUnitId] = useState<string | null>(null);
   const [listingDraft, setListingDraft] = useState<ListingDraftState | null>(null);
@@ -976,13 +980,9 @@ export default function OrgAdminPage() {
   const loadSiteSettings = useCallback(async () => {
     const d = await apiFetch<{
       homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU';
-      googlePlaceId?: string;
-      airbnbReviewsListingUrl?: string;
     }>(`${base}/cms/site-settings`);
     if (!d) return;
     if (d.homepageKind) setHomepageKind(d.homepageKind);
-    if (typeof d.googlePlaceId === 'string') setGooglePlaceId(d.googlePlaceId);
-    if (typeof d.airbnbReviewsListingUrl === 'string') setAirbnbReviewsListingUrl(d.airbnbReviewsListingUrl);
   }, [apiFetch, base]);
 
   const syncLandingReviewsExternal = useCallback(async () => {
@@ -1055,10 +1055,7 @@ export default function OrgAdminPage() {
     void loadBk();
   }, [slug, tab, loadBk]);
 
-  useEffect(() => {
-    if (!slug) return;
-    if (tab === 'reviews') void loadSiteSettings();
-  }, [slug, tab, loadSiteSettings]);
+
 
   useEffect(() => {
     if (!slug) return;
@@ -1094,6 +1091,12 @@ export default function OrgAdminPage() {
 
   // Flat list of all units across all properties (for dropdowns)
   const allUnits = properties.flatMap(p => p.units.map(u => ({ ...u, propertyName: p.name, propertySlug: p.slug })));
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const p of properties) next[p.id] = p.googlePlaceId ?? '';
+    setPropertyGooglePlaces(next);
+  }, [properties]);
 
   useEffect(() => {
     if (allUnits.length === 0) {
@@ -1189,8 +1192,7 @@ export default function OrgAdminPage() {
         <code style={{fontSize:'0.78rem'}}>full-farm</code>, <code style={{fontSize:'0.78rem'}}>1bhk-villa</code>,{' '}
         <code style={{fontSize:'0.78rem'}}>2bhk-villa</code>. Run <code style={{fontSize:'0.78rem'}}>npm run db:seed</code> after register when the DB is empty.
         Stay cards and detail copy live under <strong>CMS → Stay listings</strong>. Airbnb listing URLs and calendar feeds live under{' '}
-        <strong>Host &amp; Airbnb</strong> (you can also paste them when adding a unit below).
-        Homepage prose and imagery: <strong>Text sections</strong> &amp; <strong>Media</strong>.
+        <strong>        Host & Airbnb</strong> feed URLs stay with each unit below. Homepage prose: CMS → Text sections / Gallery.
       </div>
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
         <div className="adm-card-header"><h2 className="adm-card-title">Add Property</h2></div>
@@ -1234,8 +1236,49 @@ export default function OrgAdminPage() {
             }}>Delete</button>
           </div>
 
-          {/* Units list */}
           <div className="adm-card-body">
+            {/* Google Maps reviews (property scope) */}
+            <div style={{ padding: '1rem', background: '#FAFAF9', borderRadius: 12, marginBottom: '1rem', border: '1px solid #E7E5E4' }}>
+              <h3 style={{ fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#57534e', marginTop: 0, marginBottom: '0.5rem' }}>
+                Google Maps reviews (this property)
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: '#78716c', margin: '0 0 0.65rem', lineHeight: 1.55 }}>
+                Paste your Google Business Profile <strong>Place ID</strong> (starts with ChIJ…) so <strong>Sync reviews now</strong> on Guest Reviews pulls Google Maps feedback for buildings that belong to this property.
+              </p>
+              <div className="adm-form-grid">
+                <div className="adm-field adm-field-full">
+                  <label className="adm-label">Google Place ID</label>
+                  <input
+                    className="adm-input"
+                    placeholder="ChIJ..."
+                    autoComplete="off"
+                    value={propertyGooglePlaces[p.id] ?? ''}
+                    onChange={(e) => setPropertyGooglePlaces((s) => ({ ...s, [p.id]: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <button
+                className="adm-btn adm-btn-primary adm-btn-sm"
+                type="button"
+                disabled={busy}
+                style={{ marginTop: '0.35rem' }}
+                onClick={async () => {
+                  setBusy(true);
+                  const r = await apiFetch<{ ok?: boolean }>(`${base}/properties/${encodeURIComponent(p.slug)}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ googlePlaceId: propertyGooglePlaces[p.id]?.trim() ?? '' }),
+                  });
+                  setBusy(false);
+                  if (!r) return;
+                  await loadProps();
+                  notify('Google Place ID saved for property.');
+                }}
+              >
+                Save Place ID
+              </button>
+            </div>
+
+            {/* Units list */}
             <h3 style={{fontSize:'0.82rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6B7280',marginTop:0,marginBottom:'0.75rem'}}>Rentable Units</h3>
             {p.units.length === 0
               ? <p style={{fontSize:'0.875rem',color:'#9CA3AF',margin:'0 0 1rem'}}>No units yet.</p>
@@ -1537,72 +1580,30 @@ export default function OrgAdminPage() {
     <>
       <div className="adm-card" style={{ marginBottom: '1.25rem', borderLeft: '4px solid #b8983c' }}>
         <div className="adm-card-header">
-          <h2 className="adm-card-title">Review sync connections</h2>
+          <h2 className="adm-card-title">Where review sync pulls from</h2>
         </div>
         <div className="adm-card-body" style={{ fontSize: '0.875rem', lineHeight: 1.58, color: '#374151' }}>
           <p style={{ marginTop: 0, color: '#4B5563' }}>
-            These values tell the Fastify API where to read guest reviews when you tap <strong>Sync reviews now</strong> below.
-            Secrets (<code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_PLACES_API_KEY</code>,
-            optionally <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>OUTSCRAPER_API_KEY</code>,
-            fallback <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_MAPS_API_KEY</code>)
-            belong on the API server (.env)—they are never stored in CMS.
+            The API merges Google Maps snippets and Airbnb excerpts when you tap <strong>Sync reviews now</strong> below.
+            Server secrets (<code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_PLACES_API_KEY</code>,
+            optional <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>OUTSCRAPER_API_KEY</code>,
+            fallback <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_MAPS_API_KEY</code>) live only in the API
+            server .env file.
           </p>
-          <ul style={{ margin: '0 0 1rem 1rem', padding: 0, color: '#4B5563' }}>
-            <li>
-              <strong>Google Maps</strong> — paste your business <strong>Place ID</strong> (letters like <code style={{ fontSize: '0.82em', background: '#fff' }}>ChIJ…</code>). Find it in{' '}
-              <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer">Google Place ID Finder</a> or{' '}
-              Google Maps → your listing → Share → shortened link details.
+          <ul style={{ margin: '0 0 0 1rem', padding: 0, color: '#4B5563' }}>
+            <li style={{ marginBottom: '0.45rem' }}>
+              <strong>Google Maps reviews</strong> — set a <strong>Place ID per property</strong> under{' '}
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('properties')}>
+                Properties &amp; Units
+              </button>
+              . The sync job calls Google Places for every property Place ID configured (historical org-wide Place ID on the API is used only when no property IDs are saved).
             </li>
             <li>
-              <strong>Airbnb</strong> — optional full listing URL (<code style={{ fontSize: '0.82em', background: '#fff' }}>airbnb.com/rooms/…</code>). Leave blank to reuse the{' '}
-              <strong>first published stay&apos;s Airbnb URL</strong> from Host &amp; listings. Without{' '}
-              <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>OUTSCRAPER_API_KEY</code> on the API, sync tries to read reviews from that page&apos;s embedded data (often empty); Outscraper is the reliable route.
+              <strong>Airbnb reviews</strong> — set the public <strong>Airbnb listing URL on each published stay</strong>{' '}
+              under CMS → <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => { setTab('cms'); setCmsSubTab('listings'); }}>Stay listings</button>{' '}
+              (same URL as Host &amp; Airbnb). Sync visits <strong>every distinct Airbnb URL</strong> from published listings. If you previously saved a fallback Airbnb URL in older site settings, the API still honors it alongside listing URLs.
             </li>
           </ul>
-          <div className="adm-form-grid">
-            <div className="adm-field adm-field-full">
-              <label className="adm-label">Google Place ID</label>
-              <input
-                className="adm-input"
-                placeholder="ChIJ..."
-                value={googlePlaceId}
-                onChange={(e) => setGooglePlaceId(e.target.value)}
-                disabled={reviewsConnBusy}
-              />
-            </div>
-            <div className="adm-field adm-field-full">
-              <label className="adm-label">Airbnb listing URL (optional override)</label>
-              <input
-                className="adm-input"
-                placeholder="https://www.airbnb.com/rooms/…"
-                value={airbnbReviewsListingUrl}
-                onChange={(e) => setAirbnbReviewsListingUrl(e.target.value)}
-                disabled={reviewsConnBusy}
-              />
-            </div>
-          </div>
-          <button
-            className="adm-btn adm-btn-primary"
-            style={{ marginTop: '1rem' }}
-            type="button"
-            disabled={reviewsConnBusy || busy}
-            onClick={async () => {
-              setReviewsConnBusy(true);
-              const r = await apiFetch<{ ok?: boolean }>(`${base}/cms/site-settings`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                  googlePlaceId: googlePlaceId.trim(),
-                  airbnbReviewsListingUrl: airbnbReviewsListingUrl.trim(),
-                }),
-              });
-              setReviewsConnBusy(false);
-              if (!r) return;
-              await loadSiteSettings();
-              notify('Review sync connections saved.');
-            }}
-          >
-            Save Google &amp; Airbnb connection
-          </button>
         </div>
       </div>
 
@@ -1610,21 +1611,15 @@ export default function OrgAdminPage() {
         <div className="adm-card-header"><h2 className="adm-card-title">Pull Google &amp; Airbnb reviews</h2></div>
         <div className="adm-card-body" style={{ fontSize: '0.84rem', lineHeight: 1.55, color: '#4B5563' }}>
           <p style={{ marginTop: 0 }}>
-            After <strong>saving connections</strong> above and configuring API secrets on the server, run a pull. Imported rows are roughly{' '}
-            <strong>4★+</strong> excerpts (horizontal strip on the homepage, up to ~96 quotes). Rows tagged <strong>synced</strong> refresh on each pull;
-            handwritten reviews stay.
+            Configure property Place IDs plus stay-level Airbnb URLs, then run a pull. Imported rows are roughly{' '}
+            <strong>4★+</strong> excerpts for the homepage strip (up to ~96 quotes). Rows created by sync refresh on each pull;
+            handwritten reviews stay as-is.
           </p>
-          <button
-            type="button"
-            className="adm-btn adm-btn-primary"
-            disabled={reviewSyncBusy || busy || reviewsConnBusy}
-            onClick={() => void syncLandingReviewsExternal()}
-          >
+          <button type="button" className="adm-btn adm-btn-primary" disabled={reviewSyncBusy || busy} onClick={() => void syncLandingReviewsExternal()}>
             {reviewSyncBusy ? 'Pulling reviews…' : 'Sync reviews now'}
           </button>
         </div>
       </div>
-
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
         <div className="adm-card-header">
           <h2 className="adm-card-title">Reviews ({reviews.filter(r=>r.showOnLanding).length} visible on landing)</h2>
@@ -1710,7 +1705,9 @@ export default function OrgAdminPage() {
   );
 
   /* ─── CMS ─── */
-  const [cmsSubTab, setCmsSubTab] = useState<'sections'|'media'|'offers'|'listings'|'site'>('sections');
+  const [cmsSubTab, setCmsSubTab] = useState<'sections' | 'gallery' | 'offers' | 'listings' | 'site'>(
+    'sections',
+  );
   const [secForm, setSecForm] = useState({key:'',title:'',bodyMarkdown:'',published:true});
   const [editSec, setEditSec] = useState<string|null>(null);
   const [editSecPatch, setEditSecPatch] = useState({title:'',bodyMarkdown:'',published:true});
@@ -1728,6 +1725,10 @@ export default function OrgAdminPage() {
     galleryCategory: '' as GalleryCategoryId | '',
     linkedRentableUnitIds: [] as string[],
   });
+  const [galleryLayout, setGalleryLayout] = useState<'tiles' | 'list'>('tiles');
+  const [galleryBulkSelected, setGalleryBulkSelected] = useState<string[]>([]);
+  const [bulkGalleryCategory, setBulkGalleryCategory] = useState<GalleryCategoryId>('room');
+  const [bulkGalleryAlt, setBulkGalleryAlt] = useState('');
   const [editOffer, setEditOffer] = useState<string|null>(null);
   const [editOfferPatch, setEditOfferPatch] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
   const [offerForm, setOfferForm] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
@@ -1744,7 +1745,7 @@ export default function OrgAdminPage() {
       <div style={{display:'flex',gap:'0.5rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
         {([
           ['sections','Text sections'],
-          ['media','Media / images'],
+          ['gallery','Gallery'],
           ['listings','Stay listings'],
           ['site','Homepage layout'],
           ['offers','Landing offers'],
@@ -1769,11 +1770,8 @@ export default function OrgAdminPage() {
               </select>
             </div>
             <div className="adm-alert adm-alert-info" style={{ fontSize: '0.84rem', lineHeight: 1.55 }}>
-              Pulling reviews from Google Maps or Airbnb into the homepage strip—Place ID, Airbnb URL overrides, and the sync button—live under{' '}
-              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>
-                Guest Reviews → Review sync connections
-              </button>
-              .
+              Google Maps and Airbnb excerpts for the homepage strip use each property&apos;s Place ID (<strong>Properties &amp; Units</strong>)
+              plus Airbnb URLs saved on published stays (<strong>Stay listings</strong>). Tap <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>Guest Reviews</button> → Sync reviews.
             </div>
             <button className="adm-btn adm-btn-primary" type="button" disabled={busy} onClick={async () => {
               setBusy(true);
@@ -1794,7 +1792,8 @@ export default function OrgAdminPage() {
           <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
             Marketing copy and pricing for each stay—published listings appear on the public site immediately after save.
             Each listing has one <strong>gallery</strong> (detail hero URL + gallery image URLs below it). Together, published listings populate the homepage gallery — duplicate URLs appear only once.
-            Airbnb listing URLs and calendar connections are managed separately under <strong>Host &amp; Airbnb</strong>.
+            Airbnb listing URLs on published stays drive both &quot;View on Airbnb&quot; and{' '}
+            <strong>Airbnb review sync</strong> (every distinct listing URL). Calendar feeds remain under Host &amp; Airbnb.
           </div>
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
           {unitBundles.map((row)=>{
@@ -2010,8 +2009,8 @@ export default function OrgAdminPage() {
                         </div>
                       </div>
                     ) : (
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'1rem'}}>
-                        <div>
+                      <div style={{display:'flex',flexWrap:'wrap',alignItems:'flex-start',gap:'0.65rem'}}>
+                        <div style={{flex:'1 1 240px',minWidth:0}}>
                           <strong>{s.title}</strong>
                           <span className="adm-badge adm-badge-gray" style={{marginLeft:'0.5rem'}}>{s.key}</span>
                           {!s.published&&<span className="adm-badge adm-badge-yellow" style={{marginLeft:'0.35rem'}}>Draft</span>}
@@ -2045,218 +2044,428 @@ export default function OrgAdminPage() {
         </>
       )}
 
-      {cmsSubTab==='media' && (
+      {cmsSubTab==='gallery' && (
         <>
-          <div className="adm-card" style={{marginBottom:'1.5rem'}}>
-            <div className="adm-card-header"><h2 className="adm-card-title">Media Assets ({media.length})</h2></div>
-            {media.length===0
-              ? <div className="adm-empty"><EditI size={28}/>No media registered yet.</div>
-              : (
-                <table className="adm-table">
-                  <thead>
-                    <tr>
-                      <th>Key</th>
-                      <th>Category</th>
-                      <th>Alt</th>
-                      <th>URL</th>
-                      <th>Stays</th>
-                      <th style={{ width: '7rem' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {media.map((m) =>
-                      editMediaId === m.id ? (
-                        <tr key={m.id}>
-                          <td colSpan={6} style={{ padding: '1rem 1.25rem', background: '#FAFAF9' }}>
-                            <div style={{ marginBottom: '0.65rem', fontSize: '0.82rem', color: '#57534E' }}>
-                              Key <code>{m.key}</code>
-                            </div>
-                            <div className="adm-form-grid">
-                              <div className="adm-field">
-                                <label className="adm-label">Gallery category</label>
-                                <select
-                                  className="adm-input"
-                                  value={editMediaDraft.galleryCategory}
-                                  onChange={(e) =>
-                                    setEditMediaDraft((d) => ({
-                                      ...d,
-                                      galleryCategory: e.target.value as GalleryCategoryId,
-                                    }))
-                                  }
-                                >
-                                  {GALLERY_CATEGORY_OPTIONS.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                      {o.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="adm-field adm-field-full">
-                                <label className="adm-label">Alt text</label>
-                                <input
-                                  className="adm-input"
-                                  value={editMediaDraft.alt}
-                                  onChange={(e) => setEditMediaDraft((d) => ({ ...d, alt: e.target.value }))}
-                                  placeholder="Describe the image"
-                                />
-                              </div>
-                              <div className="adm-field adm-field-full">
-                                <label className="adm-label">Public URL or path</label>
-                                <input
-                                  className="adm-input"
-                                  required
-                                  value={editMediaDraft.publicUrl}
-                                  onChange={(e) => setEditMediaDraft((d) => ({ ...d, publicUrl: e.target.value }))}
-                                  placeholder="https://… or /hero.jpg"
-                                />
-                              </div>
-                              <div className="adm-field adm-field-full">
-                                <span className="adm-label">Show on stay galleries</span>
-                                <p style={{ fontSize: '0.82rem', color: '#57534e', margin: '0 0 0.5rem' }}>
-                                  One image can attach to multiple stays. Combined with URLs under CMS → Stay listings
-                                  (&quot;Add to gallery&quot;).
-                                </p>
-                                {allUnits.length === 0 ? (
-                                  <span style={{ fontSize: '0.84rem', color: '#92400e' }}>
-                                    Create a unit first to attach stays.
-                                  </span>
-                                ) : (
-                                  properties.map((prop) => (
-                                    <div key={prop.id} style={{ marginBottom: '0.55rem' }}>
-                                      <div
-                                        style={{
-                                          fontSize: '0.74rem',
-                                          fontWeight: 600,
-                                          color: '#44403c',
-                                          marginBottom: '0.2rem',
-                                        }}
-                                      >
-                                        {prop.name}
-                                      </div>
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem 1rem' }}>
-                                        {prop.units.map((u) => (
-                                          <label key={u.id} className="adm-toggle-row" style={{ margin: 0 }}>
-                                            <input
-                                              type="checkbox"
-                                              checked={editMediaDraft.linkedRentableUnitIds.includes(u.id)}
-                                              onChange={() =>
-                                                setEditMediaDraft((d) => ({
-                                                  ...d,
-                                                  linkedRentableUnitIds: toggleRentableUnitInList(
-                                                    d.linkedRentableUnitIds,
-                                                    u.id,
-                                                  ),
-                                                }))
-                                              }
-                                            />
-                                            <span>{u.name}</span>
-                                          </label>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
-                              <button
-                                className="adm-btn adm-btn-primary adm-btn-sm"
-                                type="button"
-                                disabled={busy}
-                                onClick={async () => {
-                                  const publicUrl = editMediaDraft.publicUrl.trim();
-                                  if (!publicUrl) {
-                                    notify('URL or path is required.', false);
-                                    return;
-                                  }
-                                  setBusy(true);
-                                  const r = await apiFetch(`${base}/cms/media/${encodeURIComponent(m.id)}`, {
-                                    method: 'PATCH',
-                                    body: JSON.stringify({
-                                      publicUrl,
-                                      alt: editMediaDraft.alt.trim() === '' ? null : editMediaDraft.alt.trim(),
-                                      galleryCategory: galleryCategoryToPrisma(
-                                        editMediaDraft.galleryCategory as GalleryCategoryId,
-                                      ),
-                                      linkedRentableUnitIds: editMediaDraft.linkedRentableUnitIds,
-                                    }),
-                                  });
-                                  setBusy(false);
-                                  if (!r) return;
-                                  setEditMediaId(null);
-                                  await loadCms();
-                                  notify('Media updated.');
-                                }}
-                              >
-                                Save
-                              </button>
-                              <button
-                                className="adm-btn adm-btn-ghost adm-btn-sm"
-                                type="button"
-                                disabled={busy}
-                                onClick={() => setEditMediaId(null)}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        <tr key={m.id}>
-                          <td>
-                            <code style={{ fontSize: '0.8rem' }}>{m.key}</code>
-                          </td>
-                          <td style={{ fontSize: '0.84rem' }}>
-                            {GALLERY_CATEGORY_OPTIONS.find(
-                              (o) => o.value === galleryCategoryFromPrisma(m.galleryCategory ?? undefined),
-                            )?.label ?? '—'}
-                          </td>
-                          <td style={{ fontSize: '0.84rem' }}>{m.alt ?? '—'}</td>
-                          <td>
-                            <a
-                              href={m.publicUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ fontSize: '0.78rem', color: 'var(--sage)', wordBreak: 'break-all' }}
-                            >
-                              {m.publicUrl.slice(0, 60)}
-                              {m.publicUrl.length > 60 ? '…' : ''}
-                            </a>
-                          </td>
-                          <td style={{ fontSize: '0.78rem', color: '#44403c', maxWidth: '12rem', lineHeight: 1.35 }}>
-                            {(m.linkedRentableUnitIds?.length ?? 0) === 0
-                              ? '—'
-                              : (m.linkedRentableUnitIds ?? [])
-                                  .map((id) => allUnits.find((u) => u.id === id)?.name ?? 'Unit')
-                                  .join(', ')}
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              className="adm-btn adm-btn-ghost adm-btn-sm"
-                              onClick={() => {
-                                setEditMediaId(m.id);
-                                setEditMediaDraft({
-                                  publicUrl: m.publicUrl,
-                                  alt: m.alt ?? '',
-                                  galleryCategory:
-                                    galleryCategoryFromPrisma(m.galleryCategory ?? undefined) ?? 'other',
-                                  linkedRentableUnitIds: [...(m.linkedRentableUnitIds ?? [])],
-                                });
-                              }}
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
-              )}
+          <div className="adm-card" style={{ marginBottom: '1rem' }}>
+            <div className="adm-card-body" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', color: '#57534e' }}>VIEW</span>
+                <button
+                  type="button"
+                  className={`adm-btn adm-btn-sm ${galleryLayout === 'tiles' ? 'adm-btn-primary' : 'adm-btn-ghost'}`}
+                  onClick={() => setGalleryLayout('tiles')}
+                >
+                  Tiles
+                </button>
+                <button
+                  type="button"
+                  className={`adm-btn adm-btn-sm ${galleryLayout === 'list' ? 'adm-btn-primary' : 'adm-btn-ghost'}`}
+                  onClick={() => setGalleryLayout('list')}
+                >
+                  List
+                </button>
+              </div>
+              <div style={{ width: '1px', height: 28, background: '#E7E5E4' }} aria-hidden />
+              <span style={{ fontSize: '0.84rem', color: '#44403c' }}>
+                Selected:{' '}
+                <strong>{galleryBulkSelected.length}</strong> / {media.length}
+              </span>
+              <button
+                type="button"
+                className="adm-btn adm-btn-ghost adm-btn-sm"
+                disabled={!media.length}
+                onClick={() => setGalleryBulkSelected(media.map((x) => x.id))}
+              >
+                Select all
+              </button>
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={!galleryBulkSelected.length} onClick={() => setGalleryBulkSelected([])}>
+                Clear selection
+              </button>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                <select
+                  className="adm-select"
+                  style={{ minWidth: 140 }}
+                  value={bulkGalleryCategory}
+                  onChange={(e) => setBulkGalleryCategory(e.target.value as GalleryCategoryId)}
+                >
+                  {GALLERY_CATEGORY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="adm-btn adm-btn-primary adm-btn-sm"
+                  disabled={busy || galleryBulkSelected.length === 0}
+                  onClick={async () => {
+                    if (!galleryBulkSelected.length) return;
+                    setBusy(true);
+                    try {
+                      for (const id of galleryBulkSelected) {
+                        const row = media.find((x) => x.id === id);
+                        if (!row) continue;
+                        const r = await apiFetch(`${base}/cms/media/${encodeURIComponent(id)}`, {
+                          method: 'PATCH',
+                          body: JSON.stringify({
+                            galleryCategory: galleryCategoryToPrisma(bulkGalleryCategory),
+                          }),
+                        });
+                        if (!r) break;
+                      }
+                      await loadCms();
+                      notify(`Category applied to ${galleryBulkSelected.length} asset(s).`, true);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Apply category to selected
+                </button>
+              </div>
+              <input
+                className="adm-input"
+                style={{ minWidth: 180 }}
+                placeholder="Bulk alt text (optional)"
+                value={bulkGalleryAlt}
+                onChange={(e) => setBulkGalleryAlt(e.target.value)}
+              />
+              <button
+                type="button"
+                className="adm-btn adm-btn-ghost adm-btn-sm"
+                disabled={busy || galleryBulkSelected.length === 0}
+                onClick={async () => {
+                  if (!galleryBulkSelected.length) return;
+                  const t = bulkGalleryAlt.trim();
+                  if (!t) {
+                    notify('Type alt text to apply, or use Apply category without alt.', false);
+                    return;
+                  }
+                  setBusy(true);
+                  try {
+                    for (const id of galleryBulkSelected) {
+                      const row = media.find((x) => x.id === id);
+                      if (!row) continue;
+                      const r = await apiFetch(`${base}/cms/media/${encodeURIComponent(id)}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                          alt: t,
+                        }),
+                      });
+                      if (!r) break;
+                    }
+                    await loadCms();
+                    notify(`Alt text applied to ${galleryBulkSelected.length} asset(s).`, true);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Apply alt to selected
+              </button>
+            </div>
           </div>
+
+          {editMediaId
+            ? (() => {
+                const m = media.find((row) => row.id === editMediaId);
+                if (!m) return null;
+                return (
+                  <div key={m.id} className="adm-card" style={{ marginBottom: '1.25rem' }}>
+                    <div className="adm-card-header" style={{ alignItems: 'center' }}>
+                      <h2 className="adm-card-title">
+                        Editing <code style={{ fontSize: '0.92rem' }}>{m.key}</code>
+                      </h2>
+                      <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={busy} onClick={() => setEditMediaId(null)}>
+                        Close
+                      </button>
+                    </div>
+                    <div className="adm-card-body">
+                      <div className="adm-form-grid">
+                        <div className="adm-field">
+                          <label className="adm-label">Gallery category</label>
+                          <select
+                            className="adm-input"
+                            value={editMediaDraft.galleryCategory}
+                            onChange={(e) =>
+                              setEditMediaDraft((d) => ({
+                                ...d,
+                                galleryCategory: e.target.value as GalleryCategoryId,
+                              }))
+                            }
+                          >
+                            {GALLERY_CATEGORY_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="adm-field adm-field-full">
+                          <label className="adm-label">Alt text</label>
+                          <input
+                            className="adm-input"
+                            value={editMediaDraft.alt}
+                            onChange={(e) => setEditMediaDraft((d) => ({ ...d, alt: e.target.value }))}
+                            placeholder="Describe the image"
+                          />
+                        </div>
+                        <div className="adm-field adm-field-full">
+                          <label className="adm-label">Public URL or path</label>
+                          <input
+                            className="adm-input"
+                            required
+                            value={editMediaDraft.publicUrl}
+                            onChange={(e) => setEditMediaDraft((d) => ({ ...d, publicUrl: e.target.value }))}
+                            placeholder="https://… or /hero.jpg"
+                          />
+                          {editMediaDraft.publicUrl.trim().match(/^https?:\/\//) ? (
+                            <div style={{ marginTop: '0.65rem', maxWidth: 320, borderRadius: 10, overflow: 'hidden', border: '1px solid #E7E5E4' }}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={editMediaDraft.publicUrl.trim()} alt="" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 200, objectFit: 'cover' }} />
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="adm-field adm-field-full">
+                          <span className="adm-label">Show on stay galleries</span>
+                          <p style={{ fontSize: '0.82rem', color: '#57534e', margin: '0 0 0.5rem' }}>
+                            One asset can attach to multiple stays alongside URLs saved on each stay listing.
+                          </p>
+                          {allUnits.length === 0 ? (
+                            <span style={{ fontSize: '0.84rem', color: '#92400e' }}>Create units first.</span>
+                          ) : (
+                            properties.map((prop) => (
+                              <div key={prop.id} style={{ marginBottom: '0.55rem' }}>
+                                <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#44403c', marginBottom: '0.2rem' }}>
+                                  {prop.name}
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem 1rem' }}>
+                                  {prop.units.map((u) => (
+                                    <label key={u.id} className="adm-toggle-row" style={{ margin: 0 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={editMediaDraft.linkedRentableUnitIds.includes(u.id)}
+                                        onChange={() =>
+                                          setEditMediaDraft((d) => ({
+                                            ...d,
+                                            linkedRentableUnitIds: toggleRentableUnitInList(d.linkedRentableUnitIds, u.id),
+                                          }))
+                                        }
+                                      />
+                                      <span>{u.name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                        <button
+                          className="adm-btn adm-btn-primary adm-btn-sm"
+                          type="button"
+                          disabled={busy}
+                          onClick={async () => {
+                            const publicUrl = editMediaDraft.publicUrl.trim();
+                            if (!publicUrl) {
+                              notify('URL or path is required.', false);
+                              return;
+                            }
+                            setBusy(true);
+                            const r = await apiFetch(`${base}/cms/media/${encodeURIComponent(m.id)}`, {
+                              method: 'PATCH',
+                              body: JSON.stringify({
+                                publicUrl,
+                                alt: editMediaDraft.alt.trim() === '' ? null : editMediaDraft.alt.trim(),
+                                galleryCategory: galleryCategoryToPrisma(editMediaDraft.galleryCategory as GalleryCategoryId),
+                                linkedRentableUnitIds: editMediaDraft.linkedRentableUnitIds,
+                              }),
+                            });
+                            setBusy(false);
+                            if (!r) return;
+                            setEditMediaId(null);
+                            await loadCms();
+                            notify('Gallery asset updated.', true);
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button className="adm-btn adm-btn-ghost adm-btn-sm" type="button" disabled={busy} onClick={() => setEditMediaId(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            : null}
+
+          <div className="adm-card" style={{ marginBottom: '1.25rem' }}>
+            <div className="adm-card-header">
+              <h2 className="adm-card-title">Gallery ({media.length})</h2>
+            </div>
+            {media.length === 0 ? (
+              <div className="adm-empty" style={{ padding: '1.5rem' }}>
+                <EditI size={28} />
+                No images registered yet.
+              </div>
+            ) : galleryLayout === 'tiles' ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill,minmax(min(158px,100%), 1fr))',
+                  gap: '0.75rem',
+                  padding: '1rem 1.25rem',
+                }}
+              >
+                {media.map((m) => {
+                  const stays =
+                    (m.linkedRentableUnitIds?.length ?? 0) === 0
+                      ? '—'
+                      : (m.linkedRentableUnitIds ?? []).map((id) => allUnits.find((u) => u.id === id)?.name ?? 'Unit').join(', ');
+                  return (
+                    <div
+                      key={m.id}
+                      style={{
+                        border: '1px solid #e7e5e4',
+                        borderRadius: 12,
+                        padding: '0.5rem',
+                        background: '#fff',
+                      }}
+                    >
+                      <label className="adm-toggle-row" style={{ marginBottom: '0.35rem', fontSize: '0.75rem', color: '#57534e' }}>
+                        <input
+                          type="checkbox"
+                          checked={galleryBulkSelected.includes(m.id)}
+                          onChange={() =>
+                            setGalleryBulkSelected((s) =>
+                              s.includes(m.id) ? s.filter((x) => x !== m.id) : [...s, m.id],
+                            )
+                          }
+                        />
+                        Include in bulk edits
+                      </label>
+                      <div style={{ aspectRatio: '4/3', borderRadius: 8, overflow: 'hidden', background: '#f5f5f4', marginBottom: '0.45rem' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={m.publicUrl}
+                          alt={m.alt ?? ''}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                      <code style={{ fontSize: '0.72rem', display: 'block', wordBreak: 'break-all', marginBottom: '0.35rem', color: '#44403c' }}>
+                        {m.key}
+                      </code>
+                      <p style={{ fontSize: '0.72rem', color: '#78716c', margin: '0 0 0.35rem', lineHeight: 1.45 }}>
+                        {GALLERY_CATEGORY_OPTIONS.find((o) => o.value === galleryCategoryFromPrisma(m.galleryCategory ?? undefined))?.label ?? '—'}{' '}
+                        · {m.alt ? `${m.alt.slice(0, 36)}${m.alt.length > 36 ? '…' : ''}` : 'No alt'}
+                      </p>
+                      <p style={{ fontSize: '0.68rem', color: '#a8a29e', margin: '0 0 0.5rem', lineHeight: 1.35 }}>
+                        Stays: {stays}
+                      </p>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn-primary adm-btn-sm"
+                        style={{ width: '100%' }}
+                        onClick={() => {
+                          setEditMediaId(m.id);
+                          setEditMediaDraft({
+                            publicUrl: m.publicUrl,
+                            alt: m.alt ?? '',
+                            galleryCategory:
+                              galleryCategoryFromPrisma(m.galleryCategory ?? undefined) ?? 'other',
+                            linkedRentableUnitIds: [...(m.linkedRentableUnitIds ?? [])],
+                          });
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <table className="adm-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '2rem' }} />
+                    <th>Thumb</th>
+                    <th>Key</th>
+                    <th>Category</th>
+                    <th>Alt</th>
+                    <th>URL</th>
+                    <th>Stays</th>
+                    <th style={{ width: '7rem' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {media.map((m) => (
+                    <tr key={m.id}>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <input
+                          type="checkbox"
+                          checked={galleryBulkSelected.includes(m.id)}
+                          onChange={() =>
+                            setGalleryBulkSelected((s) => (s.includes(m.id) ? s.filter((x) => x !== m.id) : [...s, m.id]))
+                          }
+                          aria-label={`Select ${m.key}`}
+                        />
+                      </td>
+                      <td style={{ width: '4.5rem' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={m.publicUrl}
+                          alt=""
+                          style={{ width: 52, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E7EB', display: 'block' }}
+                        />
+                      </td>
+                      <td>
+                        <code style={{ fontSize: '0.8rem' }}>{m.key}</code>
+                      </td>
+                      <td style={{ fontSize: '0.84rem' }}>
+                        {GALLERY_CATEGORY_OPTIONS.find((o) => o.value === galleryCategoryFromPrisma(m.galleryCategory ?? undefined))
+                          ?.label ?? '—'}
+                      </td>
+                      <td style={{ fontSize: '0.84rem', maxWidth: '10rem', lineHeight: 1.35 }}>{m.alt ?? '—'}</td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <a href={m.publicUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: 'var(--sage)', wordBreak: 'break-all' }}>
+                          {m.publicUrl.slice(0, 54)}
+                          {m.publicUrl.length > 54 ? '…' : ''}
+                        </a>
+                      </td>
+                      <td style={{ fontSize: '0.78rem', color: '#44403c', maxWidth: '10rem', lineHeight: 1.35 }}>
+                        {(m.linkedRentableUnitIds?.length ?? 0) === 0
+                          ? '—'
+                          : (m.linkedRentableUnitIds ?? []).map((id) => allUnits.find((u) => u.id === id)?.name ?? 'Unit').join(', ')}
+                      </td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <button
+                          type="button"
+                          className="adm-btn adm-btn-ghost adm-btn-sm"
+                          onClick={() => {
+                            setEditMediaId(m.id);
+                            setEditMediaDraft({
+                              publicUrl: m.publicUrl,
+                              alt: m.alt ?? '',
+                              galleryCategory:
+                                galleryCategoryFromPrisma(m.galleryCategory ?? undefined) ?? 'other',
+                              linkedRentableUnitIds: [...(m.linkedRentableUnitIds ?? [])],
+                            });
+                          }}
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
           <div className="adm-card">
-            <div className="adm-card-header"><h2 className="adm-card-title">Register Media URL</h2></div>
+            <div className="adm-card-header"><h2 className="adm-card-title">Register image URL</h2></div>
             <div className="adm-card-body">
               <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>
                 Use a full HTTPS URL or a root-relative path (e.g. <code>/hero.jpg</code>). Pick a{' '}

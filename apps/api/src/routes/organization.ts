@@ -18,7 +18,7 @@ import { confirmPendingBooking, upsertConfirmedBooking } from '../services/booki
 import { syncInboundIcals } from '../services/ical-sync.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { fetchAirbnbListingImageCandidates } from '../services/airbnb-listing-images.js';
-import { pickFirstPublishedAirbnbListingUrl, syncExternalGuestReviews } from '../services/external-reviews-sync.js';
+import { pickAllPublishedAirbnbListingUrls, syncExternalGuestReviews } from '../services/external-reviews-sync.js';
 
 type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
   include: {
@@ -334,12 +334,31 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   app.patch('/orgs/:orgSlug/properties/:propertySlug', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, opsRoles);
     if (!m) return;
-    const body = z.object({ name: z.string().min(1).optional() }).safeParse(req.body);
+    const body = z
+      .object({
+        name: z.string().min(1).optional(),
+        googlePlaceId: z.union([z.string(), z.literal('')]).nullable().optional(),
+      })
+      .refine((data) => data.name !== undefined || data.googlePlaceId !== undefined, {
+        message: 'Provide name and/or googlePlaceId',
+      })
+      .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
     const propertySlug = (req.params as { propertySlug: string }).propertySlug;
+    const data: { name?: string; googlePlaceId?: string | null } = {};
+    if (body.data.name !== undefined) data.name = body.data.name;
+    if (body.data.googlePlaceId !== undefined) {
+      const t =
+        body.data.googlePlaceId === null
+          ? ''
+          : typeof body.data.googlePlaceId === 'string'
+            ? body.data.googlePlaceId.trim()
+            : '';
+      data.googlePlaceId = t.length === 0 ? null : t;
+    }
     const p = await app.prisma.property.updateMany({
       where: { organizationId: m.organizationId, slug: propertySlug },
-      data: body.data,
+      data,
     });
     if (p.count === 0) return reply.status(404).send({ error: 'Not found' });
     return reply.send({ ok: true });
@@ -1371,6 +1390,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         },
         properties: {
           select: {
+            googlePlaceId: true,
             units: {
               select: {
                 listingProfile: {
@@ -1382,7 +1402,11 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         },
       },
     });
-    const fallbackAirbnb = pickFirstPublishedAirbnbListingUrl(orgPayload);
+    const propertyGooglePlaceIds = (orgPayload?.properties ?? [])
+      .map((p) => p.googlePlaceId)
+      .filter((x): x is string => typeof x === 'string' && x.trim().length > 6)
+      .map((x) => x.trim());
+    const listingAirbnbUrls = pickAllPublishedAirbnbListingUrls(orgPayload);
     const gs = orgPayload?.siteSettings;
     const googleKey =
       typeof process.env.GOOGLE_PLACES_API_KEY === 'string' ? process.env.GOOGLE_PLACES_API_KEY.trim() : '';
@@ -1392,9 +1416,10 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
 
     const result = await syncExternalGuestReviews(app.prisma, {
       organizationId: m.organizationId,
-      googlePlaceId: gs?.googlePlaceId,
-      airbnbReviewsListingUrl: gs?.airbnbReviewsListingUrl,
-      fallbackAirbnbListingUrl: fallbackAirbnb,
+      propertyGooglePlaceIds,
+      legacyOrgGooglePlaceId: gs?.googlePlaceId,
+      listingAirbnbUrls,
+      legacyAirbnbReviewsListingUrl: gs?.airbnbReviewsListingUrl,
       googleApiKey: googleKey.length > 10 ? googleKey : altGoogleKey.length > 10 ? altGoogleKey : undefined,
       outscraperApiKey: outKey.length > 10 ? outKey : undefined,
     });

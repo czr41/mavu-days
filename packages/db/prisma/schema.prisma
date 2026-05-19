@@ -128,6 +128,8 @@ model Property {
   organizationId String
   name           String
   slug           String // unique per org enforced in application for now
+  /// Google Maps Place ID for this property — used to sync Google Maps reviews for the homestead (org-level fallback in site settings remains for backward compatibility).
+  googlePlaceId  String?
 
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   units          RentableUnit[]

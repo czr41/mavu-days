@@ -1,9 +1,9 @@
 /**
  * Imports Google Places + Airbnb reviews into GuestReview rows.
  *
- * Google: requires GOOGLE_PLACES_API_KEY env + OrgSiteSettings.googlePlaceId (ChIJ…).
- * Airbnb: listing URL from settings or first published inventory. Prefer OUTSCRAPER_API_KEY (paid, stable).
- * Without Outscraper, the API may parse embedded JSON in the public listing HTML (fragile — Airbnb ships client-heavy pages).
+ * Google: GOOGLE_PLACES_API_KEY env + each Property.googlePlaceId (legacy OrgSiteSettings.googlePlaceId if none).
+ * Airbnb: every distinct published RentableUnitListing.airbnbListingUrl; optional legacy airbnbReviewsListingUrl in settings.
+ * Prefer OUTSCRAPER_API_KEY (paid, stable) for Airbnb. Without Outscraper, embedded HTML scraping is fragile.
  *
  * Rows created by sync use autoSynced=true; each sync deletes prior autoSynced rows and recreates them.
  */
@@ -58,6 +58,7 @@ type OrgWithListingUrls = PrismaOrganizationWithListings | null;
 
 type PrismaOrganizationWithListings = {
   properties: Array<{
+    googlePlaceId: string | null;
     units: Array<{
       listingProfile: null | {
         published: boolean;
@@ -72,24 +73,35 @@ function clip(s: string, max: number): string {
   return s.slice(0, max - 1) + '\u2026';
 }
 
-/** First published listing with an Airbnb room URL — used when airbnbReviewsListingUrl is unset. */
-export function pickFirstPublishedAirbnbListingUrl(org: OrgWithListingUrls): string | null {
-  if (!org?.properties?.length) return null;
+/** Distinct Airbnb room URLs from every published CMS listing (listing-level review source). */
+export function pickAllPublishedAirbnbListingUrls(org: OrgWithListingUrls): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  if (!org?.properties?.length) return out;
   for (const prop of org.properties) {
     for (const unit of prop.units ?? []) {
       const lp = unit.listingProfile;
       if (!lp?.published || !lp.airbnbListingUrl?.trim()) continue;
+      const u = lp.airbnbListingUrl.trim();
       try {
         // eslint-disable-next-line no-new -- validate URL shape
-        new URL(lp.airbnbListingUrl.trim());
-        if (!/airbnb\./i.test(lp.airbnbListingUrl)) continue;
+        new URL(u);
+        if (!/airbnb\./i.test(u)) continue;
       } catch {
         continue;
       }
-      return lp.airbnbListingUrl.trim();
+      if (seen.has(u)) continue;
+      seen.add(u);
+      out.push(u);
     }
   }
-  return null;
+  return out;
+}
+
+/** @deprecated Prefer pickAllPublishedAirbnbListingUrls — kept for callers that still need one URL */
+export function pickFirstPublishedAirbnbListingUrl(org: OrgWithListingUrls): string | null {
+  const all = pickAllPublishedAirbnbListingUrls(org);
+  return all[0] ?? null;
 }
 
 type GooglePlacesReviewJSON = {
@@ -628,76 +640,115 @@ function compareIncoming(a: NormalizedIncoming, b: NormalizedIncoming): number {
   return tb - ta;
 }
 
+function shortenUrlSnippet(u: string, max = 52): string {
+  const s = u.trim();
+  return s.length <= max ? s : `${s.slice(0, Math.max(0, max - 1))}\u2026`;
+}
+
+async function airbnbIncomingForListingUrl(
+  airbnbUrl: string,
+  outscraperApiKey: string | undefined,
+): Promise<{ rows: NormalizedIncoming[]; errors: string[]; warnings: string[] }> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const outKey = outscraperApiKey?.trim();
+  if (outKey) {
+    const a = await fetchAirbnbReviews(airbnbUrl, outKey);
+    if (a.error) errors.push(a.error);
+    return { rows: a.rows.slice(0, MAX_FETCH_PER_SOURCE), errors, warnings };
+  }
+  const htmlParsed = await fetchAirbnbReviewsFromPublicListing(airbnbUrl);
+  if (htmlParsed.error) warnings.push(htmlParsed.error);
+  return { rows: htmlParsed.rows.slice(0, MAX_FETCH_PER_SOURCE), errors, warnings };
+}
+
 export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
   organizationId: string;
-  googlePlaceId: string | null | undefined;
-  airbnbReviewsListingUrl: string | null | undefined;
-  fallbackAirbnbListingUrl: string | null | undefined;
+  propertyGooglePlaceIds: string[];
+  legacyOrgGooglePlaceId: string | null | undefined;
+  listingAirbnbUrls: string[];
+  legacyAirbnbReviewsListingUrl: string | null | undefined;
   googleApiKey: string | undefined;
   outscraperApiKey: string | undefined;
 }): Promise<ExternalReviewsSyncResult> {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const gpId = typeof args.googlePlaceId === 'string' ? args.googlePlaceId.trim() : '';
+  const placeSet = new Set<string>();
+  for (const raw of args.propertyGooglePlaceIds) {
+    const t = typeof raw === 'string' ? raw.trim() : '';
+    if (t.length > 6) placeSet.add(t);
+  }
+  if (!placeSet.size) {
+    const legacy =
+      typeof args.legacyOrgGooglePlaceId === 'string' ? args.legacyOrgGooglePlaceId.trim() : '';
+    if (legacy.length > 6) placeSet.add(legacy);
+  }
 
   let googleRows: NormalizedIncoming[] = [];
-  if (gpId.length > 6) {
-    if (!args.googleApiKey?.trim()) {
-      warnings.push(
-        'Skipping Google sync: GOOGLE_PLACES_API_KEY is not configured on the API server.',
-      );
-    } else {
-      const g = await fetchGoogleReviews(gpId, args.googleApiKey.trim());
-      if (g.error) errors.push(g.error);
-      googleRows = g.rows.slice(0, MAX_FETCH_PER_SOURCE);
+  const placeIds = [...placeSet];
+  if (!placeIds.length) {
+    warnings.push(
+      'Google: No Place IDs on properties (or legacy org setting). Add a Google Place ID under each property, then sync again.',
+    );
+  } else if (!args.googleApiKey?.trim()) {
+    warnings.push(
+      'Skipping Google sync: GOOGLE_PLACES_API_KEY is not configured on the API server.',
+    );
+  } else {
+    const key = args.googleApiKey.trim();
+    for (const gpId of placeIds) {
+      const g = await fetchGoogleReviews(gpId, key);
+      if (g.error) errors.push(`${gpId.slice(0, 10)}\u2026: ${g.error}`);
+      googleRows.push(...g.rows.slice(0, MAX_FETCH_PER_SOURCE));
     }
   }
 
-  let airbnbUrl =
-    typeof args.airbnbReviewsListingUrl === 'string' && args.airbnbReviewsListingUrl.trim().length > 10
-      ? args.airbnbReviewsListingUrl.trim()
-      : typeof args.fallbackAirbnbListingUrl === 'string' && args.fallbackAirbnbListingUrl.trim().length > 10
-        ? args.fallbackAirbnbListingUrl.trim()
-        : null;
+  const airbnbSet = new Set<string>();
+  for (const raw of args.listingAirbnbUrls) {
+    const t = typeof raw === 'string' ? raw.trim() : '';
+    if (t.length < 10) continue;
+    try {
+      // eslint-disable-next-line no-new
+      new URL(t);
+      if (/airbnb\./i.test(t)) airbnbSet.add(t);
+    } catch {
+      /* skip */
+    }
+  }
+  if (typeof args.legacyAirbnbReviewsListingUrl === 'string') {
+    const t = args.legacyAirbnbReviewsListingUrl.trim();
+    if (t.length > 10) {
+      try {
+        // eslint-disable-next-line no-new
+        new URL(t);
+        if (/airbnb\./i.test(t)) airbnbSet.add(t);
+      } catch {
+        warnings.push('Legacy Airbnb review URL in site settings is invalid — ignored.');
+      }
+    }
+  }
 
   let airbnbRows: NormalizedIncoming[] = [];
-
-  try {
-    if (airbnbUrl) {
-      // eslint-disable-next-line no-new
-      new URL(airbnbUrl);
-    } else {
-      airbnbUrl = null;
-    }
-  } catch {
-    warnings.push('Airbnb listing URL is invalid — skipping Airbnb sync.');
-    airbnbUrl = null;
-  }
-
-  if (airbnbUrl) {
-    const outKey = args.outscraperApiKey?.trim();
-    let fromOutscraper: NormalizedIncoming[] = [];
-
-    if (outKey) {
-      const a = await fetchAirbnbReviews(airbnbUrl, outKey);
-      if (a.error) errors.push(a.error);
-      fromOutscraper = a.rows.slice(0, MAX_FETCH_PER_SOURCE);
-    } else {
+  const listingUrls = [...airbnbSet];
+  if (!listingUrls.length) {
+    warnings.push(
+      'Airbnb: No listing URLs — add an Airbnb URL on each published stay (CMS → Stay listings). Optional legacy site override still supported in DB.',
+    );
+  } else {
+    if (!args.outscraperApiKey?.trim()) {
       warnings.push(
-        'Airbnb: OUTSCRAPER_API_KEY is unset — syncing from embedded HTML in the listing URL (often empty if reviews load client-only). Configure Outscraper for reliable Airbnb pulls.',
+        'Airbnb: OUTSCRAPER_API_KEY is unset — falling back to HTML scraping per listing (often empty). Configure Outscraper for reliable Airbnb pulls.',
       );
     }
-
-    if (fromOutscraper.length) {
-      airbnbRows = fromOutscraper;
-    } else {
-      const htmlParsed = await fetchAirbnbReviewsFromPublicListing(airbnbUrl);
-      if (htmlParsed.error) warnings.push(htmlParsed.error);
-      airbnbRows = htmlParsed.rows.slice(0, MAX_FETCH_PER_SOURCE);
+    for (const airbnbUrl of listingUrls) {
+      const chunk = await airbnbIncomingForListingUrl(airbnbUrl, args.outscraperApiKey);
+      chunk.errors.forEach((e) => errors.push(`${shortenUrlSnippet(airbnbUrl)} · ${e}`));
+      chunk.warnings.forEach((w) =>
+        warnings.push(`${shortenUrlSnippet(airbnbUrl)} · ${w}`),
+      );
+      airbnbRows.push(...chunk.rows);
     }
-  } else {
-    warnings.push('No Airbnb listing URL (site settings nor published inventory) — Airbnb sync skipped.');
   }
 
   const mergedPool = [...googleRows, ...airbnbRows];
