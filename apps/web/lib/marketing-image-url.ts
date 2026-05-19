@@ -46,6 +46,48 @@ export function normalizeMarketingImageUrl(raw: string | null | undefined): stri
   }
 }
 
+/**
+ * Canonical web origin where `/public` static files live (same Next deployment as the marketing pages).
+ * Use for admin thumbnails so `/hero.jpg` works even when visiting admin from a hostname that does not serve `public/` (mis-set env edge cases fall back safely).
+ */
+function canonicalPublicSiteOrigin(): string {
+  const raw = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SITE_URL?.trim() : '';
+  if (raw) {
+    try {
+      const u = new URL(raw.includes('://') ? raw : `https://${raw}`);
+      const h = u.hostname.toLowerCase();
+      /** Never use loopback as the static host — copied `.env.example` in prod yields `http://localhost:3000/…` in &lt;img&gt; and broken thumbs. */
+      if (h !== 'localhost' && h !== '127.0.0.1' && h !== '[::1]') {
+        return u.origin.replace(/\/+$/, '');
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const vercelHost = typeof process !== 'undefined' ? process.env.VERCEL_URL?.trim() : '';
+  if (vercelHost) return `https://${vercelHost}`;
+  return '';
+}
+
+/**
+ * Stable absolute URL for &lt;img src&gt; in the admin CMS (tiles, list thumbs, previews).
+ * Strips localhost / same-origin copies first, then prepends NEXT_PUBLIC_SITE_URL (non-loopback) or Vercel URL for root-relative paths.
+ */
+export function resolveMarketingImageSrcForPreview(raw: string | null | undefined): string {
+  const normalized = normalizeMarketingImageUrl(raw);
+  const s = normalized ?? String(raw ?? '').trim();
+  if (!s) return '';
+
+  if (s.startsWith('//')) return `https:${s}`;
+
+  if (s.startsWith('/')) {
+    const origin = canonicalPublicSiteOrigin();
+    return origin ? `${origin}${s}` : s;
+  }
+
+  return s;
+}
+
 /** When the API returns no usable image URLs, still drive the bento from public paths (add files under `apps/web/public/` or use absolute CDN URLs in admin). */
 export function marketingGalleryStaticFallback(): GallerySlide[] {
   const slots: { key: string; path: string; alt: string }[] = [
