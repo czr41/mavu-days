@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 
+import { LandingSectionHead } from '@/components/landing/landing-section-head';
 import { RevealSection } from '@/components/landing/reveal-section';
 import { publicApiBaseUrl } from '@/lib/public-api-base';
 import { publicOrgSlugCandidates } from '@/lib/public-org-slug';
@@ -12,6 +13,7 @@ export type StayOption = { value: string; label: string };
 
 type Props = {
   orgSlug: string;
+  availabilityEyebrow: string;
   availabilityTitle: string;
   availabilitySubtitle: string;
   whatsappDigits: string;
@@ -155,6 +157,7 @@ function BookingDateField({
 
 export function AvailabilitySearch({
   orgSlug,
+  availabilityEyebrow,
   availabilityTitle,
   availabilitySubtitle,
   whatsappDigits,
@@ -309,22 +312,34 @@ export function AvailabilitySearch({
       <div className="md-wrap md-booking-wrap">
         <div className="md-booking-hero-layout">
           <div className="md-booking-head-text">
-            <h2 id="booking-title" className="md-h2 md-booking-title">
-              {availabilityTitle}
-            </h2>
-            <p className="md-lead md-booking-sub">{availabilitySubtitle}</p>
-            <p className="md-muted md-booking-hint md-booking-hint--inline">
-              Booking requests:{' '}
-              <a
-                className="md-link"
-                href={whatsappHref(
-                  whatsappDigits,
-                  whatsappBookingMessage(guests, { checkIn, checkOut, stay: stayFilter, stayLabel }),
-                )}
-              >
-                WhatsApp with these dates
-              </a>
-            </p>
+            <LandingSectionHead
+              align="left"
+              eyebrowDecoration={false}
+              eyebrow={availabilityEyebrow}
+              title={
+                <h2 id="booking-title" className="md-h2 md-booking-title">
+                  {availabilityTitle}
+                </h2>
+              }
+              lead={
+                <>
+                  <p className="md-lead md-booking-sub">{availabilitySubtitle}</p>
+                  <p className="md-muted md-booking-hint md-booking-hint--inline">
+                    Booking requests:{' '}
+                    <a
+                      className="md-link"
+                      href={whatsappHref(
+                        whatsappDigits,
+                        whatsappBookingMessage(guests, { checkIn, checkOut, stay: stayFilter, stayLabel }),
+                      )}
+                    >
+                      WhatsApp with these dates
+                    </a>
+                  </p>
+                </>
+              }
+              className="md-booking-section-head-inner md-section-head-tight"
+            />
           </div>
 
           <div className="md-card md-booking-toolbar-card md-booking-search-shell">

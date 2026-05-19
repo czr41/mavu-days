@@ -3,6 +3,7 @@ import { fetchPublicOrgContent } from './fetch-public';
 import type { LandingMergePayload } from './landing-content';
 import { mergeLandingContent } from './landing-content';
 import { sanitizePublicOrgSlug } from './public-org-slug';
+import { LANDING_POSITIVE_REVIEWS_CAP, isPositiveGuestReview } from './guest-review-filters';
 
 export async function loadLandingPayload() {
   const envSlug = sanitizePublicOrgSlug(process.env.NEXT_PUBLIC_ORG_SLUG ?? 'mavu-days').toLowerCase();
@@ -16,7 +17,9 @@ export async function loadLandingPayload() {
     ? sanitizePublicOrgSlug(mergePayload.organization.slug)
     : envSlug;
   const orgName = mergePayload?.organization?.name ?? 'Mavu Days';
-  const landingReviews = (mergePayload?.reviews ?? []).slice(0, 8);
+  const landingReviews = (mergePayload?.reviews ?? [])
+    .filter(isPositiveGuestReview)
+    .slice(0, LANDING_POSITIVE_REVIEWS_CAP);
   const landingOffers = mergePayload?.offers ?? [];
   return { orgSlug, merged, payload: mergePayload, orgName, landingReviews, landingOffers };
 }

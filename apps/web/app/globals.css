@@ -556,17 +556,37 @@ body {
   margin-right: auto;
 }
 
-/* Eyebrow label — no decorative lines by default */
+.md-section-head-left {
+  text-align: left;
+  max-width: 100%;
+}
+
+.md-section-head-left .md-h2,
+.md-section-head-left .md-h3 {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.md-section-head-left .md-lead {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Eyebrow label — no decorative lines unless paired with `.md-eyebrow-line` */
 .md-section-label {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--sage);
+  color: var(--muted);
   margin-bottom: 0.5rem;
+}
+
+.md-section-label-left {
+  justify-content: flex-start;
 }
 
 .md-h2 {
@@ -737,6 +757,15 @@ p.md-eyebrow-line {
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
+}
+
+/* Booking block reuses LandingSectionHead; avoid double vertical rhythm from section-head margins */
+.md-booking-section-head-inner.md-section-head {
+  margin-bottom: 0;
+}
+
+.md-booking-head-text .md-booking-section-head-inner .md-lead {
+  margin-bottom: 0.5rem;
 }
 
 .md-booking-title {
@@ -1578,9 +1607,40 @@ p.md-eyebrow-line {
   text-wrap: balance;
 }
 
-/* ——— Unified experience: flip USPs + day-at-Mavu strip ——— */
+/* ——— Unified experience: USP grid + story split + day rhythm ——— */
 .md-experience-unified {
   overflow: clip;
+}
+
+.md-experience-unified .md-experience-usp-grid {
+  margin-top: clamp(0.65rem, 2.2vw, 1.35rem);
+  gap: clamp(1rem, 2.8vw, 1.85rem);
+}
+
+@media (min-width: 1024px) {
+  .md-experience-unified .md-experience-usp-grid {
+    gap: 1.35rem 1.55rem;
+  }
+}
+
+/* Reference: each USP column is icon → title → copy, all center-aligned */
+.md-feature.md-feature--usp {
+  justify-content: flex-start;
+  padding: 1.05rem 0.55rem 1.1rem;
+  min-height: 10.75rem;
+}
+
+.md-feature.md-feature--usp .md-feature-head {
+  gap: 0.4rem;
+}
+
+.md-feature-copy.md-feature-copy--usp {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  margin-top: 0.4rem;
+  max-width: 11.75rem;
+  text-wrap: balance;
 }
 
 .md-feature-flip-grid {
@@ -1738,6 +1798,121 @@ p.md-eyebrow-line {
   padding-top: clamp(2rem, 4vw, 3rem);
   border-top: 1px solid var(--border);
   text-align: center;
+}
+
+.md-day-at-mavu--split {
+  text-align: left;
+}
+
+.md-day-at-mavu-split-inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(1.75rem, 4vw, 2.85rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .md-day-at-mavu-split-inner {
+    grid-template-columns: minmax(0, 0.4fr) minmax(0, 0.6fr);
+    gap: clamp(2rem, 4.8vw, 3.75rem);
+  }
+}
+
+.md-day-at-mavu-story {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 38rem;
+}
+
+.md-day-at-mavu-story .md-day-at-mavu-story-eyebrow {
+  margin: 0 0 0.5rem !important;
+}
+
+.md-day-at-mavu-title--story {
+  margin: 0 0 clamp(1rem, 2.2vw, 1.25rem);
+  max-width: none;
+  width: 100%;
+  text-align: left;
+  font-size: clamp(1.42rem, 3.35vw, 2.05rem);
+  font-weight: 520;
+}
+
+.md-day-at-mavu-body--story {
+  margin: 0 0 1.35rem;
+  max-width: 36rem;
+  width: 100%;
+}
+
+.md-day-at-mavu-body--story .md-body {
+  margin: 0 0 0.9rem;
+  text-align: left;
+  font-size: 0.965rem;
+  line-height: 1.62;
+  color: var(--body-color);
+}
+
+.md-day-at-mavu-body--story .md-body:last-child {
+  margin-bottom: 0;
+}
+
+.md-day-at-mavu-story-cta {
+  align-self: flex-start;
+}
+
+.md-day-at-mavu-visual {
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+
+.md-day-at-mavu-img {
+  display: block;
+  width: 100%;
+  height: clamp(210px, 34vw, 440px);
+  object-fit: cover;
+  object-position: center 42%;
+}
+
+.md-day-at-mavu-tail {
+  margin-top: clamp(2.25rem, 4.8vw, 3.35rem);
+  padding-top: clamp(1.85rem, 4vw, 2.95rem);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.md-day-at-mavu-rhythm-heading {
+  margin: 0 auto 1.05rem;
+  max-width: 28rem;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.2rem, 2.65vw, 1.62rem);
+  font-weight: 500;
+  letter-spacing: -0.022em;
+  line-height: 1.22;
+  color: var(--heading);
+}
+
+.md-day-at-mavu-body--center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.md-gallery-bento-section-head.md-section-head {
+  margin-bottom: clamp(0.65rem, 2vw, 1.1rem);
+}
+
+.md-location-section-head.md-section-head .md-lead:first-of-type {
+  margin-top: 0;
+}
+
+.md-location-section-head.md-section-head .md-body {
+  margin-top: 0.35rem;
+}
+
+.md-day-at-mavu-tail-head.md-section-head {
+  margin-bottom: clamp(1rem, 2.75vw, 1.85rem);
 }
 
 .md-day-at-mavu-kicker {
@@ -1950,7 +2125,7 @@ p.md-eyebrow-line {
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--md-gold);
+  color: var(--muted);
 }
 
 .md-gallery-section .md-gallery-bento-h2 {
@@ -2904,14 +3079,65 @@ div.md-amenities {
 }
 
 /* ——— Reviews ——— */
+.md-review-scroller-hint {
+  margin: 0 auto clamp(0.85rem, 2.5vw, 1.25rem);
+  max-width: 48ch;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.52;
+}
+
+.md-review-scroller-shell {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+}
+
+.md-review-scroller {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: 0;
+  padding: 0.25rem 0 1rem;
+  scrollbar-gutter: stable;
+}
+
+.md-review-scroller .md-review-scroll-card {
+  flex: 0 0 min(92vw, 22rem);
+  scroll-snap-align: start;
+  min-height: 12rem;
+}
+
+@media (min-width: 768px) {
+  .md-review-scroller .md-review-scroll-card {
+    flex-basis: 20rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-review-scroller {
+    scroll-snap-type: none;
+  }
+}
+
 .md-review-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
 }
 
-@media (min-width: 640px)  { .md-review-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1024px) { .md-review-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 640px) {
+  .md-review-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .md-review-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
 
 .md-review-card {
   background: var(--ivory);
@@ -2922,6 +3148,23 @@ div.md-amenities {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.md-review-stars-row {
+  color: var(--yellow);
+  font-size: 1.05rem;
+  display: inline-flex;
+  gap: 0.05em;
+  letter-spacing: 0;
+}
+
+.md-review-source-attrib {
+  margin-top: clamp(1.25rem, 3vw, 2rem);
+  max-width: 52ch;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  line-height: 1.55;
 }
 
 .md-review-stars {

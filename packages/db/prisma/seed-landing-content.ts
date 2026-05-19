@@ -93,6 +93,12 @@ function buildSectionRows(): SectionSeed[] {
       bodyMarkdown: 'Up to 12 Guests\n1BHK, 2BHK & Full Farm\n65 km from Bangalore\n2-Acre Mango Farm',
       sortOrder: 15,
     },
+    {
+      key: 'landing-availability-eyebrow',
+      title: 'Availability eyebrow',
+      bodyMarkdown: 'Book your stay',
+      sortOrder: 19,
+    },
     { key: 'landing-availability-title', title: 'Availability section title', bodyMarkdown: 'Check Your Dates', sortOrder: 20 },
     {
       key: 'landing-availability-intro',
@@ -109,6 +115,7 @@ function buildSectionRows(): SectionSeed[] {
         'Couples, families, or the full farm—same mango homestead, your pace.',
       sortOrder: 31,
     },
+    { key: 'landing-stays-eyebrow', title: 'Stays eyebrow', bodyMarkdown: 'Your stay options', sortOrder: 32 },
     { key: 'landing-why-title', title: 'Why section title', bodyMarkdown: 'A Farm Stay Made for Slower Days', sortOrder: 40 },
     {
       key: 'landing-why-intro',
@@ -117,6 +124,9 @@ function buildSectionRows(): SectionSeed[] {
       sortOrder: 41,
     },
     { key: 'landing-why-blocks', title: 'Why blocks (JSON)', bodyMarkdown: WHY_JSON, sortOrder: 42 },
+    { key: 'landing-experience-eyebrow', title: 'Experiences eyebrow', bodyMarkdown: 'Slow living on the farm', sortOrder: 43 },
+    { key: 'landing-experience-story-eyebrow', title: 'Experience story eyebrow', bodyMarkdown: 'Our homestead', sortOrder: 44 },
+    { key: 'landing-experience-rhythm-eyebrow', title: 'Experience rhythm eyebrow', bodyMarkdown: 'The daily rhythm', sortOrder: 45 },
     { key: 'landing-experience-title', title: 'Experience title', bodyMarkdown: 'What a Day at Mavu Days Feels Like', sortOrder: 50 },
     {
       key: 'landing-experience-body',
@@ -132,24 +142,21 @@ function buildSectionRows(): SectionSeed[] {
         'Morning walks through the farm\nSlow breakfasts\nFamily time outdoors\nReading and resting\nStargazing\nQuiet conversations\nPrivate villa comfort\nWeekend reset near Bangalore',
       sortOrder: 52,
     },
-    { key: 'landing-gallery-title', title: 'Gallery title', bodyMarkdown: 'A glimpse of life here.', sortOrder: 60 },
-    {
-      key: 'landing-gallery-intro',
-      title: 'Gallery intro',
-      bodyMarkdown: 'Mango farm, villas, and open skies—about 65 km from Bangalore.',
-      sortOrder: 61,
-    },
+    { key: 'landing-gallery-title', title: 'Gallery title', bodyMarkdown: 'See the farm before you arrive', sortOrder: 60 },
+    { key: 'landing-gallery-intro', title: 'Gallery intro', bodyMarkdown: 'A quick look around the homestead before you arrive.', sortOrder: 61 },
+    { key: 'landing-gallery-eyebrow', title: 'Gallery eyebrow', bodyMarkdown: 'First look', sortOrder: 62 },
     { key: 'landing-who-title', title: 'Who section title', bodyMarkdown: 'Who Mavu Days is Perfect For', sortOrder: 70 },
     { key: 'landing-who-for-intro', title: 'Who intro', bodyMarkdown: 'Couples, families, groups, workations, small celebrations.', sortOrder: 71 },
-    { key: 'landing-who-cards', title: 'Who cards (JSON)', bodyMarkdown: WHO_JSON, sortOrder: 72 },
-    { key: 'landing-pet-friendly-eyebrow', title: 'Pet-friendly eyebrow', bodyMarkdown: 'Pet-friendly stay', sortOrder: 73 },
-    { key: 'landing-pet-friendly-title', title: 'Pet-friendly title', bodyMarkdown: 'Room for dogs to gallop—not just tagging along', sortOrder: 74 },
+    { key: 'landing-who-eyebrow', title: 'Who eyebrow', bodyMarkdown: 'Who it suits', sortOrder: 72 },
+    { key: 'landing-who-cards', title: 'Who cards (JSON)', bodyMarkdown: WHO_JSON, sortOrder: 73 },
+    { key: 'landing-pet-friendly-eyebrow', title: 'Pet-friendly eyebrow', bodyMarkdown: 'Pet-friendly stay', sortOrder: 77 },
+    { key: 'landing-pet-friendly-title', title: 'Pet-friendly title', bodyMarkdown: 'Room for dogs to gallop—not just tagging along', sortOrder: 78 },
     {
       key: 'landing-pet-friendly-lead',
       title: 'Pet-friendly lead',
       bodyMarkdown:
         'The farm sits inside fenced grounds so your pup can sniff, sprint, and nap in the shade while you unwind on the veranda.',
-      sortOrder: 75,
+      sortOrder: 79,
     },
     {
       key: 'landing-pet-friendly-body',
@@ -159,35 +166,37 @@ function buildSectionRows(): SectionSeed[] {
 We genuinely enjoy hosting pet parents. When you skim our house guidelines, anything about animals on the farm refers to how the owners maintain the homestead and resident animals—not a tightening list of restrictions for visiting dogs.
 
 Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
-      sortOrder: 76,
+      sortOrder: 80,
     },
-    { key: 'landing-location-title', title: 'Location title', bodyMarkdown: 'Near Yet Far Enough', sortOrder: 80 },
+    { key: 'landing-location-title', title: 'Location title', bodyMarkdown: 'Near Yet Far Enough', sortOrder: 81 },
     {
       key: 'landing-location-body',
       title: 'Location body',
       bodyMarkdown: '~65 km from Bangalore—farm roads, mango groves, and a quiet reset.',
-      sortOrder: 81,
+      sortOrder: 82,
     },
     {
       key: 'landing-location-bullets',
       title: 'Location bullets (one per line)',
       bodyMarkdown:
         '65 km from Bangalore (~1.5 hrs drive)\n25 km from Channapatna\n35 km from Ramanagara\nWell-connected roads all the way',
-      sortOrder: 82,
+      sortOrder: 83,
     },
-    { key: 'landing-amenities-title', title: 'Amenities title', bodyMarkdown: 'Amenities', sortOrder: 90 },
+    { key: 'landing-location-eyebrow', title: 'Location eyebrow', bodyMarkdown: 'Getting here', sortOrder: 84 },
+    { key: 'landing-amenities-title', title: 'Amenities title', bodyMarkdown: 'Amenities at Mavu Days', sortOrder: 90 },
     {
       key: 'landing-amenities-intro',
       title: 'Amenities intro',
-      bodyMarkdown: '',
+      bodyMarkdown: 'Simple comforts that honour privacy and outdoors time.',
       sortOrder: 91,
     },
+    { key: 'landing-amenities-eyebrow', title: 'Amenities eyebrow', bodyMarkdown: 'Comforts included', sortOrder: 92 },
     {
       key: 'landing-amenities-list',
       title: 'Amenities list (one per line)',
       bodyMarkdown:
         'Wi-Fi\nAC Bedrooms\nFully Equipped Kitchen\nPet Friendly\nFenced Ground\nOutdoor Seating & Lawn\nBonfire (Extra)\nParking Available',
-      sortOrder: 92,
+      sortOrder: 93,
     },
     { key: 'landing-banner-title', title: 'Banner title', bodyMarkdown: 'Ready to book your farm weekend?', sortOrder: 100 },
     {
@@ -204,7 +213,8 @@ Mention breed and temperament when you book so we ready the right greeting; then
         'Mavu Days is designed as a peaceful farm stay. To keep the experience comfortable for all guests and respectful to the land, please review the stay guidelines before booking.',
       sortOrder: 111,
     },
-    { key: 'landing-house-rules', title: 'House rules (JSON)', bodyMarkdown: HOUSE_RULES_JSON, sortOrder: 112 },
+    { key: 'landing-house-rules-eyebrow', title: 'House rules eyebrow', bodyMarkdown: 'Please read first', sortOrder: 112 },
+    { key: 'landing-house-rules', title: 'House rules (JSON)', bodyMarkdown: HOUSE_RULES_JSON, sortOrder: 113 },
     { key: 'landing-reviews-title', title: 'Reviews title', bodyMarkdown: 'Guest Moments at Mavu Days', sortOrder: 120 },
     {
       key: 'landing-reviews-intro',
@@ -219,8 +229,10 @@ Mention breed and temperament when you book so we ready the right greeting; then
         'Peaceful, private, and exactly what we needed for a weekend away from Bangalore.\nA beautiful farm setting with enough space for the family to relax and unwind.\nThe perfect place to disconnect from city noise and spend slow time with loved ones.',
       sortOrder: 122,
     },
+    { key: 'landing-reviews-eyebrow', title: 'Reviews eyebrow', bodyMarkdown: 'Guest love', sortOrder: 123 },
     { key: 'landing-faq-title', title: 'FAQ title', bodyMarkdown: 'Frequently Asked Questions', sortOrder: 130 },
-    { key: 'landing-faqs', title: 'FAQs (JSON)', bodyMarkdown: DEFAULT_FAQS_JSON, sortOrder: 131 },
+    { key: 'landing-faq-eyebrow', title: 'FAQ eyebrow', bodyMarkdown: 'Common questions', sortOrder: 131 },
+    { key: 'landing-faqs', title: 'FAQs (JSON)', bodyMarkdown: DEFAULT_FAQS_JSON, sortOrder: 132 },
     {
       key: 'landing-seo-title',
       title: 'SEO collapsed title',

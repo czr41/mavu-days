@@ -36,18 +36,25 @@ export const SECTION_KEY = {
   featureStripLabels: 'landing-about-strip-labels',
   availabilityTitle: 'landing-availability-title',
   availabilityIntro: 'landing-availability-intro',
+  availabilityEyebrow: 'landing-availability-eyebrow',
   staysTitle: 'landing-stays-title',
   staysIntro: 'landing-stays-intro',
+  staysEyebrow: 'landing-stays-eyebrow',
   whyTitle: 'landing-why-title',
   whyIntro: 'landing-why-intro',
   whyBlocksJson: 'landing-why-blocks',
+  experienceEyebrow: 'landing-experience-eyebrow',
+  experienceStoryEyebrow: 'landing-experience-story-eyebrow',
+  experienceRhythmEyebrow: 'landing-experience-rhythm-eyebrow',
   experienceTitle: 'landing-experience-title',
   experienceBody: 'landing-experience-body',
   experienceTiles: 'landing-experience-tiles',
   galleryTitle: 'landing-gallery-title',
   galleryIntro: 'landing-gallery-intro',
+  galleryEyebrow: 'landing-gallery-eyebrow',
   whoTitle: 'landing-who-title',
   whoForIntro: 'landing-who-for-intro',
+  whoEyebrow: 'landing-who-eyebrow',
   whoCardsJson: 'landing-who-cards',
   petFriendlyEyebrow: 'landing-pet-friendly-eyebrow',
   petFriendlyTitle: 'landing-pet-friendly-title',
@@ -56,18 +63,23 @@ export const SECTION_KEY = {
   locationTitle: 'landing-location-title',
   locationBody: 'landing-location-body',
   locationBullets: 'landing-location-bullets',
+  locationEyebrow: 'landing-location-eyebrow',
   amenitiesTitle: 'landing-amenities-title',
   amenitiesIntro: 'landing-amenities-intro',
+  amenitiesEyebrow: 'landing-amenities-eyebrow',
   amenitiesList: 'landing-amenities-list',
   bannerTitle: 'landing-banner-title',
   bannerCopy: 'landing-banner-copy',
   houseRulesTitle: 'landing-house-rules-title',
   houseRulesIntro: 'landing-house-rules-intro',
+  houseRulesEyebrow: 'landing-house-rules-eyebrow',
   houseRulesJson: 'landing-house-rules',
   reviewsTitle: 'landing-reviews-title',
   reviewsIntro: 'landing-reviews-intro',
+  reviewsEyebrow: 'landing-reviews-eyebrow',
   reviewQuotes: 'landing-review-quotes',
   faqTitle: 'landing-faq-title',
+  faqEyebrow: 'landing-faq-eyebrow',
   faqsJson: 'landing-faqs',
   seoTitle: 'landing-seo-title',
   seoBlock: 'landing-seo-block',
@@ -120,19 +132,36 @@ export type LandingTexts = {
   featureStripLabels: readonly string[];
   availabilityTitle: string;
   availabilitySubtitle: string;
+  availabilityEyebrow: string;
   staysTitle: string;
   staysSubtitle: string;
+  /** Upper label — differs from staysTitle */
+  staysEyebrow: string;
   listings: readonly ListingCard[];
   whyTitle: string;
   whyIntro: string;
+  /** Upper label above whyTitle */
+  experienceEyebrow: string;
   whyBlocks: readonly { title: string; text: string }[];
+  /** Main title for rhythm / “what a day” block */
   experienceTitle: string;
   experienceBodyDefault: string;
+  /** Upper label for story split (left column above experienceStoryHeading) */
+  experienceStoryEyebrow: string;
+  /** Serif heading + prose in the Experiences split (reference layout). */
+  experienceStoryHeading: string;
+  experienceStoryP1: string;
+  experienceStoryP2: string;
+  experienceStoryCta: string;
+  /** Decorative eyebrow for rhythm subsection (centered lines) */
+  experienceRhythmEyebrow: string;
   tiles: readonly string[];
   galleryTitle: string;
   galleryIntroDefault: string;
+  galleryEyebrow: string;
   whoTitle: string;
   whoIntro: string;
+  whoEyebrow: string;
   whoCards: readonly { title: string; body: string }[];
   petFriendlyEyebrow: string;
   petFriendlyTitle: string;
@@ -141,20 +170,25 @@ export type LandingTexts = {
   locationTitle: string;
   locationBodyDefault: string;
   locationBulletsDefault: readonly string[];
+  locationEyebrow: string;
   amenitiesTitle: string;
   amenitiesIntroDefault: string;
+  amenitiesEyebrow: string;
   amenitiesDefault: string[];
   bannerTitleDefault: string;
   bannerCopyDefault: string;
   houseRulesTitle: string;
   houseRulesIntroDefault: string;
+  houseRulesEyebrow: string;
   houseRules: readonly { title: string; text: string }[];
   reviewsTitle: string;
   reviewsIntroDefault: string;
+  reviewsEyebrow: string;
   reviewQuotes: readonly string[];
   seoTitle: string;
   seoBodyDefault: string;
   faqTitle: string;
+  faqEyebrow: string;
   faqs: readonly { q: string; a: string }[];
   footerNote: string;
 };
@@ -181,8 +215,10 @@ export const DEFAULT_LANDING: LandingTexts = {
   ],
   availabilityTitle: 'Check Your Dates',
   availabilitySubtitle: 'Share your dates—we match openings for Full Farm, 1BHK, or 2BHK.',
+  availabilityEyebrow: 'Book your stay',
   staysTitle: 'Choose Your Stay',
   staysSubtitle: 'Couples, families, or the full farm—same mango homestead, your pace.',
+  staysEyebrow: 'Your stay options',
   listings: [
     {
       id: 'full-farm',
@@ -252,6 +288,7 @@ export const DEFAULT_LANDING: LandingTexts = {
   ],
   whyTitle: 'A Farm Stay Made for Slower Days',
   whyIntro: 'Forget packed itineraries—you get space to breathe and live life at your tempo.',
+  experienceEyebrow: 'Slow living on the farm',
   whyBlocks: [
     { title: 'Farm Walks', text: 'Wander through mango trees & fresh air' },
     { title: 'Quiet Weekends', text: 'Unplug & enjoy peaceful, unhurried days' },
@@ -263,6 +300,13 @@ export const DEFAULT_LANDING: LandingTexts = {
   experienceTitle: 'What a Day at Mavu Days Feels Like',
   experienceBodyDefault:
     'Slow mornings under the mango canopy, unhurried afternoons, evenings with space between conversations—your farm day, unrushed.',
+  experienceStoryHeading: 'Where Nature Slows You Down',
+  experienceStoryP1:
+    'At Mavu Days, life moves at the pace of the farm. Wake up to birdsong, take long walks, read under the trees, and watch the sky change colors in the evening.',
+  experienceStoryP2: 'A short drive from Bangalore, yet a world away.',
+  experienceStoryCta: 'Know More About Us',
+  experienceStoryEyebrow: 'Our homestead',
+  experienceRhythmEyebrow: 'The daily rhythm',
   tiles: [
     'Morning walks through the farm',
     'Slow breakfasts',
@@ -274,9 +318,11 @@ export const DEFAULT_LANDING: LandingTexts = {
     'Weekend reset near Bangalore',
   ],
   galleryTitle: 'See the farm before you arrive',
-  galleryIntroDefault: '',
+  galleryIntroDefault: 'A quick look around the homestead before you arrive.',
+  galleryEyebrow: 'First look',
   whoTitle: 'Who Mavu Days is Perfect For',
   whoIntro: 'Couples, families, groups, workations, small celebrations.',
+  whoEyebrow: 'Who it suits',
   whoCards: [
     {
       title: 'Families',
@@ -313,6 +359,7 @@ We genuinely enjoy hosting pet parents. When you skim our house guidelines, anyt
 
 Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
   locationTitle: 'Near Yet Far Enough',
+  locationEyebrow: 'Getting here',
   locationBodyDefault:
     '~65 km from Bangalore—farm roads, mango groves, and a quiet reset.',
   locationBulletsDefault: [
@@ -321,8 +368,9 @@ Mention breed and temperament when you book so we ready the right greeting; then
     '35 km from Ramanagara',
     'Well-connected roads all the way',
   ],
-  amenitiesTitle: 'Amenities',
-  amenitiesIntroDefault: '',
+  amenitiesTitle: 'Amenities at Mavu Days',
+  amenitiesIntroDefault: 'Simple comforts that honour privacy and outdoors time.',
+  amenitiesEyebrow: 'Comforts included',
   amenitiesDefault: [
     'Wi-Fi',
     'AC Bedrooms',
@@ -338,6 +386,7 @@ Mention breed and temperament when you book so we ready the right greeting; then
   houseRulesTitle: 'Before You Book',
   houseRulesIntroDefault:
     'Mavu Days is designed as a peaceful farm stay. To keep the experience comfortable for all guests and respectful to the land, please review the stay guidelines before booking.',
+  houseRulesEyebrow: 'Please read first',
   houseRules: [
     { title: 'Peaceful Stay', text: 'Suited for quiet getaways and family stays. Loud music and disruptive gatherings may not be allowed.' },
     { title: 'Respect the Farm', text: 'Please treat trees, outdoor areas, and surroundings with care.' },
@@ -351,6 +400,7 @@ Mention breed and temperament when you book so we ready the right greeting; then
   ],
   reviewsTitle: 'Guest Moments at Mavu Days',
   reviewsIntroDefault: 'Stories from travellers who chased quiet—and found it.',
+  reviewsEyebrow: 'Guest love',
   reviewQuotes: [
     'Peaceful, private, and exactly what we needed for a weekend away from Bangalore.',
     'A beautiful farm setting with enough space for the family to relax and unwind.',
@@ -359,6 +409,7 @@ Mention breed and temperament when you book so we ready the right greeting; then
   seoTitle: 'A Private Farm Stay Near Bangalore for Slow Weekends',
   seoBodyDefault: `Mavu Days is a mango farm getaway roughly 65 km from Bengaluru blending 1BHK, 2BHK, or full-property availability for guests craving privacy and nature—not resort crowds.\n\nTravellers often find us searching for Bangalore farm stays, quiet villa weekends, mango farm bungalows, or family homestead stays within a comfortable Saturday drive.`,
   faqTitle: 'Frequently Asked Questions',
+  faqEyebrow: 'Common questions',
   faqs: [
     {
       q: 'Where is Mavu Days located?',
@@ -686,22 +737,30 @@ export function mergeLandingContent(payload: LandingMergePayload): MergedLanding
 
   dm.availabilityTitle = pick(SECTION_KEY.availabilityTitle, dm.availabilityTitle);
   dm.availabilitySubtitle = pick(SECTION_KEY.availabilityIntro, dm.availabilitySubtitle);
+  dm.availabilityEyebrow = pick(SECTION_KEY.availabilityEyebrow, dm.availabilityEyebrow);
   dm.staysTitle = pick(SECTION_KEY.staysTitle, dm.staysTitle);
   dm.staysSubtitle = pick(SECTION_KEY.staysIntro, dm.staysSubtitle);
+  dm.staysEyebrow = pick(SECTION_KEY.staysEyebrow, dm.staysEyebrow);
+
   dm.whyTitle = pick(SECTION_KEY.whyTitle, dm.whyTitle);
   dm.whyIntro = pick(SECTION_KEY.whyIntro, dm.whyIntro);
+  dm.experienceEyebrow = pick(SECTION_KEY.experienceEyebrow, dm.experienceEyebrow);
 
   dm.whyBlocks = parseWhyBlocks(sm.get(SECTION_KEY.whyBlocksJson)?.bodyMarkdown, dm.whyBlocks);
 
+  dm.experienceStoryEyebrow = pick(SECTION_KEY.experienceStoryEyebrow, dm.experienceStoryEyebrow);
+  dm.experienceRhythmEyebrow = pick(SECTION_KEY.experienceRhythmEyebrow, dm.experienceRhythmEyebrow);
   dm.experienceTitle = pick(SECTION_KEY.experienceTitle, dm.experienceTitle);
   dm.experienceBodyDefault = pick(SECTION_KEY.experienceBody, dm.experienceBodyDefault);
   dm.tiles = parseLineList(pick(SECTION_KEY.experienceTiles, dm.tiles.join('\n')), dm.tiles);
 
   dm.galleryTitle = pick(SECTION_KEY.galleryTitle, dm.galleryTitle);
   dm.galleryIntroDefault = pick(SECTION_KEY.galleryIntro, dm.galleryIntroDefault);
+  dm.galleryEyebrow = pick(SECTION_KEY.galleryEyebrow, dm.galleryEyebrow);
 
   dm.whoTitle = pick(SECTION_KEY.whoTitle, dm.whoTitle);
   dm.whoIntro = pick(SECTION_KEY.whoForIntro, dm.whoIntro);
+  dm.whoEyebrow = pick(SECTION_KEY.whoEyebrow, dm.whoEyebrow);
   dm.whoCards = parseWhoCards(sm.get(SECTION_KEY.whoCardsJson)?.bodyMarkdown, dm.whoCards);
 
   dm.petFriendlyEyebrow = pick(SECTION_KEY.petFriendlyEyebrow, dm.petFriendlyEyebrow);
@@ -711,6 +770,7 @@ export function mergeLandingContent(payload: LandingMergePayload): MergedLanding
 
   dm.locationTitle = pick(SECTION_KEY.locationTitle, dm.locationTitle);
   dm.locationBodyDefault = pick(SECTION_KEY.locationBody, dm.locationBodyDefault);
+  dm.locationEyebrow = pick(SECTION_KEY.locationEyebrow, dm.locationEyebrow);
   dm.locationBulletsDefault = parseLineList(
     pick(SECTION_KEY.locationBullets, dm.locationBulletsDefault.join('\n')),
     dm.locationBulletsDefault,
@@ -718,6 +778,7 @@ export function mergeLandingContent(payload: LandingMergePayload): MergedLanding
 
   dm.amenitiesTitle = pick(SECTION_KEY.amenitiesTitle, dm.amenitiesTitle);
   dm.amenitiesIntroDefault = pick(SECTION_KEY.amenitiesIntro, dm.amenitiesIntroDefault);
+  dm.amenitiesEyebrow = pick(SECTION_KEY.amenitiesEyebrow, dm.amenitiesEyebrow);
 
   dm.amenitiesDefault = parseLineList(pick(SECTION_KEY.amenitiesList, dm.amenitiesDefault.join('\n')), dm.amenitiesDefault);
 
@@ -726,13 +787,16 @@ export function mergeLandingContent(payload: LandingMergePayload): MergedLanding
 
   dm.houseRulesTitle = pick(SECTION_KEY.houseRulesTitle, dm.houseRulesTitle);
   dm.houseRulesIntroDefault = pick(SECTION_KEY.houseRulesIntro, dm.houseRulesIntroDefault);
+  dm.houseRulesEyebrow = pick(SECTION_KEY.houseRulesEyebrow, dm.houseRulesEyebrow);
   dm.houseRules = parseHouseRules(sm.get(SECTION_KEY.houseRulesJson)?.bodyMarkdown, dm.houseRules);
 
   dm.reviewsTitle = pick(SECTION_KEY.reviewsTitle, dm.reviewsTitle);
   dm.reviewsIntroDefault = pick(SECTION_KEY.reviewsIntro, dm.reviewsIntroDefault);
+  dm.reviewsEyebrow = pick(SECTION_KEY.reviewsEyebrow, dm.reviewsEyebrow);
   dm.reviewQuotes = parseLineList(pick(SECTION_KEY.reviewQuotes, dm.reviewQuotes.join('\n')), dm.reviewQuotes);
 
   dm.faqTitle = pick(SECTION_KEY.faqTitle, dm.faqTitle);
+  dm.faqEyebrow = pick(SECTION_KEY.faqEyebrow, dm.faqEyebrow);
   dm.faqs = parseFaqs(sm.get(SECTION_KEY.faqsJson)?.bodyMarkdown, dm.faqs);
 
   dm.seoTitle = pick(SECTION_KEY.seoTitle, dm.seoTitle);

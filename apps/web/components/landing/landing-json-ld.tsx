@@ -48,7 +48,7 @@ export function LandingJsonLd({ texts, path, imageUrl, lodgingName, lodgingRevie
   if (imageUrl?.trim()) lodging.image = imageUrl;
 
   if (lodgingReviews.length > 0) {
-    const shown = lodgingReviews.slice(0, 8);
+    const shown = lodgingReviews.slice(0, 24);
     let sum = 0;
     const reviewNodes = shown.map((r) => {
       sum += r.rating;

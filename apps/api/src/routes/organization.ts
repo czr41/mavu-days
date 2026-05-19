@@ -18,6 +18,7 @@ import { confirmPendingBooking, upsertConfirmedBooking } from '../services/booki
 import { syncInboundIcals } from '../services/ical-sync.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { fetchAirbnbListingImageCandidates } from '../services/airbnb-listing-images.js';
+import { pickFirstPublishedAirbnbListingUrl, syncExternalGuestReviews } from '../services/external-reviews-sync.js';
 
 type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
   include: {
@@ -759,20 +760,87 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const row = await app.prisma.orgSiteSettings.findUnique({ where: { organizationId: m.organizationId } });
-    return reply.send({ homepageKind: row?.homepageKind ?? OrgHomepageKind.LISTING_GRID });
+    return reply.send({
+      homepageKind: row?.homepageKind ?? OrgHomepageKind.LISTING_GRID,
+      googlePlaceId: row?.googlePlaceId ?? '',
+      airbnbReviewsListingUrl: row?.airbnbReviewsListingUrl ?? '',
+    });
   });
 
   app.patch('/orgs/:orgSlug/cms/site-settings', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, opsRoles);
     if (!m) return;
-    const body = z.object({ homepageKind: z.nativeEnum(OrgHomepageKind) }).safeParse(req.body);
-    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    const patchSchema = z
+      .object({
+        homepageKind: z.nativeEnum(OrgHomepageKind).optional(),
+        googlePlaceId: z.union([z.string(), z.literal('')]).nullable().optional(),
+        airbnbReviewsListingUrl: z.union([z.string(), z.literal('')]).nullable().optional(),
+      })
+      .refine((data) => data.homepageKind != null || data.googlePlaceId !== undefined || data.airbnbReviewsListingUrl !== undefined, {
+        message: 'Provide homepageKind or at least one review sync field.',
+      })
+      .safeParse(req.body);
+    if (!patchSchema.success) return reply.status(400).send({ error: patchSchema.error.flatten() });
+    const p = patchSchema.data;
+    const cur = await app.prisma.orgSiteSettings.findUnique({
+      where: { organizationId: m.organizationId },
+    });
+
+    let googlePatch: string | null | undefined;
+    if (p.googlePlaceId === undefined) googlePatch = undefined;
+    else if (p.googlePlaceId === null) googlePatch = null;
+    else {
+      const trimmed = typeof p.googlePlaceId === 'string' ? p.googlePlaceId.trim() : '';
+      googlePatch = trimmed.length === 0 ? null : trimmed;
+    }
+    const gpStored = googlePatch === undefined ? cur?.googlePlaceId ?? null : googlePatch;
+
+    let airbnbPatch: string | null | undefined;
+    if (p.airbnbReviewsListingUrl === undefined) airbnbPatch = undefined;
+    else if (typeof p.airbnbReviewsListingUrl === 'string') {
+      const t = p.airbnbReviewsListingUrl.trim();
+      airbnbPatch = t === '' ? null : t;
+    } else airbnbPatch = null;
+
+    if (typeof airbnbPatch === 'string' && airbnbPatch.length > 10) {
+      try {
+        // eslint-disable-next-line no-new
+        new URL(airbnbPatch);
+      } catch {
+        return reply.status(400).send({ error: 'airbnbReviewsListingUrl must be a valid HTTP(S) URL or empty.' });
+      }
+      if (!/airbnb\.|abnb/i.test(airbnbPatch)) {
+        return reply.status(400).send({
+          error: 'airbnbReviewsListingUrl should point to an Airbnb listing (airbnb.co / airbnb.com).',
+        });
+      }
+    }
+    const airbnbStored = airbnbPatch === undefined ? cur?.airbnbReviewsListingUrl ?? null : airbnbPatch;
+    const homepageNext = p.homepageKind ?? cur?.homepageKind ?? OrgHomepageKind.LISTING_GRID;
+
     await app.prisma.orgSiteSettings.upsert({
       where: { organizationId: m.organizationId },
-      create: { organizationId: m.organizationId, homepageKind: body.data.homepageKind },
-      update: { homepageKind: body.data.homepageKind },
+      create: {
+        organizationId: m.organizationId,
+        homepageKind: homepageNext,
+        googlePlaceId: gpStored ?? null,
+        airbnbReviewsListingUrl: airbnbStored ?? null,
+      },
+      update: {
+        homepageKind: homepageNext,
+        ...(googlePatch !== undefined ? { googlePlaceId: googlePatch ?? null } : {}),
+        ...(airbnbPatch !== undefined ? { airbnbReviewsListingUrl: airbnbPatch ?? null } : {}),
+      },
     });
-    return reply.send({ ok: true, homepageKind: body.data.homepageKind });
+    const rowAfter = await app.prisma.orgSiteSettings.findUnique({
+      where: { organizationId: m.organizationId },
+    });
+    return reply.send({
+      ok: true,
+      homepageKind: rowAfter?.homepageKind ?? OrgHomepageKind.LISTING_GRID,
+      googlePlaceId: rowAfter?.googlePlaceId ?? '',
+      airbnbReviewsListingUrl: rowAfter?.airbnbReviewsListingUrl ?? '',
+    });
   });
 
   app.get('/orgs/:orgSlug/cms/unit-listings', async (req, reply) => {
@@ -1237,6 +1305,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           showOnLanding: body.data.showOnLanding,
           pinnedOrder: body.data.pinnedOrder ?? 1000,
           externalId: body.data.externalId ?? null,
+          autoSynced: false,
         },
       });
       return reply.send({ review });
@@ -1289,5 +1358,49 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     });
     if (res.count === 0) return reply.status(404).send({ error: 'Review not found' });
     return reply.send({ ok: true });
+  });
+
+  app.post('/orgs/:orgSlug/cms/reviews/sync-external', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const orgPayload = await app.prisma.organization.findFirst({
+      where: { id: m.organizationId },
+      select: {
+        siteSettings: {
+          select: { googlePlaceId: true, airbnbReviewsListingUrl: true },
+        },
+        properties: {
+          select: {
+            units: {
+              select: {
+                listingProfile: {
+                  select: { published: true, airbnbListingUrl: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const fallbackAirbnb = pickFirstPublishedAirbnbListingUrl(orgPayload);
+    const gs = orgPayload?.siteSettings;
+    const googleKey =
+      typeof process.env.GOOGLE_PLACES_API_KEY === 'string' ? process.env.GOOGLE_PLACES_API_KEY.trim() : '';
+    const altGoogleKey =
+      typeof process.env.GOOGLE_MAPS_API_KEY === 'string' ? process.env.GOOGLE_MAPS_API_KEY.trim() : '';
+    const outKey = typeof process.env.OUTSCRAPER_API_KEY === 'string' ? process.env.OUTSCRAPER_API_KEY.trim() : '';
+
+    const result = await syncExternalGuestReviews(app.prisma, {
+      organizationId: m.organizationId,
+      googlePlaceId: gs?.googlePlaceId,
+      airbnbReviewsListingUrl: gs?.airbnbReviewsListingUrl,
+      fallbackAirbnbListingUrl: fallbackAirbnb,
+      googleApiKey: googleKey.length > 10 ? googleKey : altGoogleKey.length > 10 ? altGoogleKey : undefined,
+      outscraperApiKey: outKey.length > 10 ? outKey : undefined,
+    });
+
+    app.log.debug({ tag: 'review-sync-external', orgId: m.organizationId, ok: result.ok, createdCount: result.createdCount });
+    const statusCode = result.ok ? 200 : 502;
+    return reply.status(statusCode).send(result);
   });
 }

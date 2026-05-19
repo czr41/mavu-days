@@ -50,9 +50,18 @@ type Booking = {
 };
 
 type GuestReview = {
-  id: string; platform: string; rating: number; ratingMax: number;
-  guestDisplayName: string | null; title: string | null; body: string;
-  reviewedAt: string | null; showOnLanding: boolean; pinnedOrder: number; externalId: string | null;
+  id: string;
+  platform: string;
+  rating: number;
+  ratingMax: number;
+  guestDisplayName: string | null;
+  title: string | null;
+  body: string;
+  reviewedAt: string | null;
+  showOnLanding: boolean;
+  pinnedOrder: number;
+  externalId: string | null;
+  autoSynced?: boolean;
 };
 
 type SiteSection = { id: string; key: string; title: string; bodyMarkdown: string; sortOrder: number; published: boolean };
@@ -846,6 +855,10 @@ export default function OrgAdminPage() {
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null);
   const [busy, setBusy]           = useState(false);
   const [homepageKind, setHomepageKind] = useState<'LISTING_GRID' | 'MATRIX_THREE_SKU'>('LISTING_GRID');
+  const [googlePlaceId, setGooglePlaceId] = useState('');
+  const [airbnbReviewsListingUrl, setAirbnbReviewsListingUrl] = useState('');
+  const [reviewSyncBusy, setReviewSyncBusy] = useState(false);
+  const [reviewsConnBusy, setReviewsConnBusy] = useState(false);
   const [unitBundles, setUnitBundles] = useState<UnitListingBundle[]>([]);
   const [listingEditUnitId, setListingEditUnitId] = useState<string | null>(null);
   const [listingDraft, setListingDraft] = useState<ListingDraftState | null>(null);
@@ -961,9 +974,57 @@ export default function OrgAdminPage() {
   }, [apiFetch, base]);
 
   const loadSiteSettings = useCallback(async () => {
-    const d = await apiFetch<{ homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' }>(`${base}/cms/site-settings`);
-    if (d?.homepageKind) setHomepageKind(d.homepageKind);
+    const d = await apiFetch<{
+      homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU';
+      googlePlaceId?: string;
+      airbnbReviewsListingUrl?: string;
+    }>(`${base}/cms/site-settings`);
+    if (!d) return;
+    if (d.homepageKind) setHomepageKind(d.homepageKind);
+    if (typeof d.googlePlaceId === 'string') setGooglePlaceId(d.googlePlaceId);
+    if (typeof d.airbnbReviewsListingUrl === 'string') setAirbnbReviewsListingUrl(d.airbnbReviewsListingUrl);
   }, [apiFetch, base]);
+
+  const syncLandingReviewsExternal = useCallback(async () => {
+    setReviewSyncBusy(true);
+    try {
+      const res = await fetch(`${api}${base}/cms/reviews/sync-external`, {
+        method: 'POST',
+        headers: ah(),
+      });
+      const j = (await res.json().catch(() => ({}))) as Partial<{
+        ok: boolean;
+        warnings: string[];
+        errors: unknown;
+        landingVisibleCount: number;
+        createdCount: number;
+        googleFetched: number;
+        airbnbFetched: number;
+      }>;
+      const warningsLine =
+        Array.isArray(j.warnings) && j.warnings.length ? ` Warnings: ${j.warnings.join(' · ')}` : '';
+      const errTxt = Array.isArray(j.errors)
+        ? j.errors.map((e) => (typeof e === 'string' ? e : JSON.stringify(e))).join(' · ')
+        : typeof j.errors === 'string'
+          ? j.errors
+          : '';
+
+      if (!res.ok || j.ok !== true) {
+        notify(`${errTxt || `Sync failed (${res.status})`}${warningsLine}`.trim(), false);
+        return;
+      }
+
+      notify(
+        `Imported ${String(j.createdCount ?? 0)} positive reviews (${String(j.googleFetched ?? 0)} Google rows sampled, ${String(j.airbnbFetched ?? 0)} Airbnb rows sampled). Scrolling strip shows ${String(j.landingVisibleCount ?? 0)} (4★+ only).${warningsLine}`,
+        true,
+      );
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Review sync failed', false);
+    } finally {
+      setReviewSyncBusy(false);
+      await loadRev();
+    }
+  }, [api, base, ah, loadRev, notify]);
 
   const loadAirbnb = useCallback(async () => {
     const d = await apiFetch<{ accounts: AirbnbHostAccountRow[] }>(`${base}/airbnb-host-accounts`);
@@ -993,6 +1054,11 @@ export default function OrgAdminPage() {
     if (tab !== 'bookings') return;
     void loadBk();
   }, [slug, tab, loadBk]);
+
+  useEffect(() => {
+    if (!slug) return;
+    if (tab === 'reviews') void loadSiteSettings();
+  }, [slug, tab, loadSiteSettings]);
 
   useEffect(() => {
     if (!slug) return;
@@ -1469,6 +1535,96 @@ export default function OrgAdminPage() {
 
   const TabReviews = (
     <>
+      <div className="adm-card" style={{ marginBottom: '1.25rem', borderLeft: '4px solid #b8983c' }}>
+        <div className="adm-card-header">
+          <h2 className="adm-card-title">Review sync connections</h2>
+        </div>
+        <div className="adm-card-body" style={{ fontSize: '0.875rem', lineHeight: 1.58, color: '#374151' }}>
+          <p style={{ marginTop: 0, color: '#4B5563' }}>
+            These values tell the Fastify API where to read guest reviews when you tap <strong>Sync reviews now</strong> below.
+            Secrets (<code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_PLACES_API_KEY</code>,
+            optionally <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>OUTSCRAPER_API_KEY</code>,
+            fallback <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_MAPS_API_KEY</code>)
+            belong on the API server (.env)—they are never stored in CMS.
+          </p>
+          <ul style={{ margin: '0 0 1rem 1rem', padding: 0, color: '#4B5563' }}>
+            <li>
+              <strong>Google Maps</strong> — paste your business <strong>Place ID</strong> (letters like <code style={{ fontSize: '0.82em', background: '#fff' }}>ChIJ…</code>). Find it in{' '}
+              <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer">Google Place ID Finder</a> or{' '}
+              Google Maps → your listing → Share → shortened link details.
+            </li>
+            <li>
+              <strong>Airbnb</strong> — optional full listing URL (<code style={{ fontSize: '0.82em', background: '#fff' }}>airbnb.com/rooms/…</code>). Leave blank to reuse the{' '}
+              <strong>first published stay&apos;s Airbnb URL</strong> from Host &amp; listings. Without{' '}
+              <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>OUTSCRAPER_API_KEY</code> on the API, sync tries to read reviews from that page&apos;s embedded data (often empty); Outscraper is the reliable route.
+            </li>
+          </ul>
+          <div className="adm-form-grid">
+            <div className="adm-field adm-field-full">
+              <label className="adm-label">Google Place ID</label>
+              <input
+                className="adm-input"
+                placeholder="ChIJ..."
+                value={googlePlaceId}
+                onChange={(e) => setGooglePlaceId(e.target.value)}
+                disabled={reviewsConnBusy}
+              />
+            </div>
+            <div className="adm-field adm-field-full">
+              <label className="adm-label">Airbnb listing URL (optional override)</label>
+              <input
+                className="adm-input"
+                placeholder="https://www.airbnb.com/rooms/…"
+                value={airbnbReviewsListingUrl}
+                onChange={(e) => setAirbnbReviewsListingUrl(e.target.value)}
+                disabled={reviewsConnBusy}
+              />
+            </div>
+          </div>
+          <button
+            className="adm-btn adm-btn-primary"
+            style={{ marginTop: '1rem' }}
+            type="button"
+            disabled={reviewsConnBusy || busy}
+            onClick={async () => {
+              setReviewsConnBusy(true);
+              const r = await apiFetch<{ ok?: boolean }>(`${base}/cms/site-settings`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                  googlePlaceId: googlePlaceId.trim(),
+                  airbnbReviewsListingUrl: airbnbReviewsListingUrl.trim(),
+                }),
+              });
+              setReviewsConnBusy(false);
+              if (!r) return;
+              await loadSiteSettings();
+              notify('Review sync connections saved.');
+            }}
+          >
+            Save Google &amp; Airbnb connection
+          </button>
+        </div>
+      </div>
+
+      <div className="adm-card" style={{ marginBottom: '1.25rem' }}>
+        <div className="adm-card-header"><h2 className="adm-card-title">Pull Google &amp; Airbnb reviews</h2></div>
+        <div className="adm-card-body" style={{ fontSize: '0.84rem', lineHeight: 1.55, color: '#4B5563' }}>
+          <p style={{ marginTop: 0 }}>
+            After <strong>saving connections</strong> above and configuring API secrets on the server, run a pull. Imported rows are roughly{' '}
+            <strong>4★+</strong> excerpts (horizontal strip on the homepage, up to ~96 quotes). Rows tagged <strong>synced</strong> refresh on each pull;
+            handwritten reviews stay.
+          </p>
+          <button
+            type="button"
+            className="adm-btn adm-btn-primary"
+            disabled={reviewSyncBusy || busy || reviewsConnBusy}
+            onClick={() => void syncLandingReviewsExternal()}
+          >
+            {reviewSyncBusy ? 'Pulling reviews…' : 'Sync reviews now'}
+          </button>
+        </div>
+      </div>
+
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
         <div className="adm-card-header">
           <h2 className="adm-card-title">Reviews ({reviews.filter(r=>r.showOnLanding).length} visible on landing)</h2>
@@ -1505,7 +1661,10 @@ export default function OrgAdminPage() {
                     <span className="adm-badge adm-badge-blue">{PLT_LABEL[r.platform]??r.platform}</span>
                     <span className="adm-review-stars">{'★'.repeat(r.rating)}{'☆'.repeat(Math.max(0,r.ratingMax-r.rating))}</span>
                     {r.guestDisplayName&&<strong style={{fontSize:'0.875rem'}}>{r.guestDisplayName}</strong>}
-                    {!r.showOnLanding&&<span className="adm-badge adm-badge-yellow">Hidden</span>}
+                    {!r.showOnLanding && <span className="adm-badge adm-badge-yellow">Hidden</span>}
+                    {r.autoSynced ? (
+                      <span className="adm-badge adm-badge-gray">synced</span>
+                    ) : null}
                     <span className="adm-badge adm-badge-gray">pin {r.pinnedOrder}</span>
                   </div>
                   <div style={{display:'flex',gap:'0.5rem'}}>
@@ -1609,9 +1768,19 @@ export default function OrgAdminPage() {
                 <option value="MATRIX_THREE_SKU">Three-SKU matrix (single compound)</option>
               </select>
             </div>
-            <button className="adm-btn adm-btn-primary" type="button" disabled={busy} onClick={async()=>{
+            <div className="adm-alert adm-alert-info" style={{ fontSize: '0.84rem', lineHeight: 1.55 }}>
+              Pulling reviews from Google Maps or Airbnb into the homepage strip—Place ID, Airbnb URL overrides, and the sync button—live under{' '}
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>
+                Guest Reviews → Review sync connections
+              </button>
+              .
+            </div>
+            <button className="adm-btn adm-btn-primary" type="button" disabled={busy} onClick={async () => {
               setBusy(true);
-              const r = await apiFetch(`${base}/cms/site-settings`,{method:'PATCH',body:JSON.stringify({homepageKind})});
+              const r = await apiFetch<{ ok?: boolean }>(`${base}/cms/site-settings`, {
+                method: 'PATCH',
+                body: JSON.stringify({ homepageKind }),
+              });
               setBusy(false);
               if (!r) return;
               notify('Homepage layout saved.');

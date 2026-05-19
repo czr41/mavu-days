@@ -67,6 +67,10 @@ model OrgSiteSettings {
   id               String          @id @default(uuid())
   organizationId   String          @unique
   homepageKind     OrgHomepageKind @default(LISTING_GRID)
+  /// Google Maps Place ID (e.g. ChIJ…) for syncing Google Maps reviews via Places API (server key).
+  googlePlaceId            String?
+  /// Optional Airbnb listing URL override for review sync (defaults to first published unit’s Airbnb URL).
+  airbnbReviewsListingUrl  String?
   updatedAt        DateTime        @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -420,6 +424,8 @@ model GuestReview {
   pinnedOrder      Int            @default(1000)
   externalId       String?
   syncedAt         DateTime?
+  /// When true, row was populated by CMS “sync external reviews” and is replaced on the next sync.
+  autoSynced       Boolean        @default(false)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

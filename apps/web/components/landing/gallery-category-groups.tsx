@@ -147,7 +147,7 @@ export function GalleryFullView({
     <div className="md-gallery-full-page">
       <div className="md-wrap">
         <header className="md-gallery-full-head">
-          <p className="md-gallery-bento-eyeb">Photo gallery</p>
+          <p className="md-section-label md-section-label-left">Around the homestead</p>
           <h1 className="md-h1">{orgName ? `${orgName} — Gallery` : 'Gallery'}</h1>
           <p className="md-lead md-lead-tight">
             <Link href="/#gallery" className="md-link">

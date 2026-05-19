@@ -7,11 +7,13 @@ import {
 import { loadLandingPayload } from '@/lib/landing-data';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { AvailabilitySearch } from '@/components/landing/availability-search';
+import { LandingSectionHead } from '@/components/landing/landing-section-head';
 import { HeroReveal } from '@/components/landing/hero-reveal';
 import { FeatureGlyph, WhoGlyph } from '@/components/landing/landing-glyphs';
 import { OffersTicker } from '@/components/landing/offers-ticker';
 import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
+import { GuestReviewStars } from '@/components/landing/guest-review-stars';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
 
 type Path = '/' | '/farm-stay-near-bangalore';
@@ -46,6 +48,9 @@ export async function LandingView({ path }: { path: Path }) {
           ...merged.texts.listings.map((L) => ({ value: listingUrlPath(L), label: L.title })),
         ];
   const hasImportedReviews = landingReviews.length > 0;
+  const reviewSectionHasPlatforms = landingReviews.some(
+    (r) => r.platform === 'GOOGLE' || r.platform === 'AIRBNB',
+  );
   const t = merged.texts;
   const phone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.replace(/\D/g, '') ?? '';
   const email = process.env.NEXT_PUBLIC_BOOKING_EMAIL?.trim() ?? '';
@@ -207,6 +212,7 @@ export async function LandingView({ path }: { path: Path }) {
 
         <AvailabilitySearch
           orgSlug={orgSlug}
+          availabilityEyebrow={t.availabilityEyebrow}
           availabilityTitle={t.availabilityTitle}
           availabilitySubtitle={t.availabilitySubtitle}
           whatsappDigits={phone}
@@ -216,11 +222,16 @@ export async function LandingView({ path }: { path: Path }) {
 
         <RevealSection className="md-section md-section-cream" id="stays">
           <div className="md-wrap">
-            <header className="md-section-head md-section-head-center">
-              <p className="md-eyebrow-line md-section-label">Choose Your Stay</p>
-              <h2 className="md-h2">{t.staysTitle || 'Find the Stay That Fits'}</h2>
-              <p className="md-lead">{t.staysSubtitle || 'Three ways to experience Mavu Days\u2014cosy, spacious, or the whole farm to yourself.'}</p>
-            </header>
+            <LandingSectionHead
+              eyebrow={t.staysEyebrow}
+              title={<h2 className="md-h2">{t.staysTitle || 'Find the Stay That Fits'}</h2>}
+              lead={
+                <p className="md-lead">
+                  {t.staysSubtitle ||
+                    'Three ways to experience Mavu Days\u2014cosy, spacious, or the whole farm to yourself.'}
+                </p>
+              }
+            />
             <div className="md-stay-grid">
               {t.listings.map((L, idx) => {
                 const pathSeg = listingUrlPath(L);
@@ -315,69 +326,104 @@ export async function LandingView({ path }: { path: Path }) {
 
         <RevealSection className="md-section md-section-cream md-experience-unified" id="experience">
           <div className="md-wrap">
-            <header className="md-section-head md-section-head-center">
-              <p className="md-eyebrow-line md-section-label">Experiences</p>
-              <h2 className="md-h2">{t.whyTitle || 'What Awaits You'}</h2>
-              <p className="md-lead">{t.whyIntro || 'More than a stay\u2014a full sensory reconnection with nature and slow living.'}</p>
-            </header>
+            <LandingSectionHead
+              eyebrow={t.experienceEyebrow}
+              title={<h2 className="md-h2">{t.whyTitle || 'What Awaits You'}</h2>}
+              lead={
+                <p className="md-lead">{t.whyIntro || 'More than a stay\u2014a full sensory reconnection with nature and slow living.'}</p>
+              }
+            />
 
-            <div className="md-feature-flip-grid" aria-label="What makes this stay unique">
+            <div className="md-feature-grid md-experience-usp-grid" aria-label="What makes this stay unique">
               {t.whyBlocks.map((b, fi) => (
-                <article key={b.title} className="md-feature-flip" tabIndex={0}>
-                  <span className="md-sr-only">
-                    {b.title}. {b.text}
-                  </span>
-                  <div className="md-feature-flip-inner">
-                    <div className="md-feature-flip-face md-feature-flip-front">
-                      <span className="md-feature-flip-icon" aria-hidden>
-                        <FeatureGlyph index={fi} />
-                      </span>
+                <RevealArticle key={b.title} delayIndex={fi} className="md-feature md-feature--usp">
+                  <div className="md-feature-head">
+                    <div className="md-feature-icon-wrap md-glyph" aria-hidden>
+                      <FeatureGlyph index={fi} />
                     </div>
-                    <div className="md-feature-flip-face md-feature-flip-back" aria-hidden>
-                      <h3 className="md-feature-flip-title">{b.title}</h3>
-                      <p className="md-feature-flip-copy">{b.text}</p>
-                    </div>
+                    <h3 className="md-h4 md-feature-title">{b.title}</h3>
                   </div>
-                </article>
+                  <p className="md-feature-copy md-feature-copy--usp">{b.text}</p>
+                </RevealArticle>
               ))}
             </div>
 
-            <div className="md-day-at-mavu" id="day-at-mavu" aria-labelledby="day-at-mavu-heading">
-              {(t.experienceTitle || '').trim() ? (
-                <p className="md-day-at-mavu-kicker">{t.experienceTitle}</p>
-              ) : null}
-              <h3 id="day-at-mavu-heading" className="md-day-at-mavu-title">
-                What a day at Mavu Days feels like
-              </h3>
-              <div className="md-day-at-mavu-body">
-                <p className="md-body md-prose md-day-at-mavu-lead">
-                  {t.experienceBodyDefault ||
-                    'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breathe\u2014your unrushed farm day.'}
-                </p>
-                {t.tiles?.length ? (
-                  <ul className="md-day-at-mavu-tiles">
-                    {t.tiles.slice(0, 5).map((tile) => (
-                      <li key={tile}>{tile}</li>
-                    ))}
-                  </ul>
-                ) : null}
+            <div className="md-day-at-mavu md-day-at-mavu--split" id="day-at-mavu">
+              <div className="md-day-at-mavu-split-inner">
+                <div className="md-day-at-mavu-story">
+                  {(t.experienceStoryEyebrow || '').trim() ? (
+                    <p className="md-section-label md-section-label-left md-day-at-mavu-story-eyebrow">
+                      {t.experienceStoryEyebrow}
+                    </p>
+                  ) : null}
+                  <h3 id="day-at-mavu-heading" className="md-day-at-mavu-title md-day-at-mavu-title--story">
+                    {t.experienceStoryHeading}
+                  </h3>
+                  <div className="md-day-at-mavu-body md-day-at-mavu-body--story">
+                    <p className="md-body md-prose">{t.experienceStoryP1}</p>
+                    <p className="md-body md-prose">{t.experienceStoryP2}</p>
+                  </div>
+                  <a className="md-btn md-btn-primary md-day-at-mavu-story-cta" href="#about">
+                    {t.experienceStoryCta}
+                  </a>
+                </div>
+                <figure className="md-day-at-mavu-visual">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={merged.heroImageUrl ?? '/hero.jpg'}
+                    alt="Outdoor seating among mango trees at Mavu Days"
+                    className="md-day-at-mavu-img"
+                    width={960}
+                    height={640}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </figure>
               </div>
-              <div className="md-day-at-mavu-ctas">
-                <a className="md-btn md-btn-primary" href="#booking">
-                  Book now
-                </a>
-                <a
-                  className="md-btn md-btn-secondary"
-                  href={longStayCtaHref}
-                  {...(longStayCtaHref.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
-                >
-                  Get special price on long stay
-                </a>
-              </div>
-              <div className="md-day-at-mavu-gallery-note">
-                <a href="#gallery" className="md-link md-day-at-mavu-gallery-link">
-                  View gallery {'\u2192'}
-                </a>
+
+              <div className="md-day-at-mavu-tail">
+                <LandingSectionHead
+                  className="md-day-at-mavu-tail-head md-section-head-tight"
+                  eyebrow={t.experienceRhythmEyebrow}
+                  eyebrowDecoration
+                  title={
+                    <h3 id="day-at-mavu-rhythm-heading" className="md-day-at-mavu-rhythm-heading">
+                      {t.experienceTitle}
+                    </h3>
+                  }
+                  lead={
+                    <div className="md-day-at-mavu-body md-day-at-mavu-body--center">
+                      <p className="md-body md-prose md-day-at-mavu-lead">
+                        {t.experienceBodyDefault ||
+                          'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breathe\u2014your unrushed farm day.'}
+                      </p>
+                      {t.tiles?.length ? (
+                        <ul className="md-day-at-mavu-tiles">
+                          {t.tiles.slice(0, 5).map((tile) => (
+                            <li key={tile}>{tile}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  }
+                />
+                <div className="md-day-at-mavu-ctas">
+                  <a className="md-btn md-btn-primary" href="#booking">
+                    Book now
+                  </a>
+                  <a
+                    className="md-btn md-btn-secondary"
+                    href={longStayCtaHref}
+                    {...(longStayCtaHref.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
+                  >
+                    Get special price on long stay
+                  </a>
+                </div>
+                <div className="md-day-at-mavu-gallery-note">
+                  <a href="#gallery" className="md-link md-day-at-mavu-gallery-link">
+                    View gallery {'\u2192'}
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -387,12 +433,18 @@ export async function LandingView({ path }: { path: Path }) {
           <div className="md-wrap">
             <div className="md-gallery-bento-head-row">
               <div className="md-gallery-bento-copy">
-                <h2 className="md-h2 md-gallery-bento-h2">
-                  {t.galleryTitle || 'See the farm before you arrive'}
-                </h2>
-                {(t.galleryIntroDefault ?? '').trim() ? (
-                  <p className="md-lead md-gallery-bento-intro md-lead-tight">{t.galleryIntroDefault}</p>
-                ) : null}
+                <LandingSectionHead
+                  align="left"
+                  eyebrowDecoration={false}
+                  className="md-gallery-bento-section-head md-section-head-tight"
+                  eyebrow={t.galleryEyebrow}
+                  title={<h2 className="md-h2 md-gallery-bento-h2">{t.galleryTitle || 'See the farm before you arrive'}</h2>}
+                  lead={
+                    (t.galleryIntroDefault ?? '').trim() ? (
+                      <p className="md-lead md-gallery-bento-intro md-lead-tight">{t.galleryIntroDefault}</p>
+                    ) : null
+                  }
+                />
               </div>
               <a className="md-gallery-bento-cta-outline" href="/gallery">
                 View full gallery
@@ -409,11 +461,12 @@ export async function LandingView({ path }: { path: Path }) {
         <RevealSection className="md-section md-section-cream md-visit-compact-bundle" id="who">
           <div className="md-wrap">
             <div className="md-visit-chunk md-visit-chunk-who">
-              <header className="md-section-head md-section-head-center md-section-head-tight">
-                <p className="md-eyebrow-line md-section-label">Perfect For</p>
-                <h2 className="md-h2">{t.whoTitle || 'Perfect for Every Kind of Escape'}</h2>
-                {(t.whoIntro ?? '').trim() ? <p className="md-lead md-lead-tight">{t.whoIntro}</p> : null}
-              </header>
+              <LandingSectionHead
+                className="md-section-head-tight"
+                eyebrow={t.whoEyebrow}
+                title={<h2 className="md-h2">{t.whoTitle || 'Perfect for Every Kind of Escape'}</h2>}
+                lead={(t.whoIntro ?? '').trim() ? <p className="md-lead md-lead-tight">{t.whoIntro}</p> : null}
+              />
               <div className="md-who-grid">
                 {t.whoCards.map((c, wi) => (
                   <RevealArticle key={c.title} delayIndex={wi} className="md-who-card">
@@ -430,11 +483,21 @@ export async function LandingView({ path }: { path: Path }) {
             <div className="md-visit-chunk md-visit-chunk-location">
               <div className="md-split-location">
                 <div className="md-location-copy-block">
-                  <h2 className="md-h2 md-location-bundle-title">{t.locationTitle || 'Near Yet Far Enough'}</h2>
-                  <p className="md-lead md-location-tagline md-lead-tight">Easy to reach. Hard to leave.</p>
-                  {(t.locationBodyDefault ?? '').trim() ? (
-                    <p className="md-body md-prose md-location-lead-copy md-prose-tight">{t.locationBodyDefault}</p>
-                  ) : null}
+                  <LandingSectionHead
+                    align="left"
+                    eyebrowDecoration={false}
+                    className="md-location-section-head md-section-head-tight"
+                    eyebrow={t.locationEyebrow}
+                    title={<h2 className="md-h2 md-location-bundle-title">{t.locationTitle || 'Near Yet Far Enough'}</h2>}
+                    lead={
+                      <>
+                        <p className="md-lead md-location-tagline md-lead-tight">Easy to reach. Hard to leave.</p>
+                        {(t.locationBodyDefault ?? '').trim() ? (
+                          <p className="md-body md-prose md-location-lead-copy md-prose-tight">{t.locationBodyDefault}</p>
+                        ) : null}
+                      </>
+                    }
+                  />
                   <ul className="md-location-checklist">
                     {(t.locationBulletsDefault ?? [
                       '65 km from Bangalore (~1.5 hrs drive)',
@@ -479,10 +542,12 @@ export async function LandingView({ path }: { path: Path }) {
             </div>
 
             <div className="md-visit-chunk md-visit-chunk-ameni">
-              <header className="md-section-head md-section-head-center md-amenities-head-tight">
-                <h2 className="md-h2">{t.amenitiesTitle || 'Amenities'}</h2>
-                {t.amenitiesIntroDefault ? <p className="md-lead">{t.amenitiesIntroDefault}</p> : null}
-              </header>
+              <LandingSectionHead
+                className="md-amenities-head-tight"
+                eyebrow={t.amenitiesEyebrow}
+                title={<h2 className="md-h2">{t.amenitiesTitle || 'Amenities'}</h2>}
+                lead={t.amenitiesIntroDefault ? <p className="md-lead">{t.amenitiesIntroDefault}</p> : null}
+              />
               <div className="md-amenities-scroll md-amenities-scroll-bundle">
                 <div className="md-amenities md-amenities-row">
                   {t.amenitiesDefault.map((a, ai) => (
@@ -554,10 +619,17 @@ export async function LandingView({ path }: { path: Path }) {
 
         <RevealSection className="md-section md-section-cream" id="house-rules">
           <div className="md-wrap">
-            <header className="md-section-head">
-              <h2 className="md-h2">{t.houseRulesTitle || 'House Rules'}</h2>
-              <p className="md-lead md-lead-balanced">{t.houseRulesIntroDefault || 'A few simple guidelines to keep the space peaceful for everyone.'}</p>
-            </header>
+            <LandingSectionHead
+              align="left"
+              eyebrowDecoration={false}
+              eyebrow={t.houseRulesEyebrow}
+              title={<h2 className="md-h2">{t.houseRulesTitle || 'House Rules'}</h2>}
+              lead={
+                <p className="md-lead md-lead-balanced">
+                  {t.houseRulesIntroDefault || 'A few simple guidelines to keep the space peaceful for everyone.'}
+                </p>
+              }
+            />
             <div className="md-rules">
               {t.houseRules.map((r, ri) => (
                 <RevealBlock key={r.title} delayIndex={ri} className="md-rule-item">
@@ -574,52 +646,70 @@ export async function LandingView({ path }: { path: Path }) {
 
         <RevealSection className="md-section" id="reviews">
           <div className="md-wrap">
-            <header className="md-section-head md-section-head-center">
-              <p className="md-eyebrow-line md-section-label">Guest Love</p>
-              <h2 className="md-h2">{t.reviewsTitle || 'What Our Guests Say'}</h2>
-              {t.reviewsIntroDefault ? (
-                <p className="md-lead">{t.reviewsIntroDefault}</p>
-              ) : null}
-            </header>
-            <div className="md-review-grid">
-              {hasImportedReviews
-                ? landingReviews.map((r, idx) => (
-                    <RevealFigure key={r.id} delayIndex={idx} className="md-review-card">
-                      <div className="md-review-stars">{'★★★★★'}</div>
-                      <blockquote className="md-quote">
-                        <p>{`"${r.body}"`}</p>
-                      </blockquote>
-                      <div>
-                        <p className="md-reviewer">
-                          {r.guestDisplayName || 'Verified Guest'}
-                          {r.platformLabel ? (
-                            <span className="md-review-platform" style={{ marginLeft: '0.5rem' }}>{r.platformLabel}</span>
-                          ) : null}
-                        </p>
-                      </div>
-                    </RevealFigure>
-                  ))
-                : defaultReviews.map((q, idx) => (
-                    <RevealBlock key={idx} delayIndex={idx} className="md-review-card">
-                      <div className="md-review-stars">{'★★★★★'}</div>
-                      <blockquote className="md-quote">
-                        <p>{`"${q.quote}"`}</p>
-                      </blockquote>
-                      <div>
-                        <p className="md-reviewer">{q.name}</p>
-                        {q.loc ? <p className="md-reviewer-loc">{q.loc}</p> : null}
-                      </div>
-                    </RevealBlock>
-                  ))}
+            <LandingSectionHead
+              eyebrow={t.reviewsEyebrow}
+              title={<h2 className="md-h2">{t.reviewsTitle || 'What Our Guests Say'}</h2>}
+              lead={t.reviewsIntroDefault ? <p className="md-lead">{t.reviewsIntroDefault}</p> : null}
+            />
+            <p className="md-muted md-review-scroller-hint">
+              {hasImportedReviews ? (
+                <>
+                  Showing roughly{' '}
+                  <strong style={{ fontWeight: 600, color: 'var(--heading)' }}>4★+</strong> guest feedback only · drag or
+                  swipe sideways to browse all quotes.
+                </>
+              ) : (
+                <>Drag or swipe sideways to browse guest quotes.</>
+              )}
+            </p>
+            <div className="md-review-scroller-shell">
+              <div className="md-review-scroller" role="region" aria-label="Guest reviews carousel">
+                {hasImportedReviews
+                  ? landingReviews.map((r, idx) => (
+                      <RevealFigure key={r.id} delayIndex={idx} className="md-review-card md-review-scroll-card">
+                        <GuestReviewStars rating={r.rating} ratingMax={r.ratingMax} />
+                        <blockquote className="md-quote">
+                          <p>{`"${r.body}"`}</p>
+                        </blockquote>
+                        <div>
+                          <p className="md-reviewer">
+                            {r.guestDisplayName || 'Verified Guest'}
+                            {r.platformLabel ? (
+                              <span className="md-review-platform" style={{ marginLeft: '0.5rem' }}>{r.platformLabel}</span>
+                            ) : null}
+                          </p>
+                        </div>
+                      </RevealFigure>
+                    ))
+                  : defaultReviews.map((q, idx) => (
+                      <RevealBlock key={idx} delayIndex={idx} className="md-review-card md-review-scroll-card">
+                        <div className="md-review-stars">{'★★★★★'}</div>
+                        <blockquote className="md-quote">
+                          <p>{`"${q.quote}"`}</p>
+                        </blockquote>
+                        <div>
+                          <p className="md-reviewer">{q.name}</p>
+                          {q.loc ? <p className="md-reviewer-loc">{q.loc}</p> : null}
+                        </div>
+                      </RevealBlock>
+                    ))}
+              </div>
             </div>
+            {hasImportedReviews && reviewSectionHasPlatforms ? (
+              <p className="md-muted md-review-source-attrib md-footnote-compact">
+                Many of these excerpts are synced from labeled third-party profiles (Google Maps or Airbnb). Each card shows
+                its source beside the reviewer name.
+              </p>
+            ) : null}
           </div>
         </RevealSection>
 
         <RevealSection className="md-section md-section-cream" id="faqs">
           <div className="md-wrap">
-            <header className="md-section-head md-section-head-center">
-              <h2 className="md-h2">{t.faqTitle || 'Frequently Asked Questions'}</h2>
-            </header>
+            <LandingSectionHead
+              eyebrow={t.faqEyebrow}
+              title={<h2 className="md-h2">{t.faqTitle || 'Frequently Asked Questions'}</h2>}
+            />
             <div className="md-faq-grid">
               {t.faqs.map((f, fi) => (
                 <RevealBlock key={f.q} delayIndex={Math.min(fi, 8)}>

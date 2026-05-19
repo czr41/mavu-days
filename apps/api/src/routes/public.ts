@@ -13,8 +13,7 @@ import {
 } from '../services/landing-availability-matrix.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { buildPublicSitePayload } from '../lib/public-site-dto.js';
-
-const PUBLIC_LANDING_REVIEWS_LIMIT = 12;
+import { PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
 
 type OrgInventoryPayload = Prisma.OrganizationGetPayload<{
   include: {
