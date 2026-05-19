@@ -448,13 +448,25 @@ export async function LandingView({ path }: { path: Path }) {
               />
               <div className="md-who-grid">
                 {t.whoCards.map((c, wi) => (
-                  <RevealArticle key={c.title} delayIndex={wi} className="md-who-card">
-                    <div className="md-who-symbol" aria-hidden>
-                      <WhoGlyph title={c.title} />
+                  <RevealBlock key={c.title} delayIndex={wi} className="md-who-flip-cell">
+                    <div
+                      className="md-feature-flip md-feature-flip--who"
+                      tabIndex={0}
+                      aria-label={`${c.title}. ${c.body}`}
+                    >
+                      <div className="md-feature-flip-inner">
+                        <div className="md-feature-flip-face md-feature-flip-front md-feature-flip-front--who">
+                          <span className="md-feature-flip-icon md-feature-flip-icon--who" aria-hidden>
+                            <WhoGlyph title={c.title} />
+                          </span>
+                          <h3 className="md-feature-flip-front-title md-feature-flip-front-title--who">{c.title}</h3>
+                        </div>
+                        <div className="md-feature-flip-face md-feature-flip-back md-feature-flip-back--who">
+                          <p className="md-feature-flip-copy md-feature-flip-copy--who-back">{c.body}</p>
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="md-h4">{c.title}</h3>
-                    <p className="md-who-snippet">{c.body}</p>
-                  </RevealArticle>
+                  </RevealBlock>
                 ))}
               </div>
             </div>

@@ -215,11 +215,11 @@ export async function StayDetailView({ slug }: Props) {
                 <h2 className="md-stay-detail-section-title">About this Stay</h2>
                 <p className="md-stay-detail-copy">{listing.copy}</p>
               </section>
-              {galleryThumbs.length > 0 ? (
-                <section className="md-stay-detail-section" aria-labelledby="stay-gallery-heading">
-                  <h2 id="stay-gallery-heading" className="md-stay-detail-section-title">
-                    Gallery
-                  </h2>
+              <section className="md-stay-detail-section" aria-labelledby="stay-gallery-heading">
+                <h2 id="stay-gallery-heading" className="md-stay-detail-section-title">
+                  Gallery
+                </h2>
+                {galleryThumbs.length > 0 ? (
                   <div className="md-stay-detail-photo-grid">
                     {galleryThumbs.map((photoUrl, pi) => (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -231,8 +231,23 @@ export async function StayDetailView({ slug }: Props) {
                       />
                     ))}
                   </div>
-                </section>
-              ) : null}
+                ) : (
+                  <div className="md-stay-detail-gallery-fallback">
+                    <p className="md-stay-detail-gallery-fallback-copy">
+                      More photos—from the farm, villas, pool, and evenings—are in our gallery. Above is the curated cover shot
+                      for this stay.
+                    </p>
+                    <div className="md-stay-detail-gallery-fallback-actions">
+                      <Link href="/gallery" className="md-btn md-btn-secondary">
+                        View full gallery →
+                      </Link>
+                      <Link href="/#gallery" className="md-link md-stay-detail-gallery-inline-link">
+                        See gallery on homepage
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </section>
               {listing.highlights?.length ? (
                 <section className="md-stay-detail-section">
                   <h2 className="md-stay-detail-section-title">What&apos;s Included</h2>

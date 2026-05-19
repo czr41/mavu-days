@@ -1636,10 +1636,7 @@ p.md-eyebrow-line {
   min-height: 100%;
 }
 
-.md-experience-unified .md-feature-flip--usp-only {
-  --md-flip-h: clamp(10.75rem, 21vw, 14.25rem);
-}
-
+/** Squarer tiles: height keyed to column-ish viewport; typography uses cqi on .md-feature-flip */
 .md-feature-flip-front--usp {
   gap: clamp(0.45rem, 1.2vw, 0.65rem);
   padding: clamp(0.72rem, 2vw, 1rem) 0.6rem;
@@ -1668,8 +1665,8 @@ p.md-eyebrow-line {
 }
 
 .md-feature-flip--usp-only .md-feature-flip-icon--minimal svg {
-  width: clamp(44px, 7.5vw, 48px);
-  height: clamp(44px, 7.5vw, 48px);
+  width: clamp(36px, 11cqi, 44px);
+  height: clamp(36px, 11cqi, 44px);
   color: rgba(127, 148, 101, 0.92);
 }
 
@@ -1679,16 +1676,61 @@ p.md-eyebrow-line {
   text-align: center;
   align-items: center;
   gap: 0;
-  padding: clamp(0.92rem, 2.2vw, 1.2rem);
+  padding: clamp(0.58rem, 5cqi, 0.92rem);
 }
 
 .md-feature-flip-copy--usp-back {
   margin: 0 auto;
   max-width: min(52ch, 100%);
-  font-size: clamp(0.742rem, 1.38vw, 0.848rem);
+  font-size: clamp(0.65rem, 3.95cqi, 0.82rem);
+  font-weight: 450;
+  line-height: 1.43;
+  color: rgba(46, 59, 41, 0.88);
+  text-wrap: balance;
+}
+
+/** Who it suits — same flip UX as USPs; sizing tuned for longer audience blurbs */
+.md-who-flip-cell {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.md-who-flip-cell .md-feature-flip {
+  flex: 1;
+  width: 100%;
+}
+
+  gap: 0.4rem;
+  padding: 0.65rem 0.45rem;
+  justify-content: center;
+}
+
+.md-feature-flip-icon.md-feature-flip-icon--who svg {
+  width: clamp(40px, 9cqi, 46px);
+  height: clamp(40px, 9cqi, 46px);
+}
+
+.md-feature-flip-front-title--who {
+  -webkit-line-clamp: 3;
+}
+
+.md-feature-flip-back--who {
+  overflow: visible !important;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding: clamp(0.72rem, 2cqi, 1rem) 0.45rem;
+}
+
+.md-feature-flip-copy--who-back {
+  margin: 0;
+  max-width: 100%;
+  font-size: clamp(0.66rem, 4.1cqi, 0.84rem);
   font-weight: 450;
   line-height: 1.44;
-  color: rgba(46, 59, 41, 0.88);
+  color: rgba(46, 59, 41, 0.9);
   text-wrap: balance;
 }
 
@@ -1712,11 +1754,22 @@ p.md-eyebrow-line {
 }
 
 .md-feature-flip {
+  container-type: inline-size;
+  container-name: md-flip;
   --md-flip-h: clamp(7.35rem, 15vw, 9.85rem);
 
   perspective: 1000px;
   outline: none;
   border-radius: var(--radius-md);
+}
+
+/** Per-row tile height overrides (must follow base `.md-feature-flip` — same specificity) */
+.md-experience-unified .md-feature-flip.md-feature-flip--usp-only {
+  --md-flip-h: clamp(8.95rem, min(92vw / 6, 22vmin), 11.05rem);
+}
+
+.md-feature-flip.md-feature-flip--who {
+  --md-flip-h: clamp(9.85rem, min(94vw / 6, 24vmin), 11.95rem);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1835,13 +1888,23 @@ p.md-eyebrow-line {
     min-height: 0;
   }
 
-  /* Taller stack when front carries title + icon */
+  /* Stacked layouts (flip disabled): match squarish tile intent */
   .md-feature-flip--usp-only .md-feature-flip-front--usp {
-    min-height: 8.85rem;
+    min-height: 7rem;
   }
 
   .md-feature-flip--usp-only .md-feature-flip-back--usp {
-    min-height: 6.85rem;
+    min-height: auto;
+    padding-bottom: 0.75rem;
+  }
+
+  .md-feature-flip--who .md-feature-flip-front--who {
+    min-height: 7.25rem;
+  }
+
+  .md-feature-flip--who .md-feature-flip-back--who {
+    min-height: auto;
+    padding-bottom: 0.75rem;
   }
 }
 
@@ -2725,36 +2788,17 @@ p.md-eyebrow-line {
   gap: 1rem;
 }
 
-@media (min-width: 640px)  { .md-who-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1024px) { .md-who-grid { grid-template-columns: repeat(6, 1fr); } }
-
-.md-who-card {
-  padding: 1.5rem 1.1rem;
-  border-radius: var(--radius-md);
-  background: var(--ivory);
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 16px rgba(49,69,45,0.05);
-  text-align: center;
-  transition: box-shadow 0.22s, transform 0.22s;
+@media (min-width: 640px) {
+  .md-who-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
-.md-who-card:hover {
-  box-shadow: var(--shadow-card);
-  transform: translateY(-2px);
-}
-
-.md-who-symbol {
-  color: var(--sage);
-  margin-bottom: 0.65rem;
-  display: flex;
-  justify-content: center;
-}
-
-.md-who-snippet {
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.55;
-  color: var(--body-color);
+@media (min-width: 1024px) {
+  .md-who-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.92rem;
+  }
 }
 
 .md-footnote { margin-top: 1rem; font-size: 0.9rem; }
@@ -2776,8 +2820,7 @@ p.md-eyebrow-line {
   margin-top: 0;
 }
 
-.md-visit-compact-bundle .md-who-card {
-  padding: 1.35rem 1rem;
+.md-visit-compact-bundle .md-feature-flip--who .md-feature-flip-face {
   border-radius: 14px;
   background: #fff;
   border: 1px solid rgba(54, 60, 48, 0.08);
@@ -2786,13 +2829,36 @@ p.md-eyebrow-line {
     0 14px 40px rgba(36, 48, 38, 0.068);
 }
 
-.md-visit-compact-bundle .md-who-snippet {
-  font-size: 0.815rem;
-  line-height: 1.53;
+.md-visit-compact-bundle .md-feature-flip--who .md-feature-flip-icon--who svg {
+  color: rgba(58, 74, 54, 0.9);
 }
 
-.md-visit-compact-bundle .md-who-symbol {
-  color: rgba(58, 74, 54, 0.9);
+@supports not (font-size: 1cqi) {
+  .md-feature-flip-copy--usp-back {
+    font-size: clamp(0.695rem, 1.42vw, 0.815rem);
+  }
+
+  .md-feature-flip-copy--who-back {
+    font-size: clamp(0.705rem, 1.52vw, 0.835rem);
+  }
+
+  .md-feature-flip-back--usp {
+    padding: clamp(0.58rem, 1.5vw, 0.92rem);
+  }
+
+  .md-feature-flip-back--who {
+    padding: 0.75rem 0.48rem;
+  }
+
+  .md-feature-flip--usp-only .md-feature-flip-icon--minimal svg {
+    width: clamp(38px, 6vw, 44px);
+    height: clamp(38px, 6vw, 44px);
+  }
+
+  .md-feature-flip-icon.md-feature-flip-icon--who svg {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 .md-location-bundle-title {
@@ -4950,6 +5016,26 @@ img { max-width: 100%; }
   aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: var(--radius-md, 10px);
+}
+
+.md-stay-detail-gallery-fallback-copy {
+  margin: 0 0 1.1rem;
+  font-size: 0.965rem;
+  line-height: 1.62;
+  color: var(--body-color);
+  max-width: 46ch;
+}
+
+.md-stay-detail-gallery-fallback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+.md-stay-detail-gallery-inline-link {
+  font-weight: 600;
+  font-size: 0.92rem;
 }
 
 .md-stay-detail-highlights {
