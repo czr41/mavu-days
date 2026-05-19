@@ -334,21 +334,31 @@ export async function LandingView({ path }: { path: Path }) {
               }
             />
 
-            <div className="md-feature-grid md-experience-usp-grid" aria-label="What makes this stay unique">
+            <div className="md-feature-flip-grid md-experience-usp-grid" aria-label="What makes this stay unique">
               {t.whyBlocks.map((b, fi) => (
-                <RevealArticle key={b.title} delayIndex={fi} className="md-feature md-feature--usp">
-                  <div className="md-feature-head">
-                    <div className="md-feature-icon-wrap md-glyph" aria-hidden>
-                      <FeatureGlyph index={fi} />
+                <RevealBlock key={b.title} delayIndex={fi} className="md-usp-flip-cell">
+                  <div
+                    className="md-feature-flip md-feature-flip--usp-only"
+                    tabIndex={0}
+                    aria-label={`${b.title}. ${b.text}`}
+                  >
+                    <div className="md-feature-flip-inner">
+                      <div className="md-feature-flip-face md-feature-flip-front" aria-hidden>
+                        <div className="md-feature-flip-icon">
+                          <FeatureGlyph index={fi} />
+                        </div>
+                      </div>
+                      <div className="md-feature-flip-face md-feature-flip-back">
+                        <h3 className="md-feature-flip-title">{b.title}</h3>
+                        <p className="md-feature-flip-copy">{b.text}</p>
+                      </div>
                     </div>
-                    <h3 className="md-h4 md-feature-title">{b.title}</h3>
                   </div>
-                  <p className="md-feature-copy md-feature-copy--usp">{b.text}</p>
-                </RevealArticle>
+                </RevealBlock>
               ))}
             </div>
 
-            <div className="md-day-at-mavu md-day-at-mavu--split" id="day-at-mavu">
+            <div className="md-day-at-mavu md-day-at-mavu--split md-day-at-mavu--unified" id="day-at-mavu">
               <div className="md-day-at-mavu-split-inner">
                 <div className="md-day-at-mavu-story">
                   {(t.experienceStoryEyebrow || '').trim() ? (

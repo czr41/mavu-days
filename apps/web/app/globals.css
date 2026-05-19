@@ -572,16 +572,16 @@ body {
   margin-right: 0;
 }
 
-/* Eyebrow label — no decorative lines unless paired with `.md-eyebrow-line` */
+/* Eyebrow label — aligns with `.md-hero-eyebrow` (yellow); lines via `.md-eyebrow-line` */
 .md-section-label {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--yellow);
   margin-bottom: 0.5rem;
 }
 
@@ -672,7 +672,7 @@ body {
   content: '';
   flex: 0 0 28px;
   height: 1px;
-  background: var(--sage-light);
+  background: var(--yellow);
   display: inline-block;
 }
 
@@ -1607,40 +1607,37 @@ p.md-eyebrow-line {
   text-wrap: balance;
 }
 
-/* ——— Unified experience: USP grid + story split + day rhythm ——— */
+/* ——— Unified experience: flip USP row + homestead story (single visual section) ——— */
 .md-experience-unified {
   overflow: clip;
 }
 
 .md-experience-unified .md-experience-usp-grid {
-  margin-top: clamp(0.65rem, 2.2vw, 1.35rem);
-  gap: clamp(1rem, 2.8vw, 1.85rem);
+  margin-top: clamp(0.35rem, 1.2vw, 0.85rem);
+  gap: clamp(0.75rem, 2.2vw, 1.45rem);
 }
 
 @media (min-width: 1024px) {
   .md-experience-unified .md-experience-usp-grid {
-    gap: 1.35rem 1.55rem;
+    gap: 1rem 1.25rem;
   }
 }
 
-/* Reference: each USP column is icon → title → copy, all center-aligned */
-.md-feature.md-feature--usp {
-  justify-content: flex-start;
-  padding: 1.05rem 0.55rem 1.1rem;
-  min-height: 10.75rem;
+/** Grid cells for USP flip cards — stretch flip to row height */
+.md-usp-flip-cell {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
 }
 
-.md-feature.md-feature--usp .md-feature-head {
-  gap: 0.4rem;
+.md-usp-flip-cell .md-feature-flip {
+  flex: 1;
+  width: 100%;
+  min-height: 100%;
 }
 
-.md-feature-copy.md-feature-copy--usp {
-  display: block;
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
-  margin-top: 0.4rem;
-  max-width: 11.75rem;
-  text-wrap: balance;
+.md-experience-unified .md-feature-flip--usp-only {
+  --md-flip-h: clamp(6.85rem, 10.2vw, 8.85rem);
 }
 
 .md-feature-flip-grid {
@@ -1804,6 +1801,17 @@ p.md-eyebrow-line {
   text-align: left;
 }
 
+.md-day-at-mavu.md-day-at-mavu--split.md-day-at-mavu--unified {
+  margin-top: clamp(0.45rem, 1.5vw, 1rem);
+  padding-top: clamp(0.65rem, 2vw, 1.25rem);
+  border-top: none;
+}
+
+.md-day-at-mavu--unified .md-day-at-mavu-tail {
+  margin-top: clamp(1.65rem, 3.6vw, 2.65rem);
+  padding-top: clamp(1.4rem, 3vw, 2.35rem);
+}
+
 .md-day-at-mavu-split-inner {
   display: grid;
   grid-template-columns: 1fr;
@@ -1922,7 +1930,7 @@ p.md-eyebrow-line {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--yellow);
 }
 
 .md-day-at-mavu-title {
@@ -2125,7 +2133,7 @@ p.md-eyebrow-line {
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--yellow);
 }
 
 .md-gallery-section .md-gallery-bento-h2 {
