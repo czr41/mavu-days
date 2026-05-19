@@ -1005,6 +1005,7 @@ p.md-eyebrow-line {
   line-height: 1.45;
 }
 
+.md-booking-results {
   max-height: 0;
   opacity: 0;
   overflow: hidden;
