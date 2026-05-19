@@ -69,6 +69,8 @@ type MediaAsset = {
   publicUrl: string;
   alt: string | null;
   galleryCategory?: string | null;
+  /** Rentable units (stays) that include this asset’s URL in their public gallery after manual listing URLs. */
+  linkedRentableUnitIds?: string[];
 };
 type ListingProfileDto = {
   id: string;
@@ -136,6 +138,10 @@ type ListingDraftState = {
 function jsonStringArr(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.filter((x): x is string => typeof x === 'string');
+}
+
+function toggleRentableUnitInList(ids: string[], unitId: string): string[] {
+  return ids.includes(unitId) ? ids.filter((id) => id !== unitId) : [...ids, unitId];
 }
 
 function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
@@ -1554,12 +1560,14 @@ export default function OrgAdminPage() {
     publicUrl: '',
     alt: '',
     galleryCategory: 'room' as GalleryCategoryId,
+    linkedRentableUnitIds: [] as string[],
   });
   const [editMediaId, setEditMediaId] = useState<string | null>(null);
   const [editMediaDraft, setEditMediaDraft] = useState({
     publicUrl: '',
     alt: '',
     galleryCategory: '' as GalleryCategoryId | '',
+    linkedRentableUnitIds: [] as string[],
   });
   const [editOffer, setEditOffer] = useState<string|null>(null);
   const [editOfferPatch, setEditOfferPatch] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
@@ -1882,6 +1890,7 @@ export default function OrgAdminPage() {
                       <th>Category</th>
                       <th>Alt</th>
                       <th>URL</th>
+                      <th>Stays</th>
                       <th style={{ width: '7rem' }}>Actions</th>
                     </tr>
                   </thead>
@@ -1889,7 +1898,7 @@ export default function OrgAdminPage() {
                     {media.map((m) =>
                       editMediaId === m.id ? (
                         <tr key={m.id}>
-                          <td colSpan={5} style={{ padding: '1rem 1.25rem', background: '#FAFAF9' }}>
+                          <td colSpan={6} style={{ padding: '1rem 1.25rem', background: '#FAFAF9' }}>
                             <div style={{ marginBottom: '0.65rem', fontSize: '0.82rem', color: '#57534E' }}>
                               Key <code>{m.key}</code>
                             </div>
@@ -1932,6 +1941,53 @@ export default function OrgAdminPage() {
                                   placeholder="https://… or /hero.jpg"
                                 />
                               </div>
+                              <div className="adm-field adm-field-full">
+                                <span className="adm-label">Show on stay galleries</span>
+                                <p style={{ fontSize: '0.82rem', color: '#57534e', margin: '0 0 0.5rem' }}>
+                                  One image can attach to multiple stays. Combined with URLs under CMS → Stay listings
+                                  (&quot;Add to gallery&quot;).
+                                </p>
+                                {allUnits.length === 0 ? (
+                                  <span style={{ fontSize: '0.84rem', color: '#92400e' }}>
+                                    Create a unit first to attach stays.
+                                  </span>
+                                ) : (
+                                  properties.map((prop) => (
+                                    <div key={prop.id} style={{ marginBottom: '0.55rem' }}>
+                                      <div
+                                        style={{
+                                          fontSize: '0.74rem',
+                                          fontWeight: 600,
+                                          color: '#44403c',
+                                          marginBottom: '0.2rem',
+                                        }}
+                                      >
+                                        {prop.name}
+                                      </div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem 1rem' }}>
+                                        {prop.units.map((u) => (
+                                          <label key={u.id} className="adm-toggle-row" style={{ margin: 0 }}>
+                                            <input
+                                              type="checkbox"
+                                              checked={editMediaDraft.linkedRentableUnitIds.includes(u.id)}
+                                              onChange={() =>
+                                                setEditMediaDraft((d) => ({
+                                                  ...d,
+                                                  linkedRentableUnitIds: toggleRentableUnitInList(
+                                                    d.linkedRentableUnitIds,
+                                                    u.id,
+                                                  ),
+                                                }))
+                                              }
+                                            />
+                                            <span>{u.name}</span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
                               <button
@@ -1953,6 +2009,7 @@ export default function OrgAdminPage() {
                                       galleryCategory: galleryCategoryToPrisma(
                                         editMediaDraft.galleryCategory as GalleryCategoryId,
                                       ),
+                                      linkedRentableUnitIds: editMediaDraft.linkedRentableUnitIds,
                                     }),
                                   });
                                   setBusy(false);
@@ -1997,6 +2054,13 @@ export default function OrgAdminPage() {
                               {m.publicUrl.length > 60 ? '…' : ''}
                             </a>
                           </td>
+                          <td style={{ fontSize: '0.78rem', color: '#44403c', maxWidth: '12rem', lineHeight: 1.35 }}>
+                            {(m.linkedRentableUnitIds?.length ?? 0) === 0
+                              ? '—'
+                              : (m.linkedRentableUnitIds ?? [])
+                                  .map((id) => allUnits.find((u) => u.id === id)?.name ?? 'Unit')
+                                  .join(', ')}
+                          </td>
                           <td>
                             <button
                               type="button"
@@ -2008,6 +2072,7 @@ export default function OrgAdminPage() {
                                   alt: m.alt ?? '',
                                   galleryCategory:
                                     galleryCategoryFromPrisma(m.galleryCategory ?? undefined) ?? 'other',
+                                  linkedRentableUnitIds: [...(m.linkedRentableUnitIds ?? [])],
                                 });
                               }}
                             >
@@ -2027,27 +2092,57 @@ export default function OrgAdminPage() {
               <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>
                 Use a full HTTPS URL or a root-relative path (e.g. <code>/hero.jpg</code>). Pick a{' '}
                 <strong>gallery category</strong> for homepage bento groups (Room, Outdoor, Porch, View, Others). Hero key:{' '}
-                <code>{MEDIA_KEY.heroCover}</code> (no category — shows as the large banner). Listing stay photos are edited per stay above.
+                <code>{MEDIA_KEY.heroCover}</code> (no category — shows as the large banner). You can also attach this asset
+                to one or more <strong>stays</strong> below — those URLs are merged into each stay&apos;s public gallery after
+                any lines typed under CMS → Stay listings.
               </p>
               <form onSubmit={async e=>{
                 e.preventDefault(); setBusy(true);
-                const r = await apiFetch(`${base}/cms/media`, {
-                  method: 'POST',
-                  body: JSON.stringify({
+                const payload: Record<string, unknown> = {
                     key: mediaForm.key,
                     publicUrl: mediaForm.publicUrl.trim(),
                     alt: mediaForm.alt || undefined,
                     galleryCategory: galleryCategoryToPrisma(mediaForm.galleryCategory),
-                  }),
+                  };
+                  if (mediaForm.linkedRentableUnitIds.length > 0) {
+                    payload.linkedRentableUnitIds = mediaForm.linkedRentableUnitIds;
+                  }
+                  const r = await apiFetch(`${base}/cms/media`, {
+                  method: 'POST',
+                  body: JSON.stringify(payload),
                 });
                 setBusy(false); if(!r) return;
-                setMediaForm({ key: '', publicUrl: '', alt: '', galleryCategory: 'room' }); await loadCms(); notify('Media registered.');
+                setMediaForm({ key: '', publicUrl: '', alt: '', galleryCategory: 'room', linkedRentableUnitIds: [] }); await loadCms(); notify('Media registered.');
               }}>
                 <div className="adm-form-grid">
                   <div className="adm-field"><label className="adm-label">Key</label><input className="adm-input" required pattern="[a-z0-9-]+" placeholder="e.g. gallery-room-01" value={mediaForm.key} onChange={e=>setMediaForm(s=>({...s,key:e.target.value}))}/></div>
                   <div className="adm-field"><label className="adm-label">Gallery category</label><select className="adm-input" value={mediaForm.galleryCategory} onChange={e=>setMediaForm(s=>({...s,galleryCategory:e.target.value as GalleryCategoryId}))}>{GALLERY_CATEGORY_OPTIONS.map((o)=><option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
                   <div className="adm-field"><label className="adm-label">Alt Text</label><input className="adm-input" placeholder="Describe the image" value={mediaForm.alt} onChange={e=>setMediaForm(s=>({...s,alt:e.target.value}))}/></div>
                   <div className="adm-field adm-field-full"><label className="adm-label">Public URL or path</label><input className="adm-input" required placeholder="https://cdn…/photo.jpg or /hero.jpg" value={mediaForm.publicUrl} onChange={e=>setMediaForm(s=>({...s,publicUrl:e.target.value}))}/></div>
+                  <div className="adm-field adm-field-full">
+                    <span className="adm-label">Attach to stay galleries (optional)</span>
+                    {allUnits.length === 0 ? (
+                      <p style={{fontSize:'0.84rem',color:'#92400E',margin:0}}>Add properties and units to enable stay links.</p>
+                    ) : (
+                      properties.map((prop)=>(
+                        <div key={prop.id} style={{marginTop:'0.45rem'}}>
+                          <div style={{fontSize:'0.74rem',fontWeight:600,color:'#44403c',marginBottom:'0.25rem'}}>{prop.name}</div>
+                          <div style={{display:'flex',flexWrap:'wrap',gap:'0.35rem 1rem'}}>
+                            {prop.units.map((u)=>(
+                              <label key={u.id} className="adm-toggle-row" style={{margin:0}}>
+                                <input
+                                  type="checkbox"
+                                  checked={mediaForm.linkedRentableUnitIds.includes(u.id)}
+                                  onChange={()=>setMediaForm(s=>({...s,linkedRentableUnitIds:toggleRentableUnitInList(s.linkedRentableUnitIds,u.id)}))}
+                                />
+                                <span>{u.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
                 <button className="adm-btn adm-btn-primary" style={{marginTop:'1rem'}} disabled={busy} type="submit">Register</button>
               </form>

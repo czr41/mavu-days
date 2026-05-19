@@ -25,6 +25,10 @@ type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
   };
 }>;
 
+type MediaAssetAdminRow = Prisma.MediaAssetGetPayload<{
+  include: { linkedUnits: { select: { rentableUnitId: true } } };
+}>;
+
 const adminRoles: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
 const opsRoles: MembershipRole[] = [...adminRoles];
 const careRoles: MembershipRole[] = [...opsRoles, MembershipRole.CARETAKER];
@@ -73,6 +77,58 @@ function mergeGalleryAppend(cur: string[], append: string[]): { urls: string[]; 
     if (out.length >= MAX_STAY_GALLERY_URLS) break;
   }
   return { urls: out, addedCount };
+}
+
+async function assertRentableUnitIdsInOrg(
+  prisma: FastifyInstance['prisma'],
+  organizationId: string,
+  unitIds: string[],
+): Promise<string[] | null> {
+  const uniq = [...new Set(unitIds)];
+  if (uniq.length === 0) return [];
+  const n = await prisma.rentableUnit.count({
+    where: { id: { in: uniq }, property: { organizationId } },
+  });
+  if (n !== uniq.length) return null;
+  return uniq;
+}
+
+/** Replace junction rows for one media asset; `rawUnitIds` must all belong to `organizationId`. */
+async function setMediaLinkedRentableUnits(
+  prisma: FastifyInstance['prisma'],
+  mediaAssetId: string,
+  organizationId: string,
+  rawUnitIds: string[],
+): Promise<boolean> {
+  const validated = await assertRentableUnitIdsInOrg(prisma, organizationId, rawUnitIds);
+  if (validated === null) return false;
+  await prisma.$transaction(async (tx) => {
+    await tx.mediaAssetRentableUnit.deleteMany({ where: { mediaAssetId } });
+    if (validated.length > 0) {
+      await tx.mediaAssetRentableUnit.createMany({
+        data: validated.map((rentableUnitId) => ({ mediaAssetId, rentableUnitId })),
+      });
+    }
+  });
+  return true;
+}
+
+async function fetchMediaAssetsForOrg(
+  prisma: FastifyInstance['prisma'],
+  organizationId: string,
+): Promise<MediaAssetAdminRow[]> {
+  return prisma.mediaAsset.findMany({
+    where: { organizationId },
+    include: { linkedUnits: { select: { rentableUnitId: true } } },
+    orderBy: [{ createdAt: 'asc' }],
+  });
+}
+
+async function ensureMediaAssetInOrg(prisma: FastifyInstance['prisma'], organizationId: string, mediaId: string) {
+  return prisma.mediaAsset.findFirst({
+    where: { id: mediaId, organizationId },
+    select: { id: true },
+  });
 }
 
 async function ensureRentableUnitListingStub(app: FastifyInstance, organizationId: string, unitId: string) {
@@ -918,8 +974,13 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   app.get('/orgs/:orgSlug/cms/media', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
-    const rows = await app.prisma.mediaAsset.findMany({ where: { organizationId: m.organizationId } });
-    return reply.send({ media: rows });
+    const rows = await fetchMediaAssetsForOrg(app.prisma, m.organizationId);
+    return reply.send({
+      media: rows.map(({ linkedUnits, ...rest }) => ({
+        ...rest,
+        linkedRentableUnitIds: linkedUnits.map((x) => x.rentableUnitId),
+      })),
+    });
   });
 
   app.post('/orgs/:orgSlug/cms/media', async (req, reply) => {
@@ -938,6 +999,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           ),
         alt: z.string().optional(),
         galleryCategory: galleryCategoryEnum.optional(),
+        linkedRentableUnitIds: z.array(z.string().uuid()).max(64).optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
@@ -951,7 +1013,21 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           galleryCategory: body.data.galleryCategory,
         },
       });
-      return reply.send({ media: row });
+      const linkIds = body.data.linkedRentableUnitIds ?? [];
+      if (linkIds.length > 0) {
+        const ok = await setMediaLinkedRentableUnits(app.prisma, row.id, m.organizationId, linkIds);
+        if (!ok) {
+          await app.prisma.mediaAsset.delete({ where: { id: row.id } });
+          return reply.status(400).send({
+            error: 'linkedRentableUnitIds contains a unit ID that does not belong to this organization.',
+          });
+        }
+      }
+      const fullRow = (await fetchMediaAssetsForOrg(app.prisma, m.organizationId)).find((r) => r.id === row.id);
+      const { linkedUnits, ...rest } = fullRow!;
+      return reply.send({
+        media: { ...rest, linkedRentableUnitIds: linkedUnits.map((x) => x.rentableUnitId) },
+      });
     } catch {
       return reply.status(409).send({ error: 'Media key exists' });
     }
@@ -974,13 +1050,12 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           .optional(),
         alt: z.union([z.string(), z.null()]).optional(),
         galleryCategory: z.union([galleryCategoryEnum, z.null()]).optional(),
+        linkedRentableUnitIds: z.array(z.string().uuid()).max(64).optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
 
-    const existing = await app.prisma.mediaAsset.findFirst({
-      where: { id: mediaId, organizationId: m.organizationId },
-    });
+    const existing = await ensureMediaAssetInOrg(app.prisma, m.organizationId, mediaId);
     if (!existing) return reply.status(404).send({ error: 'Media asset not found' });
 
     const data: { publicUrl?: string; alt?: string | null; galleryCategory?: GalleryCategory | null } = {};
@@ -988,15 +1063,41 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     if (body.data.alt !== undefined) data.alt = body.data.alt;
     if (body.data.galleryCategory !== undefined) data.galleryCategory = body.data.galleryCategory;
 
-    if (Object.keys(data).length === 0) {
+    const hasRowPatch = Object.keys(data).length > 0;
+    const linksPatch = body.data.linkedRentableUnitIds !== undefined;
+
+    if (!hasRowPatch && !linksPatch) {
       return reply.status(400).send({ error: 'No fields to update' });
     }
 
-    const row = await app.prisma.mediaAsset.update({
-      where: { id: mediaId },
-      data,
+    if (hasRowPatch) {
+      await app.prisma.mediaAsset.update({
+        where: { id: mediaId },
+        data,
+      });
+    }
+
+    if (linksPatch) {
+      const ok = await setMediaLinkedRentableUnits(
+        app.prisma,
+        mediaId,
+        m.organizationId,
+        body.data.linkedRentableUnitIds ?? [],
+      );
+      if (!ok) {
+        return reply.status(400).send({
+          error: 'linkedRentableUnitIds contains a unit ID that does not belong to this organization.',
+        });
+      }
+    }
+
+    const fullRow = (await fetchMediaAssetsForOrg(app.prisma, m.organizationId)).find((r) => r.id === mediaId);
+    if (!fullRow) return reply.status(404).send({ error: 'Media asset not found' });
+
+    const { linkedUnits, ...rest } = fullRow;
+    return reply.send({
+      media: { ...rest, linkedRentableUnitIds: linkedUnits.map((x) => x.rentableUnitId) },
     });
-    return reply.send({ media: row });
   });
 
   app.get('/orgs/:orgSlug/cms/offers', async (req, reply) => {

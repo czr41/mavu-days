@@ -51,6 +51,11 @@ export async function LandingView({ path }: { path: Path }) {
   const email = process.env.NEXT_PUBLIC_BOOKING_EMAIL?.trim() ?? '';
 
   const waHref = whatsappHref(phone, whatsappBookingMessage('2'));
+  const longStayWaHref = whatsappHref(
+    phone,
+    "Hi — I'm interested in a longer stay at Mavu Days. Could you share long-stay or special pricing options?",
+  );
+  const longStayCtaHref = longStayWaHref.startsWith('http') ? longStayWaHref : '#booking';
 
   const cappedGallery = merged.gallery.slice(0, 48);
   const galleryItems =
@@ -86,7 +91,7 @@ export async function LandingView({ path }: { path: Path }) {
           },
         ];
 
-  const heroChips = t.chips.length ? t.chips : ['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay', 'Fenced ground Â· pets welcome'];
+  const heroChips = t.chips.length ? t.chips : ['2-Acre Mango Farm', '1BHK, 2BHK & Full Farm', 'Near Bangalore', 'Private Villa Stay', 'Fenced ground \u00b7 pets welcome'];
 
   return (
     <>
@@ -134,7 +139,7 @@ export async function LandingView({ path }: { path: Path }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={merged.heroImageUrl ?? '/hero.jpg'}
-            alt={`${orgName} â€” private mango farm stay near Bangalore`}
+            alt={`${orgName} — private mango farm stay near Bangalore`}
             className="md-hero-img"
           />
           <div className="md-hero-overlay-premium" aria-hidden />
@@ -143,13 +148,13 @@ export async function LandingView({ path }: { path: Path }) {
               <div className="md-hero-text">
                 <p className="md-hero-eyebrow">
                   <span />
-                  Private Mango Farm Stay Â· Near Bangalore
+                  Private Mango Farm Stay {'\u00b7'} Near Bangalore
                 </p>
                 <h1 id="hero-heading" className="md-h1">
                   {t.heroH1 || 'Slow Down at\nMavu Days'}
                 </h1>
                 <p className="md-hero-lead">
-                  {t.heroSub || 'Peaceful mango farm stay near Bangaloreâ€”slow weekends, family time, private escapes.'}
+                  {t.heroSub || 'Peaceful mango farm stay near Bangalore\u2014slow weekends, family time, private escapes.'}
                 </p>
                 <div className="md-hero-ctas">
                   <a className="md-btn md-btn-primary" href="#booking">
@@ -214,7 +219,7 @@ export async function LandingView({ path }: { path: Path }) {
             <header className="md-section-head md-section-head-center">
               <p className="md-eyebrow-line md-section-label">Choose Your Stay</p>
               <h2 className="md-h2">{t.staysTitle || 'Find the Stay That Fits'}</h2>
-              <p className="md-lead">{t.staysSubtitle || 'Three ways to experience Mavu Days â€” cosy, spacious, or the whole farm to yourself.'}</p>
+              <p className="md-lead">{t.staysSubtitle || 'Three ways to experience Mavu Days\u2014cosy, spacious, or the whole farm to yourself.'}</p>
             </header>
             <div className="md-stay-grid">
               {t.listings.map((L, idx) => {
@@ -242,7 +247,7 @@ export async function LandingView({ path }: { path: Path }) {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={imgSrc}
-                          alt={`${L.title} â€” villa exterior at Mavu Days`}
+                          alt={`${L.title} — villa exterior at Mavu Days`}
                           loading="lazy"
                           className="md-stay-card-img"
                         />
@@ -284,7 +289,7 @@ export async function LandingView({ path }: { path: Path }) {
                         </>
                       ) : null}
                       {L.airbnbProfileLabel?.trim() ? (
-                        <p className="md-stay-airbnb-note">Airbnb Â· {L.airbnbProfileLabel.trim()}</p>
+                        <p className="md-stay-airbnb-note">Airbnb {'\u00b7'} {L.airbnbProfileLabel.trim()}</p>
                       ) : null}
                       <Link href={`/stays/${pathSeg}`} className="md-btn md-btn-primary md-btn-block">
                         {L.cta || 'View Details'}
@@ -308,69 +313,72 @@ export async function LandingView({ path }: { path: Path }) {
           </div>
         </RevealSection>
 
-        <RevealSection className="md-section" id="experience">
+        <RevealSection className="md-section md-section-cream md-experience-unified" id="experience">
           <div className="md-wrap">
             <header className="md-section-head md-section-head-center">
               <p className="md-eyebrow-line md-section-label">Experiences</p>
               <h2 className="md-h2">{t.whyTitle || 'What Awaits You'}</h2>
-              <p className="md-lead">{t.whyIntro || 'More than a stay â€” a full sensory reconnection with nature and slow living.'}</p>
+              <p className="md-lead">{t.whyIntro || 'More than a stay\u2014a full sensory reconnection with nature and slow living.'}</p>
             </header>
-            <div className="md-feature-grid">
+
+            <div className="md-feature-flip-grid" aria-label="What makes this stay unique">
               {t.whyBlocks.map((b, fi) => (
-                <RevealBlock key={b.title} delayIndex={fi} className="md-feature">
-                  <div className="md-feature-head">
-                    <span className="md-glyph md-feature-icon-wrap" aria-hidden>
-                      <FeatureGlyph index={fi} />
-                    </span>
-                    <h3 className="md-h4 md-feature-title">{b.title}</h3>
+                <article key={b.title} className="md-feature-flip" tabIndex={0}>
+                  <span className="md-sr-only">
+                    {b.title}. {b.text}
+                  </span>
+                  <div className="md-feature-flip-inner">
+                    <div className="md-feature-flip-face md-feature-flip-front">
+                      <span className="md-feature-flip-icon" aria-hidden>
+                        <FeatureGlyph index={fi} />
+                      </span>
+                    </div>
+                    <div className="md-feature-flip-face md-feature-flip-back" aria-hidden>
+                      <h3 className="md-feature-flip-title">{b.title}</h3>
+                      <p className="md-feature-flip-copy">{b.text}</p>
+                    </div>
                   </div>
-                  <p className="md-feature-copy">{b.text}</p>
-                </RevealBlock>
+                </article>
               ))}
             </div>
-          </div>
-        </RevealSection>
 
-        <RevealSection className="md-section md-section-cream" id="story">
-          <div className="md-wrap">
-            <div className="md-story-split">
-              <div className="md-story-panel">
-                <p className="md-section-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Our Story</p>
-                <h2 className="md-h2" style={{ marginBottom: '1.25rem' }}>
-                  {t.experienceTitle || 'Where Nature Slows You Down'}
-                </h2>
-                <p className="md-body md-prose" style={{ marginBottom: '1.5rem' }}>
+            <div className="md-day-at-mavu" id="day-at-mavu" aria-labelledby="day-at-mavu-heading">
+              {(t.experienceTitle || '').trim() ? (
+                <p className="md-day-at-mavu-kicker">{t.experienceTitle}</p>
+              ) : null}
+              <h3 id="day-at-mavu-heading" className="md-day-at-mavu-title">
+                What a day at Mavu Days feels like
+              </h3>
+              <div className="md-day-at-mavu-body">
+                <p className="md-body md-prose md-day-at-mavu-lead">
                   {t.experienceBodyDefault ||
-                    'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breatheâ€”your unrushed farm day.'}
+                    'Slow mornings under the mango canopy, daylight that feels forgiving, and evenings with room to breathe\u2014your unrushed farm day.'}
                 </p>
                 {t.tiles?.length ? (
-                  <ul className="md-tiles" style={{ marginBottom: '1.75rem' }}>
+                  <ul className="md-day-at-mavu-tiles">
                     {t.tiles.slice(0, 5).map((tile) => (
                       <li key={tile}>{tile}</li>
                     ))}
                   </ul>
                 ) : null}
-                <a href="#gallery" className="md-btn md-btn-secondary">
-                  View Gallery â†’
+              </div>
+              <div className="md-day-at-mavu-ctas">
+                <a className="md-btn md-btn-primary" href="#booking">
+                  Book now
+                </a>
+                <a
+                  className="md-btn md-btn-secondary"
+                  href={longStayCtaHref}
+                  {...(longStayCtaHref.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
+                >
+                  Get special price on long stay
                 </a>
               </div>
-              <RevealFigure delayIndex={1} className="md-story-img-wrap">
-                {(() => {
-                  const fromGallery = galleryItems.find((g) => g.url?.trim());
-                  const heroFb = merged.heroImageUrl?.trim();
-                  const shot = fromGallery?.url
-                    ? fromGallery
-                    : heroFb
-                      ? { url: heroFb, alt: `${orgName} â€” overview`, key: 'story-hero-fallback' }
-                      : galleryItems[0];
-                  return shot?.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={shot.url} alt={shot.alt} loading="lazy" />
-                  ) : (
-                    <div className="md-story-ph" role="img" aria-label="Mavu Days farm landscape" />
-                  );
-                })()}
-              </RevealFigure>
+              <div className="md-day-at-mavu-gallery-note">
+                <a href="#gallery" className="md-link md-day-at-mavu-gallery-link">
+                  View gallery {'\u2192'}
+                </a>
+              </div>
             </div>
           </div>
         </RevealSection>
@@ -449,14 +457,14 @@ export async function LandingView({ path }: { path: Path }) {
                 <div className="md-map-shell md-map-shell-brand">
                   <div className="md-map-frame-wrap">
                     <iframe
-                      title="Map â€” Mavu Days Farm House"
+                      title="Map — Mavu Days Farm House"
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
                       className="md-map-frame"
                       src={MAVU_DAYS_OSM_EMBED_URL}
                     />
                     <span className="md-map-drive-badge">
-                      ~1.5 hrs drive <span aria-hidden className="md-map-drive-dot">Â·</span> From Bangalore
+                      ~1.5 hrs drive <span aria-hidden className="md-map-drive-dot">{'\u00b7'}</span> From Bangalore
                     </span>
                   </div>
                   <span className="md-map-pin-hint md-map-pin-hint-soft">
@@ -464,7 +472,7 @@ export async function LandingView({ path }: { path: Path }) {
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                       <circle cx="12" cy="10" r="3" />
                     </svg>
-                    Mavu Days Farm House Â· Near Channapatna, Karnataka
+                    {'Mavu Days Farm House \u00b7 Near Channapatna, Karnataka'}
                   </span>
                 </div>
               </div>
@@ -503,7 +511,7 @@ export async function LandingView({ path }: { path: Path }) {
                   {t.petFriendlyEyebrow || 'Pet-friendly stay'}
                 </h3>
                 <p className="md-pet-welcome-banner-copy">
-                  <strong>No rules for pets on property â€” only for humans!</strong> Roughly two fenced acres for dogs to roamâ€”our{' '}
+                  <strong>No rules for pets on property{'\u2014'}only for humans!</strong> Roughly two fenced acres for dogs to roam{'\u2014'}our{' '}
                   <a href="#house-rules" className="md-link">
                     house guidelines
                   </a>{' '}
@@ -577,7 +585,7 @@ export async function LandingView({ path }: { path: Path }) {
               {hasImportedReviews
                 ? landingReviews.map((r, idx) => (
                     <RevealFigure key={r.id} delayIndex={idx} className="md-review-card">
-                      <div className="md-review-stars">â˜…â˜…â˜…â˜…â˜…</div>
+                      <div className="md-review-stars">{'★★★★★'}</div>
                       <blockquote className="md-quote">
                         <p>{`"${r.body}"`}</p>
                       </blockquote>
@@ -593,7 +601,7 @@ export async function LandingView({ path }: { path: Path }) {
                   ))
                 : defaultReviews.map((q, idx) => (
                     <RevealBlock key={idx} delayIndex={idx} className="md-review-card">
-                      <div className="md-review-stars">â˜…â˜…â˜…â˜…â˜…</div>
+                      <div className="md-review-stars">{'★★★★★'}</div>
                       <blockquote className="md-quote">
                         <p>{`"${q.quote}"`}</p>
                       </blockquote>
@@ -686,7 +694,7 @@ export async function LandingView({ path }: { path: Path }) {
                 <div>
                   <p className="md-footer-col-title">Stay in touch</p>
                   <p className="md-muted" style={{ marginBottom: '0.75rem', fontSize: '0.88rem' }}>
-                    Message us on WhatsApp or emailâ€”we reply when we can.
+                    Message us on WhatsApp or email{'\u2014'}we reply when we can.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {phone ? (
@@ -715,7 +723,9 @@ export async function LandingView({ path }: { path: Path }) {
             </div>
 
             <div className="md-footer-bottom">
-              <span>Â© {new Date().getFullYear()} {orgName}. All rights reserved.</span>
+              <span>
+                {'\u00a9'} {new Date().getFullYear()} {orgName}. All rights reserved.
+              </span>
               <span>
                 <Link href="/login" className="md-footer-bottom md-link" style={{ fontSize: '0.8rem' }}>Host login</Link>
               </span>

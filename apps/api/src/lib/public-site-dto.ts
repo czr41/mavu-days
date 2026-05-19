@@ -11,6 +11,11 @@ import type {
   RentableUnitMatrixRole,
   SiteSection,
 } from '@prisma/client';
+
+/** Media rows loaded with CMS → listing links so shared photos merge into `/stays/[slug]` galleries. */
+export type MediaAssetWithListingLinks = MediaAsset & {
+  linkedUnits: { rentableUnitId: string }[];
+};
 import { toPublicGuestReviewDto } from './guest-review-dto.js';
 
 export type PublicUnitListingDto = {
@@ -115,14 +120,45 @@ export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
   };
 }
 
-function mapUnit(u: RentableUnit & { listingProfile: RentableUnitListing | null }): PublicRentableUnitDto {
+/** Append URLs from CMS media linked to this unit (manual gallery lines stay first). */
+export function listingToDtoWithLinkedMedia(row: RentableUnitListing, linkedUrls?: readonly string[]): PublicUnitListingDto {
+  const base = listingToDto(row);
+  if (!linkedUrls?.length) return base;
+  const seen = new Set(base.galleryImageUrls);
+  const merged = [...base.galleryImageUrls];
+  for (const u of linkedUrls) {
+    if (seen.has(u)) continue;
+    seen.add(u);
+    merged.push(u);
+  }
+  return { ...base, galleryImageUrls: merged };
+}
+
+function listingUrlsFromLinkedMedia(media: readonly MediaAssetWithListingLinks[]): Map<string, string[]> {
+  const byUnit = new Map<string, string[]>();
+  for (const ma of media) {
+    const url = typeof ma.publicUrl === 'string' ? ma.publicUrl.trim() : '';
+    if (!url) continue;
+    for (const lk of ma.linkedUnits) {
+      const prev = byUnit.get(lk.rentableUnitId) ?? [];
+      if (!prev.includes(url)) prev.push(url);
+      byUnit.set(lk.rentableUnitId, prev);
+    }
+  }
+  return byUnit;
+}
+
+function mapUnit(
+  u: RentableUnit & { listingProfile: RentableUnitListing | null },
+  linkedGalleryUrls?: readonly string[],
+): PublicRentableUnitDto {
   return {
     id: u.id,
     name: u.name,
     slug: u.slug,
     kind: u.kind,
     /** Include draft listings so the homepage gallery can show stay photos before go-live. Stay cards still filter `published` in the web app. */
-    listing: u.listingProfile ? listingToDto(u.listingProfile) : null,
+    listing: u.listingProfile ? listingToDtoWithLinkedMedia(u.listingProfile, linkedGalleryUrls) : null,
   };
 }
 
@@ -132,11 +168,13 @@ export function buildPublicSitePayload(args: {
   siteSettings: OrgSiteSettings | null;
   properties: (Property & { units: (RentableUnit & { listingProfile: RentableUnitListing | null })[] })[];
   sections: SiteSection[];
-  media: MediaAsset[];
+  media: MediaAssetWithListingLinks[];
   guestReviews: GuestReview[];
   tickerOffers: Pick<LandingOffer, 'id' | 'label'>[];
 }): PublicSitePayloadDto {
   const homepageKind: OrgHomepageKind = args.siteSettings?.homepageKind ?? OrgHomepageKind.LISTING_GRID;
+  const galleryExtrasByUnitId = listingUrlsFromLinkedMedia(args.media);
+
   return {
     organization: { slug: args.organization.slug, name: args.organization.name },
     siteSettings: { homepageKind },
@@ -144,10 +182,10 @@ export function buildPublicSitePayload(args: {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      units: p.units.map(mapUnit),
+      units: p.units.map((u) => mapUnit(u, galleryExtrasByUnitId.get(u.id))),
     })),
     sections: args.sections,
-    media: args.media,
+    media: args.media.map(({ linkedUnits: _links, ...row }) => row),
     reviews: args.guestReviews.map(toPublicGuestReviewDto),
     offers: args.tickerOffers.map((o) => ({ id: o.id, label: o.label })),
   };

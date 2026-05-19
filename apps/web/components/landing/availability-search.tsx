@@ -50,7 +50,7 @@ type LandingAvailResponse = {
 
 function fmtInr(n: number | null | undefined): string | null {
   if (n == null || Number.isNaN(n)) return null;
-  return 'â‚¹' + n.toLocaleString('en-IN');
+  return '\u20B9' + n.toLocaleString('en-IN');
 }
 
 function fmtNightCell(n: number | null | undefined) {
@@ -229,7 +229,7 @@ export function AvailabilitySearch({
       }
 
       const hint404 =
-        'Organization not found — check NEXT_PUBLIC_ORG_SLUG vs database Organization.slug and that NEXT_PUBLIC_API_URL is your live API (then redeploy).';
+        'We could not load live availability — please WhatsApp us with your dates and we\'ll confirm what\'s open.';
       setError(lastBad?.res.status === 404 ? hint404 : 'Could not load availability.');
     } catch {
       setError('Please try again in a moment, or message us on WhatsApp.');
@@ -313,15 +313,6 @@ export function AvailabilitySearch({
               {availabilityTitle}
             </h2>
             <p className="md-lead md-booking-sub">{availabilitySubtitle}</p>
-            {homepageKind === 'MATRIX_THREE_SKU' ? (
-              <p className="md-muted md-booking-micro-foot">
-                Availability uses the three-SKU matrix (full farm vs villas). Filters narrow the table rows below.
-              </p>
-            ) : (
-              <p className="md-muted md-booking-micro-foot">
-                Showing published units only — add or publish listings in the admin when you expand inventory.
-              </p>
-            )}
             <p className="md-muted md-booking-hint md-booking-hint--inline">
               Booking requests:{' '}
               <a

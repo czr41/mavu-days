@@ -24,14 +24,27 @@ function fmt(n: number) {
   return '₹' + n.toLocaleString('en-IN');
 }
 
-/** One ordered gallery per stay: API detail hero (or marketing fallback once), then extra URLs — deduped. */
-function orderedStayGallery(slug: string, listing: ListingCard): string[] {
-  const staticCover = STAY_IMAGE[slug] || STAY_IMAGE[listing.id] || '/hero.jpg';
+/** One ordered gallery per stay: curated `/public` art when slug maps (reliable on prod), then CMS hero & extras — deduped. */
+function orderedStayGallery(routeSlug: string, listing: ListingCard): string[] {
+  const pathSeg = listingUrlPath(listing);
+  const curated = STAY_IMAGE[routeSlug] || STAY_IMAGE[pathSeg] || STAY_IMAGE[listing.id] || null;
+  const staticCover = curated || '/hero.jpg';
 
   const raw: string[] = [];
   const hero = listing.detailHeroUrl?.trim();
-  if (hero) raw.push(hero);
-  else raw.push(staticCover);
+
+  /*
+   * Prioritize known-good public images when available. Admin `detailHeroUrl` can normalize from localhost
+   * to a path-only URL that 404s on the deployed site; sibling "Other stays" cards already prefer STAY_IMAGE.
+   */
+  if (curated) {
+    raw.push(curated);
+    if (hero && hero !== curated) raw.push(hero);
+  } else if (hero) {
+    raw.push(hero);
+  } else {
+    raw.push(staticCover);
+  }
 
   for (const u of listing.galleryImageUrls ?? []) {
     const t = typeof u === 'string' ? u.trim() : '';

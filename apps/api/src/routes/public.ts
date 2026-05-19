@@ -106,7 +106,10 @@ export function registerPublicRoutes(app: FastifyInstance) {
           orderBy: { sortOrder: 'asc' },
           select: { id: true, label: true },
         },
-        media: true,
+        media: {
+          orderBy: { createdAt: 'asc' },
+          include: { linkedUnits: { select: { rentableUnitId: true } } },
+        },
         guestReviews: {
           where: { showOnLanding: true },
           orderBy: [
@@ -156,7 +159,10 @@ export function registerPublicRoutes(app: FastifyInstance) {
           orderBy: { sortOrder: 'asc' },
           select: { id: true, label: true },
         },
-        media: true,
+        media: {
+          orderBy: { createdAt: 'asc' },
+          include: { linkedUnits: { select: { rentableUnitId: true } } },
+        },
         guestReviews: {
           where: { showOnLanding: true },
           orderBy: [

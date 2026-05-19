@@ -161,6 +161,9 @@ model RentableUnit {
   landingOffers        LandingOffer[]
   listingProfile       RentableUnitListing?
 
+  /** CMS media gallery assets explicitly attached to this bookable SKU. */
+  mediaAssetLinks MediaAssetRentableUnit[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -364,6 +367,18 @@ enum GalleryCategory {
   OTHER
 }
 
+/// Join: one uploaded/media-registered asset can appear in the galleries of multiple stay listings (rentable units).
+model MediaAssetRentableUnit {
+  mediaAssetId   String
+  rentableUnitId String
+
+  mediaAsset   MediaAsset   @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  rentableUnit RentableUnit @relation(fields: [rentableUnitId], references: [id], onDelete: Cascade)
+
+  @@id([mediaAssetId, rentableUnitId])
+  @@index([rentableUnitId])
+}
+
 model MediaAsset {
   id              String            @id @default(uuid())
   organizationId  String
@@ -373,6 +388,7 @@ model MediaAsset {
   galleryCategory GalleryCategory?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  linkedUnits    MediaAssetRentableUnit[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
