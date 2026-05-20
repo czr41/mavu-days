@@ -1,6 +1,6 @@
 /**
  * Idempotent bootstrap: CMS sections + gallery media aligned with DEFAULT_LANDING in the web app.
- * Prefer root-relative URLs (e.g. `/hero.jpg`) so they work after deploy — avoid `http://localhost:…` in production DB.
+ * Prefer root-relative URLs (e.g. `/marketing/hero.jpg`) so they work after deploy — avoid `http://localhost:…` in production DB.
  */
 import type { PrismaClient } from '@prisma/client';
 
@@ -260,19 +260,39 @@ export async function seedLandingCmsIfEmpty(prisma: PrismaClient, organizationId
   }[] = [
     {
       key: 'landing-hero-cover',
-      publicUrl: '/hero.jpg',
+      publicUrl: '/marketing/hero.jpg',
       alt: 'Mavu Days — private mango farm stay near Bangalore',
     },
-    { key: 'gallery-room-1', publicUrl: '/1bhk.jpg', alt: '1BHK bedroom and living space', galleryCategory: 'ROOM' },
-    { key: 'gallery-room-2', publicUrl: '/2bhk.jpg', alt: '2BHK villa interior', galleryCategory: 'ROOM' },
+    {
+      key: 'gallery-room-1',
+      publicUrl: '/marketing/1bhk.jpg',
+      alt: '1BHK bedroom and living space',
+      galleryCategory: 'ROOM',
+    },
+    {
+      key: 'gallery-room-2',
+      publicUrl: '/marketing/2bhk.jpg',
+      alt: '2BHK villa interior',
+      galleryCategory: 'ROOM',
+    },
     {
       key: 'gallery-outdoor-1',
-      publicUrl: '/full-farm.jpg',
+      publicUrl: '/marketing/full-farm.jpg',
       alt: 'Farm lawn and outdoor areas',
       galleryCategory: 'OUTDOOR',
     },
-    { key: 'gallery-porch-1', publicUrl: '/hero.jpg', alt: 'Porch and sitout seating', galleryCategory: 'PORCH' },
-    { key: 'gallery-view-1', publicUrl: '/2bhk.jpg', alt: 'Open sky and farm views', galleryCategory: 'VIEW' },
+    {
+      key: 'gallery-porch-1',
+      publicUrl: '/marketing/hero.jpg',
+      alt: 'Porch and sitout seating',
+      galleryCategory: 'PORCH',
+    },
+    {
+      key: 'gallery-view-1',
+      publicUrl: '/marketing/2bhk.jpg',
+      alt: 'Open sky and farm views',
+      galleryCategory: 'VIEW',
+    },
   ];
   for (const row of mediaRows) {
     const { galleryCategory, ...rest } = row;

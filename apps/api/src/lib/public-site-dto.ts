@@ -192,7 +192,7 @@ export function buildPublicSitePayload(args: {
     sections: args.sections,
     media: args.media.map(({ linkedUnits: _links, ...row }) => ({
       ...row,
-      publicUrl: normalizePublicImageUrl(row.publicUrl) ?? row.publicUrl,
+      publicUrl: normalizePublicImageUrl(row.publicUrl) ?? '',
     })),
     reviews: args.guestReviews.map(toPublicGuestReviewDto),
     offers: args.tickerOffers.map((o) => ({ id: o.id, label: o.label })),

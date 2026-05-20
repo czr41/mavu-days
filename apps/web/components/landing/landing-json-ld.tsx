@@ -45,7 +45,10 @@ export function LandingJsonLd({ texts, path, imageUrl, lodgingName, lodgingRevie
     },
     priceRange: '$$',
   };
-  if (imageUrl?.trim()) lodging.image = imageUrl;
+  if (imageUrl?.trim()) {
+    const img = imageUrl.trim();
+    lodging.image = /^https?:\/\//i.test(img) ? img : `${origin}${img.startsWith('/') ? img : `/${img}`}`;
+  }
 
   if (lodgingReviews.length > 0) {
     const shown = lodgingReviews.slice(0, 24);

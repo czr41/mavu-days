@@ -2228,7 +2228,7 @@ export default function OrgAdminPage() {
                             required
                             value={editMediaDraft.publicUrl}
                             onChange={(e) => setEditMediaDraft((d) => ({ ...d, publicUrl: e.target.value }))}
-                            placeholder="https://… or /hero.jpg"
+                            placeholder="https://… or /marketing/hero.jpg"
                           />
                           {editMediaDraft.publicUrl.trim().match(/^(\/|https?:\/\/)/) ? (
                             <div style={{ marginTop: '0.65rem', maxWidth: 320, borderRadius: 10, overflow: 'hidden', border: '1px solid #E7E5E4' }}>
@@ -2483,7 +2483,7 @@ export default function OrgAdminPage() {
             <div className="adm-card-header"><h2 className="adm-card-title">Register image URL</h2></div>
             <div className="adm-card-body">
               <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>
-                Use a full HTTPS URL or a root-relative path (e.g. <code>/hero.jpg</code>). Pick a{' '}
+                Use a full HTTPS URL or a root-relative path (e.g. <code>/marketing/hero.jpg</code>). Pick a{' '}
                 <strong>gallery category</strong> for homepage bento groups (Room, Outdoor, Porch, View, Others). Hero key:{' '}
                 <code>{MEDIA_KEY.heroCover}</code> (no category — shows as the large banner). You can also attach this asset
                 to one or more <strong>stays</strong> below — those URLs are merged into each stay&apos;s public gallery after
@@ -2511,7 +2511,7 @@ export default function OrgAdminPage() {
                   <div className="adm-field"><label className="adm-label">Key</label><input className="adm-input" required pattern="[a-z0-9-]+" placeholder="e.g. gallery-room-01" value={mediaForm.key} onChange={e=>setMediaForm(s=>({...s,key:e.target.value}))}/></div>
                   <div className="adm-field"><label className="adm-label">Gallery category</label><select className="adm-input" value={mediaForm.galleryCategory} onChange={e=>setMediaForm(s=>({...s,galleryCategory:e.target.value as GalleryCategoryId}))}>{GALLERY_CATEGORY_OPTIONS.map((o)=><option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
                   <div className="adm-field"><label className="adm-label">Alt Text</label><input className="adm-input" placeholder="Describe the image" value={mediaForm.alt} onChange={e=>setMediaForm(s=>({...s,alt:e.target.value}))}/></div>
-                  <div className="adm-field adm-field-full"><label className="adm-label">Public URL or path</label><input className="adm-input" required placeholder="https://cdn…/photo.jpg or /hero.jpg" value={mediaForm.publicUrl} onChange={e=>setMediaForm(s=>({...s,publicUrl:e.target.value}))}/></div>
+                  <div className="adm-field adm-field-full"><label className="adm-label">Public URL or path</label><input className="adm-input" required placeholder="https://cdn…/photo.jpg or /marketing/hero.jpg" value={mediaForm.publicUrl} onChange={e=>setMediaForm(s=>({...s,publicUrl:e.target.value}))}/></div>
                   <div className="adm-field adm-field-full">
                     <span className="adm-label">Attach to stay galleries (optional)</span>
                     {allUnits.length === 0 ? (

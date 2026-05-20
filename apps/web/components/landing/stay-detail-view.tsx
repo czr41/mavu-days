@@ -1,19 +1,26 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import {
+  MARKETING_SITE_1BHK_JPG,
+  MARKETING_SITE_2BHK_JPG,
+  MARKETING_SITE_FULL_FARM_JPG,
+  MARKETING_SITE_HERO_JPG,
+} from '@mavu/contracts';
 import { listingUrlPath, type ListingCard } from '@/lib/landing-content';
 import type { GallerySlide } from '@/lib/gallery-categories';
 import { loadLandingPayload } from '@/lib/landing-data';
+import { normalizeMarketingImageUrl, resolveMarketingImageSrc } from '@/lib/marketing-image-url';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { RevealSection, RevealBlock } from '@/components/landing/reveal-section';
 
 type Props = { slug: string };
 
 const STAY_IMAGE: Record<string, string> = {
-  '1bhk': '/1bhk.jpg',
-  '1bhk-villa': '/1bhk.jpg',
-  '2bhk': '/2bhk.jpg',
-  '2bhk-villa': '/2bhk.jpg',
-  'full-farm': '/full-farm.jpg',
+  '1bhk': MARKETING_SITE_1BHK_JPG,
+  '1bhk-villa': MARKETING_SITE_1BHK_JPG,
+  '2bhk': MARKETING_SITE_2BHK_JPG,
+  '2bhk-villa': MARKETING_SITE_2BHK_JPG,
+  'full-farm': MARKETING_SITE_FULL_FARM_JPG,
 };
 
 function resolveListingSlug(slug: string, listings: readonly ListingCard[]) {
@@ -28,7 +35,7 @@ function fmt(n: number) {
 function orderedStayGallery(routeSlug: string, listing: ListingCard): string[] {
   const pathSeg = listingUrlPath(listing);
   const curated = STAY_IMAGE[routeSlug] || STAY_IMAGE[pathSeg] || STAY_IMAGE[listing.id] || null;
-  const staticCover = curated || '/hero.jpg';
+  const staticCover = curated || MARKETING_SITE_HERO_JPG;
 
   const raw: string[] = [];
   const hero = listing.detailHeroUrl?.trim();
@@ -99,7 +106,7 @@ function mergedStayGalleryOrdered(
     }
   };
 
-  /** No CMS/API photos — homepage mosaic still may have listing shots; prefer those over generic `/full-farm.jpg` hero. */
+  /** No CMS/API photos — homepage mosaic still may have listing shots; prefer those over generic full-farm hero. */
   const listingHero = listing.detailHeroUrl?.trim();
   const listingGallerySlots =
     listing.galleryImageUrls?.filter((u) => typeof u === 'string' && u.trim()).length ?? 0;
@@ -128,12 +135,13 @@ export async function StayDetailView({ slug }: Props) {
   const otherListings = t.listings.filter((l) => listingUrlPath(l) !== pathSeg && l.id !== listing.id);
 
   const galleryOrdered = mergedStayGalleryOrdered(slug, listing, merged.gallery);
-  const imgSrc = galleryOrdered[0] ?? '/hero.jpg';
+  const imgSrc = resolveMarketingImageSrc(galleryOrdered[0] ?? MARKETING_SITE_HERO_JPG);
   /** Extra rows below the hero; if only one URL exists total but homepage merged several for this unit, include them here. */
   const galleryThumbs = galleryOrdered.slice(1);
 
   const thumbAlt = (photoUrl: string, pi: number) => {
-    const hit = merged.gallery.find((g) => g.url?.trim() === photoUrl);
+    const canon = normalizeMarketingImageUrl(photoUrl);
+    const hit = merged.gallery.find((g) => normalizeMarketingImageUrl(g.url ?? '') === canon);
     const fromCms = hit?.alt?.trim();
     return fromCms || `${listing.title} — gallery ${pi + 2}`;
   };
@@ -225,7 +233,7 @@ export async function StayDetailView({ slug }: Props) {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key={`${photoUrl}-${pi}`}
-                        src={photoUrl}
+                        src={resolveMarketingImageSrc(photoUrl)}
                         alt={thumbAlt(photoUrl, pi)}
                         loading={pi < 4 ? 'eager' : 'lazy'}
                       />
@@ -365,14 +373,19 @@ export async function StayDetailView({ slug }: Props) {
                     {STAY_IMAGE[listingUrlPath(L)] || STAY_IMAGE[L.id] ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={STAY_IMAGE[listingUrlPath(L)] || STAY_IMAGE[L.id]}
+                        src={resolveMarketingImageSrc(STAY_IMAGE[listingUrlPath(L)] || STAY_IMAGE[L.id])}
                         alt={`${L.title} at ${orgName}`}
                         className="md-stay-card-img"
                         loading="lazy"
                       />
-                    ) : L.detailHeroUrl?.trim() ? (
+                    ) : normalizeMarketingImageUrl(L.detailHeroUrl ?? '') ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={L.detailHeroUrl.trim()} alt={`${L.title} at ${orgName}`} className="md-stay-card-img" loading="lazy" />
+                      <img
+                        src={resolveMarketingImageSrc(L.detailHeroUrl ?? '')}
+                        alt={`${L.title} at ${orgName}`}
+                        className="md-stay-card-img"
+                        loading="lazy"
+                      />
                     ) : (
                       <div className={`md-stay-card-img md-stay-ph-${(idx % 3) + 1}`} style={{ height: 200 }} role="img" aria-label={L.title} />
                     )}

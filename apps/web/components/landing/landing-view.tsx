@@ -1,10 +1,17 @@
 ﻿import Link from 'next/link';
 import {
+  MARKETING_SITE_1BHK_JPG,
+  MARKETING_SITE_2BHK_JPG,
+  MARKETING_SITE_FULL_FARM_JPG,
+  MARKETING_SITE_HERO_JPG,
+} from '@mavu/contracts';
+import {
   listingUrlPath,
   MAVU_DAYS_DIRECTIONS_URL,
   MAVU_DAYS_OSM_EMBED_URL,
 } from '@/lib/landing-content';
 import { loadLandingPayload } from '@/lib/landing-data';
+import { normalizeMarketingImageUrl, resolveMarketingImageSrc } from '@/lib/marketing-image-url';
 import { whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 import { AvailabilitySearch } from '@/components/landing/availability-search';
 import { LandingSectionHead } from '@/components/landing/landing-section-head';
@@ -143,7 +150,7 @@ export async function LandingView({ path }: { path: Path }) {
         <section className="md-hero-premium" aria-labelledby="hero-heading">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={merged.heroImageUrl ?? '/hero.jpg'}
+            src={resolveMarketingImageSrc(merged.heroImageUrl ?? MARKETING_SITE_HERO_JPG)}
             alt={`${orgName} — private mango farm stay near Bangalore`}
             className="md-hero-img"
           />
@@ -237,14 +244,17 @@ export async function LandingView({ path }: { path: Path }) {
                 const pathSeg = listingUrlPath(L);
                 const staticImg =
                   pathSeg === '1bhk' || pathSeg === '1bhk-villa'
-                    ? '/1bhk.jpg'
+                    ? MARKETING_SITE_1BHK_JPG
                     : pathSeg === '2bhk' || pathSeg === '2bhk-villa'
-                      ? '/2bhk.jpg'
+                      ? MARKETING_SITE_2BHK_JPG
                       : pathSeg === 'full-farm'
-                        ? '/full-farm.jpg'
+                        ? MARKETING_SITE_FULL_FARM_JPG
                         : null;
                 const cover = galleryItems[idx] ?? galleryItems[0];
-                const imgSrc = L.detailHeroUrl?.trim() || staticImg || cover?.url;
+                const heroNorm = normalizeMarketingImageUrl(L.detailHeroUrl ?? '');
+                const mosaicNorm = cover?.url ? normalizeMarketingImageUrl(cover.url) : null;
+                const rawPick = heroNorm ?? staticImg ?? mosaicNorm ?? MARKETING_SITE_HERO_JPG;
+                const imgSrc = resolveMarketingImageSrc(rawPick);
                 return (
                   <RevealArticle key={pathSeg} delayIndex={idx} className="md-stay-card md-stay-card-linked">
                     <div className="md-stay-card-visual">
@@ -394,7 +404,7 @@ export async function LandingView({ path }: { path: Path }) {
                 <figure className="md-day-at-mavu-visual">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={merged.heroImageUrl ?? '/hero.jpg'}
+                    src={resolveMarketingImageSrc(merged.heroImageUrl ?? MARKETING_SITE_HERO_JPG)}
                     alt="Outdoor seating among mango trees at Mavu Days"
                     className="md-day-at-mavu-img"
                     width={960}

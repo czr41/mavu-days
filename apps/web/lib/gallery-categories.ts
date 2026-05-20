@@ -136,7 +136,7 @@ export function representativesPerCategory(items: GallerySlide[]): CategoryRepre
   return GALLERY_CATEGORY_DEFS.map((def) => ({
     id: def.id,
     label: def.label,
-    slide: buckets.get(def.id)![0] ?? null,
+    slide: buckets.get(def.id)!.find((item) => Boolean(item.url?.trim())) ?? null,
   }));
 }
 

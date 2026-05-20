@@ -6,6 +6,7 @@ import {
   splitGalleryHero,
   type GallerySlide,
 } from '@/lib/gallery-categories';
+import { resolveMarketingImageSrc } from '@/lib/marketing-image-url';
 import { RevealFigure } from '@/components/landing/reveal-section';
 
 const HOMEPAGE_FULL_CATEGORY_PREVIEW = 10;
@@ -21,7 +22,7 @@ function CategoryThumbFill({ slide, phMod }: { slide: GallerySlide; phMod: numbe
   const ph = (Math.abs(phMod) % 4) + 1;
   return slide.url ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={slide.url} alt={slide.alt} loading="lazy" className="md-gallery-bento-img" />
+    <img src={resolveMarketingImageSrc(slide.url)} alt={slide.alt} loading="lazy" className="md-gallery-bento-img" />
   ) : (
     <div className={`md-gallery-ph-${ph} md-gallery-bento-ph-fill`} role="img" aria-label={slide.alt} />
   );

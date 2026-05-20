@@ -1082,7 +1082,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           .min(1)
           .refine(
             (s) => /^https?:\/\/.+/i.test(s) || /^\/[^\s]+$/.test(s),
-            'Use an http(s) URL or a root-relative path like /hero.jpg',
+            'Use an http(s) URL or a root-relative path like /marketing/hero.jpg',
           ),
         alt: z.string().optional(),
         galleryCategory: galleryCategoryEnum.optional(),
@@ -1132,7 +1132,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
           .min(1)
           .refine(
             (s) => /^https?:\/\/.+/i.test(s) || /^\/[^\s]+$/.test(s),
-            'Use an http(s) URL or a root-relative path like /hero.jpg',
+            'Use an http(s) URL or a root-relative path like /marketing/hero.jpg',
           )
           .optional(),
         alt: z.union([z.string(), z.null()]).optional(),
