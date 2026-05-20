@@ -1,4 +1,4 @@
 {
   "installCommand": "npm ci --prefix ../..",
-  "buildCommand": "npm --prefix ../.. run build -w @mavu/web"
+  "buildCommand": "npm --prefix ../.. run build -w @mavu/contracts && npm --prefix ../.. run build -w @mavu/web"
 }
