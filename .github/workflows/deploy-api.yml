@@ -11,6 +11,10 @@
 #
 # Optional:
 #   API_SYSTEMD_UNIT     — systemd service name (default mavu-api on remote if unset)
+#   GOOGLE_PLACES_API_KEY — If set, each deploy upserts this key into `${API_DEPLOY_PATH}/.env` on the VM (then restarts the API).
+#   OUTSCRAPER_API_KEY    — Same for Airbnb review sync (Outscraper).
+#
+# If those repo secrets are unset, the VM keeps whatever is already in `.env` (manual `nano` still works). Unsetting a secret does not remove the line from the server.
 #
 # Migrations run on GitHub-hosted runners (IPv6-friendly), not on the Oracle VM — avoids IPv4-only VM issues with Supabase Free.
 # Also runnable manually: Actions → Deploy API (Oracle VM) → Run workflow.
@@ -79,15 +83,31 @@ jobs:
         env:
           DEPLOY_PATH: ${{ secrets.API_DEPLOY_PATH }}
           SYSTEMD_UNIT: ${{ secrets.API_SYSTEMD_UNIT }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          OUTSCRAPER_API_KEY: ${{ secrets.OUTSCRAPER_API_KEY }}
         with:
           host: ${{ secrets.API_DEPLOY_HOST }}
           username: ${{ secrets.API_DEPLOY_USER }}
           key: ${{ secrets.API_DEPLOY_SSH_KEY }}
-          envs: DEPLOY_PATH,SYSTEMD_UNIT
+          envs: DEPLOY_PATH,SYSTEMD_UNIT,GOOGLE_PLACES_API_KEY,OUTSCRAPER_API_KEY
           script: |
             set -euo pipefail
             if [ -z "${DEPLOY_PATH}" ]; then echo "DEPLOY_PATH missing — set API_DEPLOY_PATH secret"; exit 1; fi
             cd "${DEPLOY_PATH}"
+
+            # Upsert review-sync keys without echoing values (omit empty — leaves existing server `.env` lines untouched).
+            upsert_dotenv_kv() {
+              local key="$1" val="$2" file="${DEPLOY_PATH}/.env"
+              [ -n "${val}" ] || return 0
+              touch "${file}"
+              { grep -v "^${key}=" "${file}" || true; } > "${file}.gha.$$.tmp"
+              mv "${file}.gha.$$.tmp" "${file}"
+              printf '%s=%s\n' "${key}" "${val}" >> "${file}"
+              chmod 600 "${file}" || true
+            }
+            upsert_dotenv_kv GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
+            upsert_dotenv_kv OUTSCRAPER_API_KEY "${OUTSCRAPER_API_KEY:-}"
+
             git fetch origin main
             git checkout main
             git pull --ff-only origin main

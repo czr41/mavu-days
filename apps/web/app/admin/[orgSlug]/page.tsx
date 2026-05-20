@@ -1853,8 +1853,8 @@ export default function OrgAdminPage() {
             The API merges Google Maps snippets and Airbnb excerpts when you tap <strong>Sync reviews now</strong> below.
             Server secrets (<code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_PLACES_API_KEY</code>,
             optional <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>OUTSCRAPER_API_KEY</code>,
-            fallback <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_MAPS_API_KEY</code>) live only in the API
-            server .env file.
+            fallback <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_MAPS_API_KEY</code>) must be on the API server
+            (<code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>.env</code> next to the deployed repo, or injected by your host). For Oracle + GitHub Actions deploys, optional repo secrets with the same names are written into that <code>.env</code> on each deploy—see <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>docs/deploy/oracle-api-vercel-web.md</code> §10.
           </p>
           <ul style={{ margin: '0 0 0 1rem', padding: 0, color: '#4B5563' }}>
             <li style={{ marginBottom: '0.45rem' }}>

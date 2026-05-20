@@ -256,15 +256,22 @@ API_HOST=0.0.0.0
 API_PORT=3001
 
 MOCK_PAYMENTS=false
+
+# Optional — Guest review sync (admin → Guest Reviews → Sync from Google/Airbnb).
+# Without these, Google sync is skipped and Airbnb falls back to brittle HTML scraping.
+# GOOGLE_PLACES_API_KEY=
+# OUTSCRAPER_API_KEY=
 ```
 
-Save: **Ctrl+O**, Enter, **Ctrl+X**.
+Save in nano: **Ctrl+O**, Enter, **Ctrl+X**.
 
 Lock the file:
 
 ```bash
 chmod 600 /opt/mavu-days/.env
 ```
+
+After adding or changing secrets (Places, Outscraper, etc.), restart the API so they load (**`sudo systemctl restart mavu-api`** — or your **`API_SYSTEMD_UNIT`**).
 
 ### 5.3 Install dependencies and build the API
 
@@ -457,12 +464,13 @@ If your **Supabase** database is empty of your real org:
 | API works over HTTP IP but not HTTPS | DNS not pointing to VM yet; wait for propagation; check **Caddy** logs: `journalctl -u caddy -e`. |
 | Vercel build fails | Build logs in Vercel — often wrong **Root Directory** (must be **`apps/web`**). |
 | Site loads, API calls fail (CORS / network) | **`NEXT_PUBLIC_API_URL`** wrong or HTTP instead of HTTPS; API down (`/health/live`). |
+| Guest Reviews sync warns “GOOGLE_PLACES_API_KEY is not configured” | Add the key to the **VM** `.env` (see §5.2) **or** set repo secret **`GOOGLE_PLACES_API_KEY`** and rerun **Deploy API** so the workflow upserts it. |
 
 ---
 
 ## Part 10 — Auto-deploy API on push (GitHub Actions)
 
-This repo includes **`.github/workflows/deploy-api.yml`**. On each push to **`main`** that touches API-related paths, GitHub Actions **SSHes into your Oracle VM**, runs **`git pull`**, **`npm ci`**, **`migrate deploy`**, **`npm run build -w @mavu/api`**, and **`sudo systemctl restart mavu-api`** (or **`API_SYSTEMD_UNIT`**).
+This repo includes **`.github/workflows/deploy-api.yml`**. On each push to **`main`** that touches API-related paths, GitHub Actions **SSHes into your Oracle VM**, upserts optional review-sync keys into **`${API_DEPLOY_PATH}/.env`** when repo secrets **`GOOGLE_PLACES_API_KEY`** / **`OUTSCRAPER_API_KEY`** are set, then runs **`git pull`**, **`npm ci`**, **`migrate deploy`** (on GitHub), **`npm run build -w @mavu/api`** (on the VM), and **`sudo systemctl restart mavu-api`** (or **`API_SYSTEMD_UNIT`**).
 
 ### One-time setup
 
@@ -476,8 +484,13 @@ This repo includes **`.github/workflows/deploy-api.yml`**. On each push to **`ma
 | **`API_DEPLOY_USER`** | `ubuntu` |
 | **`API_DEPLOY_SSH_KEY`** | Private key PEM (pair whose **public** key is in **`~/.ssh/authorized_keys`** on the VM for that user) |
 | **`API_DEPLOY_PATH`** | `/opt/mavu-days` |
+| **`DATABASE_URL`** / **`DIRECT_URL`** | Used by the **migrate** job on GitHub (see workflow header). |
+| **`GOOGLE_PLACES_API_KEY`** (optional) | If set, each API deploy **writes** this into the VM’s **`${API_DEPLOY_PATH}/.env`** so Guest Review → Google sync works without manual SSH. |
+| **`OUTSCRAPER_API_KEY`** (optional) | Same for reliable **Airbnb** review sync. |
 
 Optional: **`API_SYSTEMD_UNIT`** if your unit isn’t **`mavu-api`**.
+
+If you **don’t** use those optional secrets, add **`GOOGLE_PLACES_API_KEY`** / **`OUTSCRAPER_API_KEY`** by hand in **`/opt/mavu-days/.env`** on the VM and **`sudo systemctl restart mavu-api`**. Removing a secret from GitHub does **not** delete the line on the server.
 
 4. Push this workflow to **`main`** or run **Actions → Deploy API (Oracle VM) → Run workflow** manually (`workflow_dispatch`).
 
