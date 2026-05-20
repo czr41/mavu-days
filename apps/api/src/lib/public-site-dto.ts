@@ -66,7 +66,10 @@ export type PublicPropertyDto = {
 
 export type PublicSitePayloadDto = {
   organization: { slug: string; name: string };
-  siteSettings: { homepageKind: OrgHomepageKind };
+  siteSettings: {
+    homepageKind: OrgHomepageKind;
+    externalReviewsFirstSyncAt: string | null;
+  };
   properties: PublicPropertyDto[];
   sections: SiteSection[];
   media: MediaAsset[];
@@ -182,7 +185,12 @@ export function buildPublicSitePayload(args: {
 
   return {
     organization: { slug: args.organization.slug, name: args.organization.name },
-    siteSettings: { homepageKind },
+    siteSettings: {
+      homepageKind,
+      externalReviewsFirstSyncAt: args.siteSettings?.externalReviewsFirstSyncAt
+        ? args.siteSettings.externalReviewsFirstSyncAt.toISOString()
+        : null,
+    },
     properties: args.properties.map((p) => ({
       id: p.id,
       name: p.name,

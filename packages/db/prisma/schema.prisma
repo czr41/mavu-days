@@ -71,6 +71,8 @@ model OrgSiteSettings {
   googlePlaceId            String?
   /// Optional Airbnb listing URL override for review sync (defaults to first published unit’s Airbnb URL).
   airbnbReviewsListingUrl  String?
+  /// Set once the first CMS “sync external reviews” succeeds; suppresses seeded quote-carousel fallbacks on the marketing site.
+  externalReviewsFirstSyncAt DateTime?
   updatedAt        DateTime        @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

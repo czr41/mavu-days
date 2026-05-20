@@ -12,6 +12,12 @@ export async function loadLandingPayload() {
     mergePayload = await fetchPublicOrgContent(envSlug);
   }
   const merged = mergeLandingContent(mergePayload);
+  /** @see OrgSiteSettings.externalReviewsFirstSyncAt — after first CMS external review sync, hide seeded carousel quotes */
+  const reviewQuoteFallbackSuppressed = Boolean(
+    mergePayload &&
+      'siteSettings' in mergePayload &&
+      mergePayload.siteSettings?.externalReviewsFirstSyncAt,
+  );
   /** Prefer slug returned by API so client availability matches DB even if env has stray whitespace or casing drift. */
   const orgSlug = mergePayload?.organization?.slug
     ? sanitizePublicOrgSlug(mergePayload.organization.slug)
@@ -21,5 +27,5 @@ export async function loadLandingPayload() {
     .filter(isPositiveGuestReview)
     .slice(0, LANDING_POSITIVE_REVIEWS_CAP);
   const landingOffers = mergePayload?.offers ?? [];
-  return { orgSlug, merged, payload: mergePayload, orgName, landingReviews, landingOffers };
+  return { orgSlug, merged, payload: mergePayload, orgName, landingReviews, landingOffers, reviewQuoteFallbackSuppressed };
 }

@@ -417,7 +417,7 @@ Mention breed and temperament when you book so we ready the right greeting; then
     { title: 'Food and Kitchen', text: 'Share food or kitchen preferences before arrival so the team can guide you.' },
     {
       title: 'Pets',
-      text: 'Guests with dogs are welcome—share details when you book. Pet notes in these guidelines largely cover resident animals & land care.',
+      text: 'Confirm pet details before booking if pets are coming along with you.',
     },
   ],
   reviewsTitle: 'Guest Moments at Mavu Days',

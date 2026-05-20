@@ -14,7 +14,10 @@ export async function fetchPublicOrgSite(orgSlug: string): Promise<PublicSitePay
     if (!raw.organization?.slug) return null;
     return {
       organization: raw.organization,
-      siteSettings: raw.siteSettings ?? { homepageKind: 'LISTING_GRID' },
+      siteSettings: {
+        homepageKind: raw.siteSettings?.homepageKind ?? 'LISTING_GRID',
+        externalReviewsFirstSyncAt: raw.siteSettings?.externalReviewsFirstSyncAt ?? null,
+      },
       properties: raw.properties ?? [],
       sections: raw.sections ?? [],
       media: raw.media ?? [],

@@ -6,10 +6,11 @@
  * Prefer OUTSCRAPER_API_KEY (paid, stable) for Airbnb. Without Outscraper, embedded HTML scraping is fragile.
  *
  * Rows created by sync use autoSynced=true; each sync deletes prior autoSynced rows and recreates them.
+ * First successful sync (when externalReviewsFirstSyncAt was unset) clears manual GuestReviews whose body matches seeded marketing placeholders and hides quote-carousel fallbacks on the public site.
  */
 
 import type { PrismaClient } from '@prisma/client';
-import { ReviewPlatform } from '@prisma/client';
+import { OrgHomepageKind, ReviewPlatform } from '@prisma/client';
 
 import { PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
 
@@ -22,6 +23,64 @@ const MAX_FETCH_PER_SOURCE = 120;
 /** Keep memory/time bounded while scanning huge Next.js payloads in listing HTML */
 const MAX_HTML_CHARS_FOR_SCRAPE = 2_500_000;
 const MAX_EMBEDDED_JSON_WALK_NODES = 45_000;
+
+/** Canonical marketing copy mirrored in CMS `landing-review-quotes`, LandingView fallbacks, and seed. */
+const KNOWN_DUMMY_REVIEW_BODY_LINES = [
+  'Peaceful, private, and exactly what we needed for a weekend away from Bangalore.',
+  'A beautiful farm setting with enough space for the family to relax and unwind.',
+  'The perfect place to disconnect from city noise and spend slow time with loved ones.',
+  'A perfect weekend escape! The place is beautiful, peaceful and well-maintained. We loved the pool and the bonfire nights.',
+  'Our family had an amazing time. Kids enjoyed the open space and we enjoyed the calm. Highly recommended!',
+  'The villa was clean, cosy and the host was super helpful. We will definitely visit again soon.',
+] as const;
+
+function normalizeDummyReviewBody(s: string): string {
+  return s.trim().replace(/\s+/g, ' ');
+}
+
+function dummyReviewBodiesSet(extraLinesFromCms: readonly string[]): Set<string> {
+  const set = new Set<string>();
+  for (const raw of KNOWN_DUMMY_REVIEW_BODY_LINES) set.add(normalizeDummyReviewBody(raw));
+  for (const raw of extraLinesFromCms) {
+    const n = normalizeDummyReviewBody(raw);
+    if (n.length >= 18) set.add(n);
+  }
+  return set;
+}
+
+async function landingReviewQuotesLines(prisma: PrismaClient, organizationId: string): Promise<string[]> {
+  const row = await prisma.siteSection.findFirst({
+    where: { organizationId, key: 'landing-review-quotes' },
+    select: { bodyMarkdown: true },
+  });
+  const raw = row?.bodyMarkdown;
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  return raw
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length >= 12);
+}
+
+async function markExternalReviewsFirstSyncIfNeeded(prisma: PrismaClient, organizationId: string): Promise<void> {
+  const now = new Date();
+  const u = await prisma.orgSiteSettings.updateMany({
+    where: { organizationId, externalReviewsFirstSyncAt: null },
+    data: { externalReviewsFirstSyncAt: now },
+  });
+  if (u.count > 0) return;
+  const exists = await prisma.orgSiteSettings.findUnique({
+    where: { organizationId },
+    select: { id: true },
+  });
+  if (exists) return;
+  await prisma.orgSiteSettings.create({
+    data: {
+      organizationId,
+      homepageKind: OrgHomepageKind.LISTING_GRID,
+      externalReviewsFirstSyncAt: now,
+    },
+  });
+}
 
 export type ExternalReviewsSyncResult = {
   ok: boolean;
@@ -61,7 +120,6 @@ type PrismaOrganizationWithListings = {
     googlePlaceId: string | null;
     units: Array<{
       listingProfile: null | {
-        published: boolean;
         airbnbListingUrl: string | null;
       };
     }>;
@@ -73,7 +131,7 @@ function clip(s: string, max: number): string {
   return s.slice(0, max - 1) + '\u2026';
 }
 
-/** Distinct Airbnb room URLs from every published CMS listing (listing-level review source). */
+/** Distinct Airbnb room URLs from CMS stay listings with an Airbnb URL saved (published or draft). */
 export function pickAllPublishedAirbnbListingUrls(org: OrgWithListingUrls): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -81,7 +139,7 @@ export function pickAllPublishedAirbnbListingUrls(org: OrgWithListingUrls): stri
   for (const prop of org.properties) {
     for (const unit of prop.units ?? []) {
       const lp = unit.listingProfile;
-      if (!lp?.published || !lp.airbnbListingUrl?.trim()) continue;
+      if (!lp?.airbnbListingUrl?.trim()) continue;
       const u = lp.airbnbListingUrl.trim();
       try {
         // eslint-disable-next-line no-new -- validate URL shape
@@ -127,8 +185,11 @@ async function fetchGoogleReviews(
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        /** Requesting reviews uses Place Details Enterprise+ Atmosphere SKU in Google Maps billing */
-        'X-Goog-FieldMask': 'reviews',
+        /**
+         * `reviews` triggers Place Details Enterprise+ Atmosphere SKU.
+         * Include `id` (and optionally `displayName`) so FieldMask validates like official examples.
+         */
+        'X-Goog-FieldMask': 'id,reviews',
       },
       signal: AbortSignal.timeout(20000),
     });
@@ -794,11 +855,34 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
   let deletedAutoSynced = 0;
   let createdCount = 0;
 
+  const ss = await prisma.orgSiteSettings.findUnique({
+    where: { organizationId: args.organizationId },
+    select: { externalReviewsFirstSyncAt: true },
+  });
+  const beforeFirstSuccessfulExternalStamp = ss?.externalReviewsFirstSyncAt == null;
+  const cmsQuoteLines = beforeFirstSuccessfulExternalStamp
+    ? await landingReviewQuotesLines(prisma, args.organizationId)
+    : [];
+  const dummyBodies = beforeFirstSuccessfulExternalStamp
+    ? dummyReviewBodiesSet(cmsQuoteLines)
+    : new Set<string>();
+
   await prisma.$transaction(async (tx) => {
     const del = await tx.guestReview.deleteMany({
       where: { organizationId: args.organizationId, autoSynced: true },
     });
     deletedAutoSynced = del.count;
+
+    if (beforeFirstSuccessfulExternalStamp && dummyBodies.size > 0) {
+      const candidates = await tx.guestReview.findMany({
+        where: { organizationId: args.organizationId, autoSynced: false },
+        select: { id: true, body: true },
+      });
+      const idsToDel = candidates
+        .filter((r) => dummyBodies.has(normalizeDummyReviewBody(r.body)))
+        .map((r) => r.id);
+      if (idsToDel.length) await tx.guestReview.deleteMany({ where: { id: { in: idsToDel } } });
+    }
 
     const syncedAt = new Date();
     for (let i = 0; i < positives.length; i++) {
@@ -823,6 +907,10 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
       createdCount++;
     }
   });
+
+  if (beforeFirstSuccessfulExternalStamp) {
+    await markExternalReviewsFirstSyncIfNeeded(prisma, args.organizationId);
+  }
 
   return {
     ok: true,

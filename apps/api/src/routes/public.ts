@@ -11,6 +11,7 @@ import {
   resolveLandingBookingTargets,
   resolveLandingUnitIds,
 } from '../services/landing-availability-matrix.js';
+import { computePublicUnitCalendarMonth } from '../services/unit-calendar-availability.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { buildPublicSitePayload } from '../lib/public-site-dto.js';
 import { PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
@@ -36,6 +37,12 @@ type OrgInventoryPayload = Prisma.OrganizationGetPayload<{
 const landingAvailabilityQuerySchema = z.object({
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const unitCalendarQuerySchema = z.object({
+  propertySlug: z.string().min(1),
+  unitSlug: z.string().min(1),
+  month: z.string().regex(/^\d{4}-\d{2}$/),
 });
 
 /** Calendar date at UTC midnight — matches common direct-booking payloads. */
@@ -386,6 +393,69 @@ export function registerPublicRoutes(app: FastifyInstance) {
       checkOutUtc: checkOutUtc.toISOString(),
       columns,
     });
+  });
+
+  /** Night-by-night availability grid for marketing calendar modal (rates not included). */
+  app.get('/public/orgs/:orgSlug/unit-calendar', async (req, reply) => {
+    const orgSlug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
+    const parsed = unitCalendarQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send({ error: 'Provide propertySlug, unitSlug and month=YYYY-MM as query params.' });
+    }
+    const { propertySlug, unitSlug, month } = parsed.data;
+    const ym = /^(\d{4})-(\d{2})$/.exec(month);
+    if (!ym) {
+      return reply.status(400).send({ error: 'month must be YYYY-MM.' });
+    }
+    const year = Number(ym[1]);
+    const mon = Number(ym[2]);
+    if (mon < 1 || mon > 12 || year < 2000 || year > 2120) {
+      return reply.status(400).send({ error: 'Invalid month.' });
+    }
+
+    const org = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(orgSlug),
+      include: { siteSettings: true },
+    });
+    if (!org) return reply.status(404).send({ error: 'Organization not found' });
+
+    const unitRow = await app.prisma.rentableUnit.findFirst({
+      where: {
+        slug: unitSlug,
+        property: {
+          slug: propertySlug,
+          organizationId: org.id,
+        },
+      },
+      select: { id: true },
+    });
+    if (!unitRow) {
+      return reply.status(404).send({ error: 'Stay option not found' });
+    }
+
+    const homepageKind = org.siteSettings?.homepageKind ?? OrgHomepageKind.LISTING_GRID;
+    try {
+      const calendar = await computePublicUnitCalendarMonth({
+        prisma: app.prisma,
+        organizationId: org.id,
+        homepageKind,
+        rentableUnitId: unitRow.id,
+        year,
+        month: mon,
+      });
+      return reply.send({
+        organizationSlug: org.slug,
+        homepageKind,
+        propertySlug,
+        unitSlug,
+        ...calendar,
+      });
+    } catch (e) {
+      req.log.error(e);
+      return reply.status(500).send({ error: 'Could not load calendar.' });
+    }
   });
 
   app.post('/public/orgs/:orgSlug/bookings', async (req, reply) => {

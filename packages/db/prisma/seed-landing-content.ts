@@ -60,7 +60,10 @@ const HOUSE_RULES_JSON = JSON.stringify(
     { title: 'Guest Count', text: 'Book for the correct number of guests; additional guests may need prior approval.' },
     { title: 'Check-in and Check-out', text: 'Timings are shared during booking confirmation.' },
     { title: 'Food and Kitchen', text: 'Share food or kitchen preferences before arrival so the team can guide you.' },
-    { title: 'Pets', text: 'Guests with dogs are welcome—share details when you book. Pet notes in these guidelines largely cover resident animals & land care.' },
+    {
+      title: 'Pets',
+      text: 'Confirm pet details before booking if pets are coming along with you.',
+    },
   ],
   null,
   2,

@@ -1,9 +1,10 @@
 ﻿'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { LandingSectionHead } from '@/components/landing/landing-section-head';
 import { RevealSection } from '@/components/landing/reveal-section';
+import { UnitAvailabilityCalendarDialog } from '@/components/landing/unit-availability-calendar-dialog';
 import { publicApiBaseUrl } from '@/lib/public-api-base';
 import { publicOrgSlugCandidates } from '@/lib/public-org-slug';
 import type { StayFilter } from '@/lib/whatsapp';
@@ -74,6 +75,22 @@ function fmtExtraGuest(n: number | null | undefined) {
       <span className="md-price-amt">{v}</span>
       <span className="md-price-per"> / person</span>
     </>
+  );
+}
+
+function StayTotalCell({ pricing }: { pricing: ColumnPricing | null }) {
+  if (!pricing?.stayEstimateTotal || pricing.nights < 1) {
+    return <span className="md-booking-cell-muted">—</span>;
+  }
+  const v = fmtInr(pricing.stayEstimateTotal);
+  if (!v) return <span className="md-booking-cell-muted">—</span>;
+  return (
+    <div className="md-booking-stay-total-inner">
+      <span className="md-price-amt">{v}</span>
+      <div className="md-booking-stay-meta">
+        {pricing.nights} night{pricing.nights === 1 ? '' : 's'}
+      </div>
+    </div>
   );
 }
 
@@ -176,6 +193,7 @@ export function AvailabilitySearch({
   const [availabilityOrgSlug, setAvailabilityOrgSlug] = useState<string | null>(null);
   const [bookingBusyKey, setBookingBusyKey] = useState<string | null>(null);
   const [bookingNotice, setBookingNotice] = useState<{ key: string; ok: boolean; text: string } | null>(null);
+  const [calendarColumnKey, setCalendarColumnKey] = useState<string | null>(null);
 
   const apiBase = useMemo(() => publicApiBaseUrl(), []);
 
@@ -243,6 +261,11 @@ export function AvailabilitySearch({
 
   const bookingOrgSlug = availabilityOrgSlug ?? orgSlug;
 
+  const unitCalendarSlugCandidates = useMemo(
+    () => publicOrgSlugCandidates(bookingOrgSlug),
+    [bookingOrgSlug],
+  );
+
   const submitBooking = useCallback(
     async (column: Column) => {
       if (!column.available || !column.bookingTarget) return;
@@ -305,7 +328,16 @@ export function AvailabilitySearch({
     return columns.filter((c) => c.key === stayFilter);
   }, [columns, stayFilter]);
 
+  useEffect(() => {
+    if (!calendarColumnKey) return undefined;
+    if (!visibleColumns.some((c) => c.key === calendarColumnKey)) setCalendarColumnKey(null);
+    return undefined;
+  }, [calendarColumnKey, visibleColumns]);
+
   const resultsOpen = Boolean(columns && columns.length > 0);
+
+  const calendarTarget =
+    calendarColumnKey && columns?.length ? columns.find((c) => c.key === calendarColumnKey) : undefined;
 
   return (
     <RevealSection className="md-section md-section-booking" id="booking" aria-labelledby="booking-title">
@@ -425,6 +457,11 @@ export function AvailabilitySearch({
                         <th scope="col">Weekdays (Mon–Thu)</th>
                         <th scope="col">Weekends (Fri–Sun)</th>
                         <th scope="col">Extra guest</th>
+                        <th scope="col">
+                          <abbr title="Tariff summed for each night from check-in through the night before check-out (taxes excluded)">
+                            Est. stay total
+                          </abbr>
+                        </th>
                         <th scope="col">Availability</th>
                       </tr>
                     </thead>
@@ -457,10 +494,26 @@ export function AvailabilitySearch({
                                 <span className="md-booking-cell-muted">—</span>
                               )}
                             </td>
+                            <td className="md-price-cell">
+                              <StayTotalCell pricing={p} />
+                            </td>
                             <td className="md-booking-avail-cell">
                               <span className={c.available ? 'md-booking-status md-booking-status--ok' : 'md-booking-status md-booking-status--busy'}>
                                 {c.available ? 'Available' : 'Booked'}
                               </span>
+                              {c.bookingTarget ? (
+                                <button
+                                  type="button"
+                                  className="md-booking-cal-toggle"
+                                  aria-label={`Open nights-only availability calendar for ${c.title}`}
+                                  onClick={() => setCalendarColumnKey(c.key)}
+                                >
+                                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden fill="none" strokeWidth="1.65" strokeLinecap="round">
+                                    <rect x="3.5" y="4.75" width="17" height="16.75" rx="2" ry="2" stroke="currentColor" />
+                                    <path d="M16 4V2.25M8 4V2.25M3 10h18" stroke="currentColor" />
+                                  </svg>
+                                </button>
+                              ) : null}
                               {c.available && c.bookingTarget ? (
                                 <button
                                   type="button"
@@ -484,10 +537,23 @@ export function AvailabilitySearch({
                     <path d="M12 16v-5M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                   <span>
-                    Prices are exclusive of taxes. Long stay discounts available — we&apos;ll confirm your total when you enquire.
+                    <strong>Est. stay total</strong> adds up each night&apos;s tariff for your check-in through check-out (before taxes).
+                    Long-stay offers are confirmed when you enquire. Prices exclude taxes.
                   </span>
                 </div>
               </div>
+
+              {calendarTarget?.bookingTarget ? (
+                <UnitAvailabilityCalendarDialog
+                  apiBase={apiBase}
+                  orgSlugCandidates={unitCalendarSlugCandidates}
+                  propertySlug={calendarTarget.bookingTarget.propertySlug}
+                  unitSlug={calendarTarget.bookingTarget.unitSlug}
+                  stayLabel={calendarTarget.title}
+                  open={Boolean(calendarColumnKey)}
+                  onClose={() => setCalendarColumnKey(null)}
+                />
+              ) : null}
 
               {bookingNotice ? (
                 <p

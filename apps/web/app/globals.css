@@ -1076,7 +1076,7 @@ p.md-eyebrow-line {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88rem;
-  min-width: 880px;
+  min-width: 1020px;
 }
 
 .md-booking-price-table thead th {
@@ -1180,7 +1180,230 @@ p.md-eyebrow-line {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.65rem;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+.md-booking-cal-toggle {
+  display: grid;
+  place-items: center;
+  width: 2.05rem;
+  height: 2.05rem;
+  margin: 0;
+  padding: 0;
+  border-radius: 9px;
+  border: 1px solid rgba(54, 60, 48, 0.16);
+  background: rgba(253, 250, 244, 0.95);
+  color: rgba(58, 74, 54, 0.88);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.md-booking-cal-toggle:hover {
+  border-color: rgba(54, 60, 48, 0.28);
+  color: rgba(38, 50, 35, 0.96);
+}
+
+.md-booking-cal-toggle:focus-visible {
+  outline: 2px solid rgba(127, 148, 101, 0.52);
+  outline-offset: 2px;
+}
+
+.md-booking-stay-total-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.md-booking-stay-meta {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  color: var(--muted);
+}
+
+/* Per-row nights-only availability (modal) */
+.md-unit-cal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(22, 28, 22, 0.48);
+}
+
+.md-unit-cal-modal {
+  max-width: 380px;
+  width: 100%;
+  max-height: min(92vh, 520px);
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--ivory, #fefdfb);
+  box-shadow:
+    0 24px 60px rgba(22, 32, 24, 0.18),
+    0 8px 20px rgba(22, 32, 24, 0.08);
+  padding: clamp(1rem, 3vw, 1.35rem);
+}
+
+.md-unit-cal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.md-unit-cal-head-text {
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.md-unit-cal-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--heading);
+}
+
+.md-unit-cal-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.md-unit-cal-nav-btn {
+  margin: 0;
+  padding: 0.15rem 0.52rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--heading);
+  cursor: pointer;
+}
+
+.md-unit-cal-nav-btn:hover {
+  border-color: rgba(54, 60, 48, 0.12);
+  background: rgba(246, 244, 239, 0.75);
+}
+
+.md-unit-cal-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.735rem;
+  line-height: 1.42;
+  color: var(--muted);
+  text-align: center;
+}
+
+.md-unit-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.22rem;
+}
+
+.md-unit-cal-grid--head {
+  margin-top: 0.25rem;
+  margin-bottom: 0.2rem;
+}
+
+.md-unit-cal-weekday {
+  text-align: center;
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.md-unit-cal-grid--days {
+  margin-bottom: 0.75rem;
+}
+
+.md-unit-cal-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(54, 60, 48, 0.95);
+}
+
+.md-unit-cal-cell--empty {
+  visibility: hidden;
+}
+
+.md-unit-cal-cell--free {
+  background: rgba(187, 210, 170, 0.38);
+  border: 1px solid rgba(64, 84, 62, 0.15);
+}
+
+.md-unit-cal-cell--busy {
+  background: rgba(231, 220, 200, 0.88);
+  border: 1px solid rgba(84, 70, 50, 0.12);
+  color: rgba(84, 70, 55, 0.78);
+}
+
+.md-unit-cal-cell--unknown {
+  background: rgba(246, 244, 239, 0.75);
+  border: 1px dashed rgba(54, 60, 48, 0.12);
+  color: var(--muted);
+}
+
+.md-unit-cal-cell--today {
+  box-shadow: 0 0 0 2px rgba(246, 200, 95, 0.88);
+}
+
+.md-unit-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 1.15rem;
+  margin-bottom: 0.95rem;
+  font-size: 0.735rem;
+  color: var(--muted);
+}
+
+.md-unit-cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.md-unit-cal-swatch {
+  width: 0.92rem;
+  height: 0.92rem;
+  border-radius: 4px;
+  border: 1px solid rgba(54, 60, 48, 0.12);
+}
+
+.md-unit-cal-swatch--free {
+  background: rgba(187, 210, 170, 0.45);
+}
+
+.md-unit-cal-swatch--busy {
+  background: rgba(231, 220, 200, 0.95);
+}
+
+.md-unit-cal-close {
+  width: 100%;
+}
+
+.md-unit-cal-status {
+  margin: 0 0 0.55rem;
+  text-align: center;
+  font-size: 0.815rem;
+  color: var(--muted);
+}
+
+.md-unit-cal-status--error {
+  color: #9b1c1c;
 }
 
 .md-booking-book-btn {
@@ -3006,6 +3229,18 @@ p.md-eyebrow-line {
   background: var(--soft-beige);
 }
 
+.md-map-google-link-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.md-map-google-link-overlay:focus-visible {
+  outline: 2px solid rgba(246, 200, 95, 0.85);
+  outline-offset: -2px;
+}
+
 .md-map-shell-brand .md-map-frame {
   height: clamp(268px, 38vmin, 384px);
   display: block;
@@ -3024,6 +3259,8 @@ p.md-eyebrow-line {
   color: #f9fdf6;
   background: rgba(22, 32, 24, 0.86);
   box-shadow: 0 10px 24px rgba(18, 24, 20, 0.3);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .md-map-drive-dot {
@@ -3037,6 +3274,21 @@ p.md-eyebrow-line {
 .md-map-pin-hint-soft {
   font-size: 0.815rem;
   color: var(--muted);
+}
+
+a.md-map-pin-hint-link {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+a.md-map-pin-hint-link:hover {
+  text-decoration: underline;
+  color: var(--deep-green);
+}
+
+a.md-map-pin-hint-link:focus-visible {
+  outline: 2px solid rgba(127, 148, 101, 0.52);
+  outline-offset: 2px;
 }
 
 /* “What’s near” — carousel under map embed */
@@ -3438,10 +3690,11 @@ div.md-amenities {
 }
 
 .md-amenities-row {
-  background: var(--ivory);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 1.5rem;
+  /* Chips carry their own surface; strip sits on section cream — no enclosing “patch”. */
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 0;
 }
 
 /* ——— CTA Banner ——— */
@@ -3533,6 +3786,25 @@ div.md-amenities {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.md-review-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.md-review-platform-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.md-review-platform-badge svg {
+  display: block;
 }
 
 .md-review-stars-row {

@@ -32,6 +32,12 @@ export type PublicLandingOfferDto = {
   label: string;
 };
 
+export type PublicSiteSettingsDto = {
+  homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU';
+  /** ISO timestamp when CMS external review sync first succeeded — marketing site skips seeded quote placeholders. */
+  externalReviewsFirstSyncAt?: string | null;
+};
+
 /** Published marketing fields for one rentable unit (when published on the public site). */
 export type PublicUnitListingPayload = {
   published: boolean;
@@ -82,13 +88,13 @@ export type PublicContentPayload = {
   media: MediaAssetDto[];
   reviews: PublicGuestReviewDto[];
   offers: PublicLandingOfferDto[];
-  /** Included on `/content` when inventory is embedded so `/site` isn’t strictly required for listing photos. */
-  siteSettings?: { homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' };
+  /** Included on `/content` when inventory is embedded so `/site` isn't strictly required for listing photos. */
+  siteSettings?: PublicSiteSettingsDto;
   properties?: PublicPropertiesPayload;
 };
 
 /** Full marketing payload from `/site` (CMS + inventory + homepage kind). */
 export type PublicSitePayload = PublicContentPayload & {
-  siteSettings: { homepageKind: 'LISTING_GRID' | 'MATRIX_THREE_SKU' };
+  siteSettings: PublicSiteSettingsDto;
   properties: PublicPropertiesPayload;
 };

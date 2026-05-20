@@ -22,7 +22,7 @@ import { OffersTicker } from '@/components/landing/offers-ticker';
 import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
 import { NearFarmCarousel } from '@/components/landing/near-farm-carousel';
-import { GuestReviewStars } from '@/components/landing/guest-review-stars';
+import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
 
 type Path = '/' | '/farm-stay-near-bangalore';
@@ -43,7 +43,8 @@ function galleryFallbackSlots(count = 8) {
 
 /** Full marketing homepage */
 export async function LandingView({ path }: { path: Path }) {
-  const { orgSlug, merged, orgName, landingReviews, landingOffers } = await loadLandingPayload();
+  const { orgSlug, merged, orgName, landingReviews, landingOffers, reviewQuoteFallbackSuppressed } =
+    await loadLandingPayload();
   const stayOptions =
     merged.homepageKind === 'MATRIX_THREE_SKU'
       ? [
@@ -57,6 +58,7 @@ export async function LandingView({ path }: { path: Path }) {
           ...merged.texts.listings.map((L) => ({ value: listingUrlPath(L), label: L.title })),
         ];
   const hasImportedReviews = landingReviews.length > 0;
+  const showMarketingQuoteFallbackCarousel = landingReviews.length === 0 && !reviewQuoteFallbackSuppressed;
   const reviewSectionHasPlatforms = landingReviews.some(
     (r) => r.platform === 'GOOGLE' || r.platform === 'AIRBNB',
   );
@@ -535,17 +537,32 @@ export async function LandingView({ path }: { path: Path }) {
                       className="md-map-frame"
                       src={MAVU_DAYS_MAP_EMBED_URL}
                     />
+                    <a
+                      href={MAVU_DAYS_DIRECTIONS_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="md-map-google-link-overlay"
+                      aria-label="Open Mavu Days in Google Maps"
+                      title="Open in Google Maps"
+                    >
+                      <span className="md-sr-only">Open directions in Google Maps</span>
+                    </a>
                     <span className="md-map-drive-badge">
                       ~1.5 hrs drive <span aria-hidden className="md-map-drive-dot">{'\u00b7'}</span> From Bangalore
                     </span>
                   </div>
-                  <span className="md-map-pin-hint md-map-pin-hint-soft">
+                  <a
+                    href={MAVU_DAYS_DIRECTIONS_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="md-map-pin-hint md-map-pin-hint-soft md-map-pin-hint-link"
+                  >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                       <circle cx="12" cy="10" r="3" />
                     </svg>
                     {'Mavu Days Farm House \u00b7 Near Channapatna, Karnataka'}
-                  </span>
+                  </a>
                   <div className="md-near-farm-cloud" aria-labelledby="near-farm-cloud-label">
                     <div className="md-near-farm-cloud-heading-row">
                       <div>
@@ -689,6 +706,8 @@ export async function LandingView({ path }: { path: Path }) {
                   <strong style={{ fontWeight: 600, color: 'var(--heading)' }}>4★+</strong> guest feedback only · drag or
                   swipe sideways to browse all quotes.
                 </>
+              ) : reviewQuoteFallbackSuppressed ? (
+                <>Imported testimonials are synced from Google Maps or Airbnb. None matched the 4★+ strip yet—you can tweak copy or sync again.</>
               ) : (
                 <>Drag or swipe sideways to browse guest quotes.</>
               )}
@@ -698,38 +717,43 @@ export async function LandingView({ path }: { path: Path }) {
                 {hasImportedReviews
                   ? landingReviews.map((r, idx) => (
                       <RevealFigure key={r.id} delayIndex={idx} className="md-review-card md-review-scroll-card">
-                        <GuestReviewStars rating={r.rating} ratingMax={r.ratingMax} />
+                        <div className="md-review-card-top">
+                          <GuestReviewStars rating={r.rating} ratingMax={r.ratingMax} />
+                          <GuestReviewPlatformBadge platform={r.platform} />
+                        </div>
                         <blockquote className="md-quote">
                           <p>{`"${r.body}"`}</p>
                         </blockquote>
                         <div>
-                          <p className="md-reviewer">
-                            {r.guestDisplayName || 'Verified Guest'}
-                            {r.platformLabel ? (
-                              <span className="md-review-platform" style={{ marginLeft: '0.5rem' }}>{r.platformLabel}</span>
-                            ) : null}
-                          </p>
+                          <p className="md-reviewer">{r.guestDisplayName || 'Verified Guest'}</p>
                         </div>
                       </RevealFigure>
                     ))
-                  : defaultReviews.map((q, idx) => (
-                      <RevealBlock key={idx} delayIndex={idx} className="md-review-card md-review-scroll-card">
-                        <div className="md-review-stars">{'★★★★★'}</div>
-                        <blockquote className="md-quote">
-                          <p>{`"${q.quote}"`}</p>
-                        </blockquote>
-                        <div>
-                          <p className="md-reviewer">{q.name}</p>
-                          {q.loc ? <p className="md-reviewer-loc">{q.loc}</p> : null}
-                        </div>
-                      </RevealBlock>
-                    ))}
+                  : showMarketingQuoteFallbackCarousel
+                    ? defaultReviews.map((q, idx) => (
+                        <RevealBlock key={idx} delayIndex={idx} className="md-review-card md-review-scroll-card">
+                          <div className="md-review-stars">{'★★★★★'}</div>
+                          <blockquote className="md-quote">
+                            <p>{`"${q.quote}"`}</p>
+                          </blockquote>
+                          <div>
+                            <p className="md-reviewer">{q.name}</p>
+                            {q.loc ? <p className="md-reviewer-loc">{q.loc}</p> : null}
+                          </div>
+                        </RevealBlock>
+                      ))
+                    : (
+                        <p className="md-muted" style={{ margin: '0.75rem 0 0', maxWidth: '40rem' }}>
+                          Guest reviews synced from linked platforms appear here automatically after the next deploy cache
+                          refresh. Check back shortly, or widen your sync sources in Host Dashboard → Guest Reviews.
+                        </p>
+                      )}
               </div>
             </div>
             {hasImportedReviews && reviewSectionHasPlatforms ? (
               <p className="md-muted md-review-source-attrib md-footnote-compact">
-                Many of these excerpts are synced from labeled third-party profiles (Google Maps or Airbnb). Each card shows
-                its source beside the reviewer name.
+                Many of these excerpts are synced from labelled sources (Google Maps or Airbnb logos on each card). Manual
+                reviews show a short text label instead of a logo.
               </p>
             ) : null}
           </div>

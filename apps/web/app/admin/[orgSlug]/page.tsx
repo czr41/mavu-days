@@ -10,7 +10,9 @@ import {
 import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
 import { resolveMarketingImageSrcForPreview } from '@/lib/marketing-image-url';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
+import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -20,6 +22,9 @@ type ListingLink = {
   inboundIcalUrl: string | null;
   externalLabel: string | null;
   airbnbHostAccount: { id: string; label: string } | null;
+  /** Set when an inbound iCal fetch succeeds (worker or “Sync calendars now”). */
+  lastIcalFetchedAt?: string | null;
+  lastIcalFetchError?: string | null;
 };
 type RentableUnit = {
   id: string;
@@ -446,7 +451,6 @@ type HostDraftRow = {
   tagAccountId: string;
 };
 const PLATFORMS  = ['AIRBNB', 'GOOGLE', 'BOOKING_COM', 'DIRECT', 'OTHER'] as const;
-const PLT_LABEL: Record<string, string> = { AIRBNB: 'Airbnb', GOOGLE: 'Google', BOOKING_COM: 'Booking.com', DIRECT: 'Direct', OTHER: 'Other' };
 const NAV = [
   { key: 'overview',    label: 'Overview',       icon: GridI },
   { key: 'properties',  label: 'Properties',     icon: HomeI },
@@ -998,26 +1002,48 @@ export default function OrgAdminPage() {
       const res = await fetch(`${api}${base}/cms/reviews/sync-external`, {
         method: 'POST',
         headers: ah(),
+        /** Empty POST + JSON Content-Type breaks some parsers; server accepts empty object */
+        body: '{}',
       });
-      const j = (await res.json().catch(() => ({}))) as Partial<{
+      const raw = await res.text();
+      let j: Partial<{
         ok: boolean;
         warnings: string[];
         errors: unknown;
+        error?: unknown;
+        message?: unknown;
         landingVisibleCount: number;
         createdCount: number;
         googleFetched: number;
         airbnbFetched: number;
       }>;
+      try {
+        j = raw.trim() ? (JSON.parse(raw) as typeof j) : {};
+      } catch {
+        j = {};
+      }
       const warningsLine =
         Array.isArray(j.warnings) && j.warnings.length ? ` Warnings: ${j.warnings.join(' · ')}` : '';
-      const errTxt = Array.isArray(j.errors)
+      let errTxt = Array.isArray(j.errors)
         ? j.errors.map((e) => (typeof e === 'string' ? e : JSON.stringify(e))).join(' · ')
         : typeof j.errors === 'string'
           ? j.errors
           : '';
+      if (!errTxt) {
+        const e = j.error;
+        if (typeof e === 'string' && e.trim()) errTxt = e.trim();
+        else if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+          errTxt = String((e as { message: string }).message).trim();
+        }
+      }
+      if (!errTxt && typeof j.message === 'string' && j.message.trim()) errTxt = j.message.trim();
 
       if (!res.ok || j.ok !== true) {
-        notify(`${errTxt || `Sync failed (${res.status})`}${warningsLine}`.trim(), false);
+        const tail =
+          !errTxt && raw.trim() && !raw.trim().startsWith('{')
+            ? ` ${raw.trim().slice(0, 220)}`
+            : '';
+        notify(`${errTxt || `Sync failed (${res.status})`}${tail}${warningsLine}`.trim(), false);
         return;
       }
 
@@ -1098,6 +1124,35 @@ export default function OrgAdminPage() {
 
   // Flat list of all units across all properties (for dropdowns)
   const allUnits = properties.flatMap(p => p.units.map(u => ({ ...u, propertyName: p.name, propertySlug: p.slug })));
+
+  /** Most recent successful inbound iCal fetch in this org (any feed). */
+  const lastInboundIcalFetchedAtMs = useMemo(() => {
+    let max: number | null = null;
+    for (const p of properties) {
+      for (const u of p.units) {
+        for (const l of u.listingLinks ?? []) {
+          const raw = l.lastIcalFetchedAt;
+          if (!raw) continue;
+          const t = new Date(raw).getTime();
+          if (!Number.isNaN(t) && (max === null || t > max)) max = t;
+        }
+      }
+    }
+    return max;
+  }, [properties]);
+
+  const lastInboundIcalFetchedLine = useMemo(() => {
+    if (lastInboundIcalFetchedAtMs === null) return 'Last inbound pull: —';
+    return `Last inbound pull: ${new Date(lastInboundIcalFetchedAtMs).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    })}`;
+  }, [lastInboundIcalFetchedAtMs]);
+
+  const lastInboundIcalFetchedTitle =
+    lastInboundIcalFetchedAtMs === null
+      ? 'No inbound iCal fetch has succeeded yet for this workspace. Configure inbound URLs below, then run Sync calendars now—or wait for the background worker (~15 minutes when Redis is configured). Failed fetches do not update this.'
+      : 'Most recent successful fetch across any inbound feed in this org. Manual sync or the worker updates this when a feed returns valid calendar data.';
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -1606,9 +1661,9 @@ export default function OrgAdminPage() {
               . The sync job calls Google Places for every property Place ID configured (historical org-wide Place ID on the API is used only when no property IDs are saved).
             </li>
             <li>
-              <strong>Airbnb reviews</strong> — set the public <strong>Airbnb listing URL on each published stay</strong>{' '}
-              under CMS → <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => { setTab('cms'); setCmsSubTab('listings'); }}>Stay listings</button>{' '}
-              (same URL as Host &amp; Airbnb). Sync visits <strong>every distinct Airbnb URL</strong> from published listings. If you previously saved a fallback Airbnb URL in older site settings, the API still honors it alongside listing URLs.
+              <strong>Airbnb reviews</strong> — add the public <strong>Airbnb listing URL</strong> on each stay under CMS →{' '}
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => { setTab('cms'); setCmsSubTab('listings'); }}>Stay listings</button>{' '}
+              (<em>published or draft</em>). Sync collects <strong>every distinct Airbnb URL</strong> on those listings. Prefer <code>OUTSCRAPER_API_KEY</code> on the API server so pulls stay stable. Older org-wide Airbnb override URLs in site settings still merge into the pull list.
             </li>
           </ul>
         </div>
@@ -1660,7 +1715,7 @@ export default function OrgAdminPage() {
               ) : (
                 <div className="adm-review-row">
                   <div className="adm-review-meta">
-                    <span className="adm-badge adm-badge-blue">{PLT_LABEL[r.platform]??r.platform}</span>
+                    <GuestReviewPlatformBadge platform={r.platform} size="sm" />
                     <span className="adm-review-stars">{'★'.repeat(r.rating)}{'☆'.repeat(Math.max(0,r.ratingMax-r.rating))}</span>
                     {r.guestDisplayName&&<strong style={{fontSize:'0.875rem'}}>{r.guestDisplayName}</strong>}
                     {!r.showOnLanding && <span className="adm-badge adm-badge-yellow">Hidden</span>}
@@ -1778,7 +1833,8 @@ export default function OrgAdminPage() {
             </div>
             <div className="adm-alert adm-alert-info" style={{ fontSize: '0.84rem', lineHeight: 1.55 }}>
               Google Maps and Airbnb excerpts for the homepage strip use each property&apos;s Place ID (<strong>Properties &amp; Units</strong>)
-              plus Airbnb URLs saved on published stays (<strong>Stay listings</strong>). Tap <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>Guest Reviews</button> → Sync reviews.
+              plus Airbnb URLs saved on stays (<strong>Stay listings</strong>, published or draft). Tap{' '}
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>Guest Reviews</button> → Sync reviews.
             </div>
             <button className="adm-btn adm-btn-primary" type="button" disabled={busy} onClick={async () => {
               setBusy(true);
@@ -1799,7 +1855,7 @@ export default function OrgAdminPage() {
           <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
             Marketing copy and pricing for each stay—published listings appear on the public site immediately after save.
             Each listing has one <strong>gallery</strong> (detail hero URL + gallery image URLs below it). Together, published listings populate the homepage gallery — duplicate URLs appear only once.
-            Airbnb listing URLs on published stays drive both &quot;View on Airbnb&quot; and{' '}
+            Airbnb listing URLs on stays (published <em>or</em> draft) drive &quot;View on Airbnb&quot; where shown and{' '}
             <strong>Airbnb review sync</strong> (every distinct listing URL). Calendar feeds remain under Host &amp; Airbnb.
           </div>
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
@@ -3160,30 +3216,45 @@ export default function OrgAdminPage() {
             Two-way calendar sync uses iCal only: <strong>Inbound</strong> pulls below update Mavu when Airbnb or Booking changes; reservations removed there are cancelled here after the next sync.
             <strong> Outbound</strong> URLs refresh whenever Airbnb/Booking re-fetch them (plus immediately on each pull for display consistency). Production also runs a worker every ~15 minutes if Redis is configured.
           </p>
-          <button
-            type="button"
-            className="adm-btn adm-btn-ghost adm-btn-sm"
-            disabled={busy}
-            style={{ marginTop: '0.5rem' }}
-            onClick={async () => {
-              setBusy(true);
-              const r = await apiFetch<{
-                processed: number;
-                updated: number;
-                removed: number;
-                links: number;
-                errors: number;
-              }>(`${base}/channels/sync-ical`, { method: 'POST' });
-              setBusy(false);
-              if (!r) return;
-              await loadProps();
-              notify(
-                `Pull complete: ${r.links} feed(s), ${r.updated} upserted, ${r.removed} removed (no longer on remote calendar), ${r.errors} fetch error(s).`,
-              );
+          <div
+            style={{
+              marginTop: '0.5rem',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '0.5rem 1rem',
             }}
           >
-            Sync calendars now
-          </button>
+            <button
+              type="button"
+              className="adm-btn adm-btn-ghost adm-btn-sm"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                const r = await apiFetch<{
+                  processed: number;
+                  updated: number;
+                  removed: number;
+                  links: number;
+                  errors: number;
+                }>(`${base}/channels/sync-ical`, { method: 'POST' });
+                setBusy(false);
+                if (!r) return;
+                await loadProps();
+                notify(
+                  `Pull complete: ${r.links} feed(s), ${r.updated} upserted, ${r.removed} removed (no longer on remote calendar), ${r.errors} fetch error(s).`,
+                );
+              }}
+            >
+              Sync calendars now
+            </button>
+            <span
+              style={{ fontSize: '0.8rem', color: '#6B7280', lineHeight: 1.45 }}
+              title={lastInboundIcalFetchedTitle}
+            >
+              {lastInboundIcalFetchedLine}
+            </span>
+          </div>
         </div>
         {allUnits.length === 0 ? (
           <div className="adm-empty">

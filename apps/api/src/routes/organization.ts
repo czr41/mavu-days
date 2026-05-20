@@ -1394,7 +1394,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
             units: {
               select: {
                 listingProfile: {
-                  select: { published: true, airbnbListingUrl: true },
+                  select: { airbnbListingUrl: true },
                 },
               },
             },
