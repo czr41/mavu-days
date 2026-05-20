@@ -12,6 +12,9 @@ import type {
   SiteSection,
 } from '@prisma/client';
 
+import type { StayGallerySlot } from '@mavu/contracts';
+import { stayGallerySlotsFromUnknown } from '@mavu/contracts';
+
 import { normalizePublicImageUrl } from './marketing-image-url.js';
 import { toPublicGuestReviewDto } from './guest-review-dto.js';
 
@@ -46,7 +49,13 @@ export type PublicUnitListingDto = {
   detailHeroUrl: string | null;
   airbnbProfileLabel: string | null;
   airbnbListingUrl: string | null;
+  /** Flattened HTTPS URLs — same order as {@link gallerySlots}; kept for backwards consumers. */
   galleryImageUrls: string[];
+  /**
+   * Per-photo category tag (homepage bento grouping). Matches Prisma `GalleryCategory` tokens or null =
+   * keyword inference only.
+   */
+  gallerySlots: Array<{ url: string; galleryCategory: string | null }>;
 };
 
 export type PublicRentableUnitDto = {
@@ -94,10 +103,21 @@ function jsonStringArray(v: unknown): string[] {
   return [];
 }
 
+function normalizedStayGallerySlots(row: RentableUnitListing): StayGallerySlot[] {
+  const raw = row.galleryImageUrls;
+  let slots = stayGallerySlotsFromUnknown(raw, 24);
+  slots = slots
+    .map((s): StayGallerySlot => {
+      const u = normalizePublicImageUrl(s.url);
+      return { url: (u ?? s.url).trim(), category: s.category };
+    })
+    .filter((s): s is StayGallerySlot => s.url.length > 8);
+  return slots;
+}
+
 export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
-  const galleries = jsonStringArray(row.galleryImageUrls)
-    .map((u) => normalizePublicImageUrl(u))
-    .filter((u): u is string => Boolean(u));
+  const slots = normalizedStayGallerySlots(row);
+  const galleries = slots.map((s) => s.url).filter(Boolean);
   return {
     published: row.published,
     sortOrder: row.sortOrder,
@@ -125,6 +145,7 @@ export function listingToDto(row: RentableUnitListing): PublicUnitListingDto {
     airbnbProfileLabel: row.airbnbProfileLabel,
     airbnbListingUrl: row.airbnbListingUrl,
     galleryImageUrls: galleries,
+    gallerySlots: slots.map((s) => ({ url: s.url, galleryCategory: s.category })),
   };
 }
 
@@ -133,13 +154,18 @@ export function listingToDtoWithLinkedMedia(row: RentableUnitListing, linkedUrls
   const base = listingToDto(row);
   if (!linkedUrls?.length) return base;
   const seen = new Set(base.galleryImageUrls);
-  const merged = [...base.galleryImageUrls];
-  for (const u of linkedUrls) {
-    if (seen.has(u)) continue;
+  const mergedSlots = [...base.gallerySlots];
+  for (const raw of linkedUrls) {
+    const u = normalizePublicImageUrl(raw) ?? '';
+    if (!u || seen.has(u)) continue;
     seen.add(u);
-    merged.push(u);
+    mergedSlots.push({ url: u, galleryCategory: null });
   }
-  return { ...base, galleryImageUrls: merged };
+  return {
+    ...base,
+    galleryImageUrls: mergedSlots.map((s) => s.url),
+    gallerySlots: mergedSlots,
+  };
 }
 
 function listingUrlsFromLinkedMedia(media: readonly MediaAssetWithListingLinks[]): Map<string, string[]> {

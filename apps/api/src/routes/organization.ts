@@ -19,6 +19,11 @@ import { syncInboundIcals } from '../services/ical-sync.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { fetchAirbnbListingImageCandidates } from '../services/airbnb-listing-images.js';
 import { pickAllPublishedAirbnbListingUrls, syncExternalGuestReviews } from '../services/external-reviews-sync.js';
+import {
+  stayGalleryMergeAppend,
+  stayGalleryToJson,
+  type StayGallerySlot,
+} from '@mavu/contracts';
 
 type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
   include: {
@@ -57,27 +62,27 @@ async function airbnbHostAccountInOrg(app: FastifyInstance, organizationId: stri
   return n === 1;
 }
 
-function galleryUrlsFromJson(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  return v.filter((x): x is string => typeof x === 'string');
-}
-
 const MAX_STAY_GALLERY_URLS = 24;
 
-/** Append scrape/import URLs without duplicates; preserves existing order and caps length. */
-function mergeGalleryAppend(cur: string[], append: string[]): { urls: string[]; addedCount: number } {
-  const seen = new Set(cur.map((u) => u.trim()));
-  const out = [...cur];
-  let addedCount = 0;
-  for (const raw of append) {
-    const u = raw.trim();
-    if (!u || seen.has(u)) continue;
-    seen.add(u);
-    out.push(u);
-    addedCount++;
+function staySlotsFromListingUpsertBody(
+  rows: Array<string | { url: string; category?: GalleryCategory | null }>,
+): StayGallerySlot[] {
+  const out: StayGallerySlot[] = [];
+  for (const x of rows) {
+    if (typeof x === 'string') {
+      const u = x.trim();
+      if (u.length > 8) out.push({ url: u, category: null });
+    } else if (x && typeof x.url === 'string') {
+      const u = x.url.trim();
+      if (u.length < 8) continue;
+      out.push({
+        url: u,
+        category: x.category === undefined ? null : x.category,
+      });
+    }
     if (out.length >= MAX_STAY_GALLERY_URLS) break;
   }
-  return { urls: out, addedCount };
+  return out;
 }
 
 async function assertRentableUnitIdsInOrg(
@@ -556,10 +561,9 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       }
       if (d.appendGalleryUrls !== undefined && d.appendGalleryUrls.length > 0) {
         const fresh = await app.prisma.rentableUnitListing.findUnique({ where: { rentableUnitId: unitId } });
-        const cur = galleryUrlsFromJson(fresh?.galleryImageUrls);
-        const merged = mergeGalleryAppend(cur, d.appendGalleryUrls);
-        listingPatch.galleryImageUrls = merged.urls;
-        galleryAppendSummary = { addedCount: merged.addedCount, galleryTotal: merged.urls.length };
+        const merged = stayGalleryMergeAppend(fresh?.galleryImageUrls, d.appendGalleryUrls, MAX_STAY_GALLERY_URLS);
+        listingPatch.galleryImageUrls = stayGalleryToJson(merged.slots);
+        galleryAppendSummary = { addedCount: merged.addedCount, galleryTotal: merged.slots.length };
       }
       if (Object.keys(listingPatch).length > 0) {
         await app.prisma.rentableUnitListing.update({
@@ -913,7 +917,18 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       .optional(),
     airbnbProfileLabel: z.union([z.string().max(200), z.literal(''), z.null()]).optional(),
     airbnbListingUrl: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
-    galleryImageUrls: z.array(z.string().url()).max(24).optional(),
+    galleryImageUrls: z
+      .array(
+        z.union([
+          z.string().url(),
+          z.object({
+            url: z.string().url(),
+            category: z.nativeEnum(GalleryCategory).nullable().optional(),
+          }),
+        ]),
+      )
+      .max(MAX_STAY_GALLERY_URLS)
+      .optional(),
   });
 
   app.put('/orgs/:orgSlug/rentable-units/:unitId/listing-profile', async (req, reply) => {
@@ -945,7 +960,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         ? null
         : d.airbnbProfileLabel.trim();
 
-    const galleryImageUrls = d.galleryImageUrls ?? [];
+    const galleryPersist = stayGalleryToJson(staySlotsFromListingUpsertBody(d.galleryImageUrls ?? []));
 
     const payload = {
       published: d.published ?? true,
@@ -971,7 +986,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       detailHeroUrl,
       airbnbProfileLabel,
       airbnbListingUrl,
-      galleryImageUrls,
+      galleryImageUrls: galleryPersist,
     };
 
     const listing = await app.prisma.rentableUnitListing.upsert({

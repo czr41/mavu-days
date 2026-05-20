@@ -66,6 +66,8 @@ export type PublicUnitListingPayload = {
   airbnbProfileLabel: string | null;
   airbnbListingUrl: string | null;
   galleryImageUrls: string[];
+  /** Optional per-photo category for homepage mosaic (defaults to inference when absent). */
+  gallerySlots?: Array<{ url: string; galleryCategory: MediaAssetDto['galleryCategory'] }>;
 };
 
 /** Inventory slice returned with CMS content when needed for homepage gallery / merge (same shape as full `/site`). */

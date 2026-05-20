@@ -4809,6 +4809,33 @@ img { max-width: 100%; }
   word-break: break-all;
 }
 
+.adm-listing-gallery-card-cat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.adm-listing-gallery-cat-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #4b5563;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.adm-select-sm.ad-listing-gallery-cat-select {
+  font-size: 0.74rem;
+  padding: 0.35rem 0.45rem;
+  width: 100%;
+}
+
+.adm-listing-gallery-bulk-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  color: #9ca3af;
+  line-height: 1.35;
+}
+
 .adm-listing-gallery-card-actions {
   display: flex;
   flex-wrap: wrap;

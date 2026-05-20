@@ -13,6 +13,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
+import { stayGallerySlotsFromUnknown, stayGalleryUrlsFromUnknown } from '@mavu/contracts';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -129,6 +130,9 @@ type UnitListingBundle = {
 type Alert       = { id: string; message: string; severity: string };
 type DashStats   = { upcoming: Booking[]; alerts: Alert[]; listingLinks: ListingLink[] };
 
+const MAX_STAY_GALLERY_URLS = 24;
+type StayGalleryDraftRow = { url: string; categoryId: GalleryCategoryId | '' };
+
 type ListingDraftState = {
   published: boolean;
   sortOrder: string;
@@ -153,7 +157,8 @@ type ListingDraftState = {
   detailHeroUrl: string;
   airbnbProfileLabel: string;
   airbnbListingUrl: string;
-  galleryUrlsText: string;
+  /** Stay gallery URLs + optional homepage-category tag (`''` → infer keywords). */
+  galleryRows: StayGalleryDraftRow[];
 };
 
 function jsonStringArr(v: unknown): string[] {
@@ -191,18 +196,12 @@ function listingDraftFromRow(row: UnitListingBundle): ListingDraftState {
     detailHeroUrl: lp?.detailHeroUrl ?? '',
     airbnbProfileLabel: lp?.airbnbProfileLabel ?? '',
     airbnbListingUrl: lp?.airbnbListingUrl ?? '',
-    galleryUrlsText: jsonStringArr(lp?.galleryImageUrls).join('\n'),
+    galleryRows: stayGallerySlotsFromUnknown(lp?.galleryImageUrls ?? []).map((s) => ({
+      url: s.url,
+      categoryId:
+        ((s.category ? galleryCategoryFromPrisma(s.category) : undefined) ?? '') as GalleryCategoryId | '',
+    })),
   };
-}
-
-const MAX_STAY_GALLERY_URLS = 24;
-
-function parseGalleryUrlsFromText(text: string): string[] {
-  return text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .slice(0, MAX_STAY_GALLERY_URLS);
 }
 
 function ListingGalleryThumb({ url }: { url: string }) {
@@ -247,43 +246,50 @@ function ListingGalleryThumbMini({ url }: { url: string }) {
 }
 
 function StayGalleryEditorPanel({
-  value,
-  onChange,
+  rows,
+  onRowsChange,
   addUrlInputId,
 }: {
-  value: string;
-  onChange: (galleryUrlsText: string) => void;
+  rows: StayGalleryDraftRow[];
+  onRowsChange: (next: StayGalleryDraftRow[]) => void;
   addUrlInputId: string;
 }) {
-  const urls = parseGalleryUrlsFromText(value);
   const [addUrl, setAddUrl] = useState('');
 
-  const commit = (next: string[]) => {
-    onChange(next.slice(0, MAX_STAY_GALLERY_URLS).join('\n'));
+  const commit = (next: StayGalleryDraftRow[]) => {
+    onRowsChange(next.slice(0, MAX_STAY_GALLERY_URLS));
   };
 
   const move = (i: number, delta: number) => {
     const j = i + delta;
-    if (j < 0 || j >= urls.length) return;
-    const cp = [...urls];
+    if (j < 0 || j >= rows.length) return;
+    const cp = [...rows];
     [cp[i], cp[j]] = [cp[j], cp[i]];
     commit(cp);
   };
 
   const removeAt = (i: number) => {
-    commit(urls.filter((_, idx) => idx !== i));
+    commit(rows.filter((_, idx) => idx !== i));
+  };
+
+  const setCategory = (index: number, categoryId: GalleryCategoryId | '') => {
+    const cp = [...rows];
+    cp[index] = { ...cp[index], categoryId };
+    commit(cp);
   };
 
   const handleAdd = () => {
     const u = addUrl.trim();
-    if (!u || urls.length >= MAX_STAY_GALLERY_URLS) return;
-    if (urls.includes(u)) {
+    if (!u || rows.length >= MAX_STAY_GALLERY_URLS) return;
+    if (rows.some((r) => r.url.trim() === u)) {
       setAddUrl('');
       return;
     }
-    commit([...urls, u]);
+    commit([...rows, { url: u, categoryId: '' }]);
     setAddUrl('');
   };
+
+  const textareaValue = rows.map((r) => r.url).join('\n');
 
   return (
     <div className="adm-listing-gallery-field adm-listing-gallery-panel">
@@ -291,29 +297,49 @@ function StayGalleryEditorPanel({
         <label className="adm-label" htmlFor={addUrlInputId} style={{ marginBottom: 0 }}>
           Stay gallery{' '}
           <span className="adm-listing-gallery-count">
-            ({urls.length}/{MAX_STAY_GALLERY_URLS})
+            ({rows.length}/{MAX_STAY_GALLERY_URLS})
           </span>
         </label>
         <p className="adm-listing-gallery-lead">
-          Photos appear on the public stay page in this order. Use <strong>Host &amp; Airbnb → Pull photos</strong> to import listing URLs,
-          then reorder or remove shots here.
+          Photos appear on the public stay detail page in this order. Assign a{' '}
+          <strong>homepage category</strong> so the mosaic can pick the right shot per tile (otherwise titles/URLs still
+          use keyword guesses). Pull from Airbnb under <strong>Host &amp; Airbnb → Pull photos</strong>, then tag and
+          reorder here.
         </p>
       </div>
 
-      {urls.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="adm-listing-gallery-empty">No photos yet — add an image URL below or pull from Airbnb.</div>
       ) : (
         <ul className="adm-listing-gallery-grid">
-          {urls.map((url, i) => (
-            <li key={`${url}::${i}`} className="adm-listing-gallery-card">
+          {rows.map((row, i) => (
+            <li key={`${row.url}:${i}:${row.categoryId}`} className="adm-listing-gallery-card">
               <div className="adm-listing-gallery-thumb-wrap">
-                <ListingGalleryThumb url={url} />
+                <ListingGalleryThumb url={row.url} />
               </div>
               <div className="adm-listing-gallery-card-footer">
                 <span className="adm-listing-gallery-card-pos">{i + 1}</span>
-                <span className="adm-listing-gallery-card-url" title={url}>
-                  {url.length > 52 ? `${url.slice(0, 52)}…` : url}
+                <span className="adm-listing-gallery-card-url" title={row.url}>
+                  {row.url.length > 52 ? `${row.url.slice(0, 52)}…` : row.url}
                 </span>
+                <div className="adm-listing-gallery-card-cat-row">
+                  <label className="adm-listing-gallery-cat-label" htmlFor={`stay-gal-cat-${addUrlInputId}-${i}`}>
+                    Homepage category
+                  </label>
+                  <select
+                    id={`stay-gal-cat-${addUrlInputId}-${i}`}
+                    className="adm-select adm-select-sm adm-listing-gallery-cat-select"
+                    value={row.categoryId}
+                    onChange={(e) => setCategory(i, e.target.value as GalleryCategoryId | '')}
+                  >
+                    <option value="">Auto (infer)</option>
+                    {GALLERY_CATEGORY_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="adm-listing-gallery-card-actions">
                   <button
                     type="button"
@@ -327,7 +353,7 @@ function StayGalleryEditorPanel({
                   <button
                     type="button"
                     className="adm-btn adm-btn-ghost adm-btn-sm"
-                    disabled={i >= urls.length - 1}
+                    disabled={i >= rows.length - 1}
                     onClick={() => move(i, 1)}
                     aria-label="Move later in gallery"
                   >
@@ -367,7 +393,7 @@ function StayGalleryEditorPanel({
         <button
           type="button"
           className="adm-btn adm-btn-primary adm-btn-sm"
-          disabled={urls.length >= MAX_STAY_GALLERY_URLS || !addUrl.trim()}
+          disabled={rows.length >= MAX_STAY_GALLERY_URLS || !addUrl.trim()}
           onClick={handleAdd}
         >
           Add to gallery
@@ -379,24 +405,39 @@ function StayGalleryEditorPanel({
         <textarea
           className="adm-textarea"
           rows={5}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={textareaValue}
+          onChange={(e) => {
+            const lines = e.target.value
+              .split('\n')
+              .map((l) => l.trim())
+              .filter(Boolean)
+              .slice(0, MAX_STAY_GALLERY_URLS);
+            const next = lines.map((url, idx) => ({
+              url,
+              categoryId: (rows[idx]?.categoryId ?? '') as GalleryCategoryId | '',
+            }));
+            commit(next);
+          }}
           placeholder={'https://example.com/photo-1.jpg\nhttps://example.com/photo-2.jpg'}
           spellCheck={false}
         />
+        <p className="adm-listing-gallery-bulk-note">
+          Bulk edits preserve category tags on indexes that still line up — after big pastes you may want to revisit
+          the dropdown tags.
+        </p>
       </details>
     </div>
   );
 }
 
 function StayGalleryCollapsible({
-  value,
-  onChange,
+  rows,
+  onRowsChange,
 }: {
-  value: string;
-  onChange: (galleryUrlsText: string) => void;
+  rows: StayGalleryDraftRow[];
+  onRowsChange: (next: StayGalleryDraftRow[]) => void;
 }) {
-  const urls = parseGalleryUrlsFromText(value);
+  const urls = rows.map((r) => r.url.trim()).filter(Boolean);
   const [open, setOpen] = useState(false);
   const addUrlInputId = useId();
 
@@ -436,7 +477,7 @@ function StayGalleryCollapsible({
           {open ? 'Hide gallery' : 'Manage gallery'}
         </button>
       </div>
-      {open ? <StayGalleryEditorPanel value={value} onChange={onChange} addUrlInputId={addUrlInputId} /> : null}
+      {open ? <StayGalleryEditorPanel rows={rows} onRowsChange={onRowsChange} addUrlInputId={addUrlInputId} /> : null}
     </div>
   );
 }
@@ -2017,7 +2058,7 @@ export default function OrgAdminPage() {
         <>
           <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
             Marketing copy and pricing for each stay—published listings appear on the public site immediately after save.
-            Each listing has one <strong>gallery</strong> (detail hero URL + gallery image URLs below it). Together, published listings populate the homepage gallery — duplicate URLs appear only once.
+            Each listing has one <strong>gallery</strong> (detail hero URL + gallery images below it). Tagged <strong>homepage categories</strong> on each Airbnb-imported shot help the mosaic pick interiors vs outdoors across every stay — duplicate URLs still appear only once.
             Airbnb listing URLs on stays (published <em>or</em> draft) drive &quot;View on Airbnb&quot; where shown and{' '}
             <strong>Airbnb review sync</strong> (every distinct listing URL). Calendar feeds remain under Host &amp; Airbnb.
           </div>
@@ -2049,7 +2090,7 @@ export default function OrgAdminPage() {
                 {!isOpen ? (
                   <div style={{ padding: '0 1.5rem 1rem' }}>
                     {(() => {
-                      const gal = jsonStringArr(row.listingProfile?.galleryImageUrls);
+                      const gal = stayGalleryUrlsFromUnknown(row.listingProfile?.galleryImageUrls);
                       return gal.length ? (
                         <div>
                           <p style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', margin: '0 0 0.4rem' }}>
@@ -2147,8 +2188,8 @@ export default function OrgAdminPage() {
                       </div>
                     </div>
                     <StayGalleryCollapsible
-                      value={listingDraft.galleryUrlsText}
-                      onChange={(text) => setListingDraft((d) => (d ? { ...d, galleryUrlsText: text } : d))}
+                      rows={listingDraft.galleryRows}
+                      onRowsChange={(next) => setListingDraft((d) => (d ? { ...d, galleryRows: next } : d))}
                     />
 
                     <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
@@ -2183,7 +2224,17 @@ export default function OrgAdminPage() {
                           detailHeroUrl:listingDraft.detailHeroUrl.trim()||null,
                           airbnbProfileLabel:listingDraft.airbnbProfileLabel.trim()||null,
                           airbnbListingUrl:listingDraft.airbnbListingUrl.trim()||null,
-                          galleryImageUrls:listingDraft.galleryUrlsText.split('\n').map((l)=>l.trim()).filter(Boolean).slice(0,MAX_STAY_GALLERY_URLS),
+                          galleryImageUrls:listingDraft.galleryRows
+                            .map((r)=>{
+                              const url = r.url.trim();
+                              if (!url) return null;
+                              if (r.categoryId){
+                                const cat = galleryCategoryToPrisma(r.categoryId);
+                                return cat ? { url, category: cat } : url;
+                              }
+                              return url;
+                            })
+                            .filter((x)=>x!==null).slice(0,MAX_STAY_GALLERY_URLS),
                         })});
                         setBusy(false);
                         if(!r) return;

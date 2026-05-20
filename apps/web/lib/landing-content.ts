@@ -139,6 +139,10 @@ export type ListingCard = {
   seoDescription?: string | null;
   /** Per-stay gallery: extra photos after {@link ListingCard.detailHeroUrl} (`/stays/...`). Feeds homepage gallery when aggregated. */
   galleryImageUrls?: readonly string[];
+  /**
+   * Per-photo tags for homepage gallery categories (URLs may repeat across CMS media + pulls).
+   */
+  gallerySlots?: readonly { url: string; galleryCategory: string | null }[];
   airbnbProfileLabel?: string | null;
   airbnbListingUrl?: string | null;
 };
@@ -606,11 +610,29 @@ function deriveListingsFromSite(properties: PublicSitePayload['properties']): Li
           detailHeroUrl: normalizeMarketingImageUrl(lp.detailHeroUrl) ?? undefined,
           seoTitle: lp.seoTitle,
           seoDescription: lp.seoDescription,
-          galleryImageUrls: (() => {
-            const urls = (lp.galleryImageUrls ?? [])
-              .map((u) => normalizeMarketingImageUrl(u))
-              .filter((x): x is string => Boolean(x));
-            return urls.length ? urls : undefined;
+          ...(() => {
+            const slots = lp.gallerySlots;
+            const unified =
+              Array.isArray(slots) && slots.length > 0
+              ? slots
+              : (lp.galleryImageUrls ?? []).map((u) => ({
+                  url: typeof u === 'string' ? u : '',
+                  galleryCategory: null as string | null,
+                }));
+
+            const slotRows = unified
+              .map((s) => ({
+                url: normalizeMarketingImageUrl(s.url) ?? '',
+                galleryCategory: (s.galleryCategory ?? null) as string | null,
+              }))
+              .filter((s) => s.url.length > 4);
+
+            const urls = slotRows.map((s) => s.url);
+
+            return {
+              galleryImageUrls: urls.length ? urls : undefined,
+              gallerySlots: slotRows.length ? slotRows : undefined,
+            };
           })(),
           airbnbProfileLabel: lp.airbnbProfileLabel,
           airbnbListingUrl: lp.airbnbListingUrl,
@@ -666,30 +688,53 @@ function mergedLandingGallery(payload: LandingMergePayload): GallerySlide[] {
     return out;
   }
 
-  type Row = { sortOrder: number; unitSlug: string; label: string; urls: string[] };
+  type RowSlide = {
+    url: string;
+    /** Prisma `GalleryCategory` token or null → homepage inference only. */
+    prismaCategory?: string | null;
+  };
+
+  type Row = { sortOrder: number; unitSlug: string; label: string; slides: RowSlide[] };
   const rows: Row[] = [];
   for (const p of payload.properties) {
     for (const u of p.units) {
       const lp = u.listing;
       if (!lp) continue;
       const cover = normalizeMarketingImageUrl(lp.detailHeroUrl ?? '');
-      const gallery = (lp.galleryImageUrls ?? [])
-        .map((raw) => normalizeMarketingImageUrl(typeof raw === 'string' ? raw : ''))
-        .filter((x): x is string => Boolean(x));
+
+      const slots = lp.gallerySlots;
+      const galleryFeed =
+        Array.isArray(slots) && slots.length > 0
+          ? slots
+          : (lp.galleryImageUrls ?? []).map((raw) => ({
+              url: typeof raw === 'string' ? raw : '',
+              galleryCategory: null as string | null,
+            }));
 
       /** One ordered stream per stay: hero, then extras (still one logical “stay gallery”). */
-      const urls: string[] = [];
-      if (cover) urls.push(cover);
-      for (const g of gallery) {
-        if (!urls.includes(g)) urls.push(g);
+      const slides: RowSlide[] = [];
+      const urlOrder: string[] = [];
+      const pushSlide = (url: string | undefined, prismaCategory?: string | null) => {
+        if (!url) return;
+        if (urlOrder.includes(url)) return;
+        urlOrder.push(url);
+        slides.push({ url, prismaCategory: prismaCategory ?? null });
+      };
+
+      if (cover) pushSlide(cover, null);
+
+      for (const g of galleryFeed) {
+        const normUrl = normalizeMarketingImageUrl(typeof g.url === 'string' ? g.url : '');
+        if (!normUrl) continue;
+        pushSlide(normUrl, g.galleryCategory ?? null);
       }
 
-      if (!urls.length) continue;
+      if (!slides.length) continue;
       rows.push({
         sortOrder: lp.sortOrder,
         unitSlug: u.slug,
         label: `${p.name} — ${lp.cardTitle || u.name}`,
-        urls,
+        slides,
       });
     }
   }
@@ -701,15 +746,20 @@ function mergedLandingGallery(payload: LandingMergePayload): GallerySlide[] {
   let keyN = 0;
   let altN = 0;
   for (const row of rows) {
-    for (const url of row.urls) {
+    for (const slide of row.slides) {
+      const url = slide.url;
       if (!url || seen.has(url)) continue;
       seen.add(url);
       const baseAlt = seoAltsForStays[altN % seoAltsForStays.length];
       altN += 1;
+      const fromTag = slide.prismaCategory
+        ? galleryCategoryFromPrisma(slide.prismaCategory)
+        : undefined;
       out.push({
         url,
         alt: `${row.label} · ${baseAlt}`,
         key: `listing-gallery-${row.unitSlug}-${keyN++}`,
+        ...(fromTag ? { category: fromTag } : {}),
       });
     }
   }

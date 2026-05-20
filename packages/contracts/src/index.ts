@@ -1,4 +1,14 @@
 export {
+  type StayGalleryCategoryStored,
+  type StayGalleryJsonEntry,
+  type StayGallerySlot,
+  stayGalleryMergeAppend,
+  stayGallerySlotsFromUnknown,
+  stayGalleryToJson,
+  stayGalleryUrlsFromUnknown,
+} from './stay-gallery.js';
+
+export {
   MARKETING_SITE_IMAGE_PREFIX,
   MARKETING_SITE_HERO_JPG,
   MARKETING_SITE_1BHK_JPG,
