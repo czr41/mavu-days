@@ -142,7 +142,6 @@ export function pickAllPublishedAirbnbListingUrls(org: OrgWithListingUrls): stri
       if (!lp?.airbnbListingUrl?.trim()) continue;
       const u = lp.airbnbListingUrl.trim();
       try {
-        // eslint-disable-next-line no-new -- validate URL shape
         new URL(u);
         if (!/airbnb\./i.test(u)) continue;
       } catch {
@@ -275,7 +274,7 @@ function unwrapOutscraperRows(payload: unknown): Record<string, unknown>[] {
   if (p.error && errMsg) {
     throw new Error(errMsg);
   }
-  let d = p.data as unknown[] | undefined;
+  const d = p.data as unknown[] | undefined;
   if (!Array.isArray(d)) return [];
   if (d.length > 0 && Array.isArray(d[0])) {
     const inner = d[0] as unknown[];
@@ -331,8 +330,16 @@ function mapAirbnbRow(raw: Record<string, unknown>): NormalizedIncoming | null {
   const extCandidates = ['id', 'review_id', 'review_uuid'];
   for (const k of extCandidates) {
     const v = raw[k];
-    if (v !== undefined && v !== null && String(v).trim().length > 2) {
-      externalId = `abbr:${clip(String(v).trim(), 280)}`;
+    if (v === undefined || v === null) continue;
+    if (typeof v === 'object') continue;
+    let idPart = '';
+    if (typeof v === 'string') idPart = v.trim();
+    else if (typeof v === 'number' || typeof v === 'boolean') idPart = String(v).trim();
+    else if (typeof v === 'bigint') idPart = v.toString().trim();
+    else continue;
+
+    if (idPart.length > 2) {
+      externalId = `abbr:${clip(idPart, 280)}`;
       break;
     }
   }
@@ -392,13 +399,14 @@ async function fetchAirbnbReviews(
   }
 
   if (res.status === 401 || res.status === 402) {
-    return {
-      rows: [],
-      error:
-        typeof json === 'object' && json && 'errorMessage' in json
-          ? String((json as { errorMessage: unknown }).errorMessage)
-          : `${res.status} unauthorized or billing issue`,
-    };
+    let oauthErr = `${res.status} unauthorized or billing issue`;
+    if (typeof json === 'object' && json !== null && 'errorMessage' in json) {
+      const em = (json as Record<string, unknown>).errorMessage;
+      if (typeof em === 'string') oauthErr = em;
+      else if (typeof em === 'number' || typeof em === 'boolean') oauthErr = String(em);
+      else if (em != null) oauthErr = JSON.stringify(em);
+    }
+    return { rows: [], error: oauthErr };
   }
 
   if (res.status === 202) {
@@ -746,7 +754,7 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
     if (legacy.length > 6) placeSet.add(legacy);
   }
 
-  let googleRows: NormalizedIncoming[] = [];
+  const googleRows: NormalizedIncoming[] = [];
   const placeIds = [...placeSet];
   if (!placeIds.length) {
     warnings.push(
@@ -770,7 +778,6 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
     const t = typeof raw === 'string' ? raw.trim() : '';
     if (t.length < 10) continue;
     try {
-      // eslint-disable-next-line no-new
       new URL(t);
       if (/airbnb\./i.test(t)) airbnbSet.add(t);
     } catch {
@@ -781,7 +788,6 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
     const t = args.legacyAirbnbReviewsListingUrl.trim();
     if (t.length > 10) {
       try {
-        // eslint-disable-next-line no-new
         new URL(t);
         if (/airbnb\./i.test(t)) airbnbSet.add(t);
       } catch {
@@ -790,7 +796,7 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
     }
   }
 
-  let airbnbRows: NormalizedIncoming[] = [];
+  const airbnbRows: NormalizedIncoming[] = [];
   const listingUrls = [...airbnbSet];
   if (!listingUrls.length) {
     warnings.push(
@@ -885,8 +891,9 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
     }
 
     const syncedAt = new Date();
-    for (let i = 0; i < positives.length; i++) {
-      const row = positives[i]!;
+    let pinned = 0;
+    for (const row of positives) {
+      pinned += 1;
       await tx.guestReview.create({
         data: {
           organizationId: args.organizationId,
@@ -898,7 +905,7 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
           body: row.body,
           reviewedAt: row.reviewedAt ?? undefined,
           showOnLanding: true,
-          pinnedOrder: i + 1,
+          pinnedOrder: pinned,
           externalId: row.externalId,
           syncedAt,
           autoSynced: true,

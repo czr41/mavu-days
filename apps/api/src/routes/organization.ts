@@ -574,7 +574,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     }
 
     if (d.inboundIcalUrl !== undefined) {
-      let airbnbLink = await app.prisma.listingLink.findFirst({
+      const airbnbLink = await app.prisma.listingLink.findFirst({
         where: { rentableUnitId: unitId, channel: 'AIRBNB' },
       });
       if (!airbnbLink && d.inboundIcalUrl !== null) {
@@ -600,7 +600,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         });
       }
     } else if (d.airbnbHostAccountId !== undefined) {
-      let airbnbLink = await app.prisma.listingLink.findFirst({
+      const airbnbLink = await app.prisma.listingLink.findFirst({
         where: { rentableUnitId: unitId, channel: 'AIRBNB' },
       });
       if (!airbnbLink && d.airbnbHostAccountId) {
