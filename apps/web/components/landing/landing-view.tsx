@@ -9,6 +9,7 @@ import {
   listingUrlPath,
   MAVU_DAYS_DIRECTIONS_URL,
   MAVU_DAYS_OSM_EMBED_URL,
+  NEAR_FARM_ATTRACTIONS,
 } from '@/lib/landing-content';
 import { loadLandingPayload } from '@/lib/landing-data';
 import { normalizeMarketingImageUrl, resolveMarketingImageSrc } from '@/lib/marketing-image-url';
@@ -492,7 +493,7 @@ export async function LandingView({ path }: { path: Path }) {
                     eyebrowDecoration={false}
                     className="md-location-section-head md-section-head-tight"
                     eyebrow={t.locationEyebrow}
-                    title={<h2 className="md-h2 md-location-bundle-title">{t.locationTitle || 'Near Yet Far Enough'}</h2>}
+                    title={<h2 className="md-h2 md-location-bundle-title">{t.locationTitle || 'A Farm Stay Near Bangalore, Without Going Too Far.'}</h2>}
                     lead={
                       <>
                         <p className="md-lead md-location-tagline md-lead-tight">Easy to reach. Hard to leave.</p>
@@ -502,12 +503,13 @@ export async function LandingView({ path }: { path: Path }) {
                       </>
                     }
                   />
-                  <ul className="md-location-checklist">
+                  <ul className="md-location-usp-tags" aria-label="Location highlights">
                     {(t.locationBulletsDefault ?? [
-                      '65 km from Bangalore (~1.5 hrs drive)',
-                      '25 km from Channapatna',
-                      '35 km from Ramanagara',
-                      'Well-connected roads all the way',
+                      'Around 65 km from Bangalore',
+                      'Suited for weekend trips',
+                      'Good for overnight and two-night stays',
+                      'Peaceful farm setting',
+                      'Away from city noise',
                     ]).map((b) => (
                       <li key={b}>{b}</li>
                     ))}
@@ -541,6 +543,23 @@ export async function LandingView({ path }: { path: Path }) {
                     </svg>
                     {'Mavu Days Farm House \u00b7 Near Channapatna, Karnataka'}
                   </span>
+                  <div className="md-near-farm-cloud" aria-labelledby="near-farm-cloud-label">
+                    <p id="near-farm-cloud-label" className="md-near-farm-cloud-label">
+                      What&apos;s near the farm
+                    </p>
+                    <ul className="md-near-farm-tags">
+                      {NEAR_FARM_ATTRACTIONS.map((spot) => (
+                        <li key={spot.name} className="md-near-farm-chip">
+                          <span className="md-near-farm-chip-name">{spot.name}</span>
+                          <span className="md-near-farm-chip-meta">
+                            {spot.distance}
+                            <span aria-hidden> · </span>
+                            {spot.drive}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>

@@ -168,18 +168,24 @@ We genuinely enjoy hosting pet parents. When you skim our house guidelines, anyt
 Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
       sortOrder: 80,
     },
-    { key: 'landing-location-title', title: 'Location title', bodyMarkdown: 'Near Yet Far Enough', sortOrder: 81 },
+    {
+      key: 'landing-location-title',
+      title: 'Location title',
+      bodyMarkdown: 'A Farm Stay Near Bangalore, Without Going Too Far.',
+      sortOrder: 81,
+    },
     {
       key: 'landing-location-body',
       title: 'Location body',
-      bodyMarkdown: '~65 km from Bangalore—farm roads, mango groves, and a quiet reset.',
+      bodyMarkdown:
+        'Mavu Days sits about 65 km from Bangalore—close enough for a comfortable drive, quiet enough for a real reset.',
       sortOrder: 82,
     },
     {
       key: 'landing-location-bullets',
-      title: 'Location bullets (one per line)',
+      title: 'Location bullets (one per line; shown as tags)',
       bodyMarkdown:
-        '65 km from Bangalore (~1.5 hrs drive)\n25 km from Channapatna\n35 km from Ramanagara\nWell-connected roads all the way',
+        'Around 65 km from Bangalore\nSuited for weekend trips\nGood for overnight and two-night stays\nPeaceful farm setting\nAway from city noise',
       sortOrder: 83,
     },
     { key: 'landing-location-eyebrow', title: 'Location eyebrow', bodyMarkdown: 'Getting here', sortOrder: 84 },

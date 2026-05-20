@@ -18,6 +18,12 @@ export const MAVU_DAYS_GEO = { latitude: 13.3827478, longitude: 77.9243319 } as 
 export const MAVU_DAYS_OSM_EMBED_URL =
   'https://www.openstreetmap.org/export/embed.html?bbox=77.9093319%2C13.3677478%2C77.9393319%2C13.3977478&layer=mapnik&marker=13.3827478%2C77.9243319';
 
+/** Day-trip / hill spots near the homestead (copy-only; not synced from CMS yet). */
+export const NEAR_FARM_ATTRACTIONS: readonly { name: string; distance: string; drive: string }[] = [
+  { name: 'Bheema Betta / Bhima Bakasura Betta', distance: '~11–14 km', drive: '~20–30 min' },
+  { name: 'Kailasagiri Cave Temple', distance: '~17–20 km', drive: '~35–45 min' },
+] as const;
+
 export type LandingMergePayload = PublicSitePayload | PublicContentPayload | null;
 
 export function sectionText(sec: SiteSectionDto | undefined, fallback: string): string {
@@ -358,15 +364,16 @@ export const DEFAULT_LANDING: LandingTexts = {
 We genuinely enjoy hosting pet parents. When you skim our house guidelines, anything about animals on the farm refers to how the owners maintain the homestead and resident animals—not a tightening list of restrictions for visiting dogs.
 
 Mention breed and temperament when you book so we ready the right greeting; then pack the leash for the driveway and the tennis ball for the lawn.`,
-  locationTitle: 'Near Yet Far Enough',
+  locationTitle: 'A Farm Stay Near Bangalore, Without Going Too Far.',
   locationEyebrow: 'Getting here',
   locationBodyDefault:
-    '~65 km from Bangalore—farm roads, mango groves, and a quiet reset.',
+    'Mavu Days sits about 65 km from Bangalore—close enough for a comfortable drive, quiet enough for a real reset.',
   locationBulletsDefault: [
-    '65 km from Bangalore (~1.5 hrs drive)',
-    '25 km from Channapatna',
-    '35 km from Ramanagara',
-    'Well-connected roads all the way',
+    'Around 65 km from Bangalore',
+    'Suited for weekend trips',
+    'Good for overnight and two-night stays',
+    'Peaceful farm setting',
+    'Away from city noise',
   ],
   amenitiesTitle: 'Amenities at Mavu Days',
   amenitiesIntroDefault: 'Simple comforts that honour privacy and outdoors time.',

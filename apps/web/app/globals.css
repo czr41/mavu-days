@@ -2936,42 +2936,36 @@ p.md-eyebrow-line {
   margin-bottom: 1rem;
 }
 
-.md-location-checklist {
+/* Location USPs as compact wrap tags (was vertical checklist) */
+.md-location-usp-tags {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.72rem;
-}
-
-.md-location-checklist li {
-  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
   align-items: flex-start;
-  gap: 0.65rem;
-  font-size: 0.92rem;
-  line-height: 1.45;
-  color: var(--body-color);
 }
 
-.md-location-checklist li::before {
-  content: '✓';
-  flex-shrink: 0;
-  width: 1.15rem;
-  height: 1.15rem;
-  margin-top: 0.12em;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 0.68rem;
-  line-height: 1;
-  color: rgba(38, 55, 40, 0.92);
-  background: rgba(91, 120, 92, 0.16);
-  border-radius: 50%;
+.md-location-usp-tags li {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  font-size: clamp(0.74rem, 1.6vw, 0.8rem);
+  font-weight: 500;
+  color: var(--deep-green);
+  background: var(--sage-soft);
+  border: 1px solid var(--sage-light);
+  border-radius: 999px;
+  padding: 0.35rem 0.72rem;
+  line-height: 1.3;
+  white-space: normal;
+  text-align: left;
+  box-decoration-break: clone;
 }
 
 .md-location-copy-block .md-btn-primary {
-  margin-top: 1.35rem;
+  margin-top: clamp(0.95rem, 2.2vw, 1.25rem);
 }
 
 .md-location-copy-block .md-footnote {
@@ -3019,6 +3013,60 @@ p.md-eyebrow-line {
 .md-map-pin-hint-soft {
   font-size: 0.815rem;
   color: var(--muted);
+}
+
+/* “What’s near” — tag cloud under OSM embed */
+.md-near-farm-cloud {
+  margin-top: clamp(0.85rem, 2.2vw, 1.15rem);
+  padding-top: clamp(0.75rem, 2vw, 1rem);
+  border-top: 1px solid rgba(54, 60, 48, 0.1);
+}
+
+.md-near-farm-cloud-label {
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.55rem;
+}
+
+.md-near-farm-tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.55rem;
+  align-items: stretch;
+}
+
+.md-near-farm-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  flex: 1 1 auto;
+  min-width: min(100%, 11.5rem);
+  max-width: min(100%, 18rem);
+  padding: 0.55rem 0.72rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(54, 60, 48, 0.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+}
+
+.md-near-farm-chip-name {
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--heading);
+}
+
+.md-near-farm-chip-meta {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .md-amenities-head-tight.md-section-head-center {
