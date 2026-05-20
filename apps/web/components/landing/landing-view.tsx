@@ -374,7 +374,7 @@ export async function LandingView({ path }: { path: Path }) {
 
             <div className="md-day-at-mavu md-day-at-mavu--split md-day-at-mavu--unified" id="day-at-mavu">
               <div className="md-day-at-mavu-split-inner">
-                <div className="md-day-at-mavu-story">
+                <div className="md-day-at-mavu-story md-day-at-mavu-story-intro">
                   {(t.experienceStoryEyebrow || '').trim() ? (
                     <p className="md-section-label md-section-label-left md-day-at-mavu-story-eyebrow">
                       {t.experienceStoryEyebrow}
@@ -387,6 +387,20 @@ export async function LandingView({ path }: { path: Path }) {
                     <p className="md-body md-prose">{t.experienceStoryP1}</p>
                     <p className="md-body md-prose">{t.experienceStoryP2}</p>
                   </div>
+                </div>
+                <figure className="md-day-at-mavu-visual">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resolveMarketingImageSrc(merged.heroImageUrl ?? MARKETING_SITE_HERO_JPG)}
+                    alt="Outdoor seating among mango trees at Mavu Days"
+                    className="md-day-at-mavu-img"
+                    width={960}
+                    height={640}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </figure>
+                <div className="md-day-at-mavu-story md-day-at-mavu-story-after-visual">
                   <div className="md-day-at-mavu-ctas md-day-at-mavu-story-ctas">
                     <a className="md-btn md-btn-primary" href="#booking">
                       Book Now
@@ -405,18 +419,6 @@ export async function LandingView({ path }: { path: Path }) {
                     </a>
                   </div>
                 </div>
-                <figure className="md-day-at-mavu-visual">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={resolveMarketingImageSrc(merged.heroImageUrl ?? MARKETING_SITE_HERO_JPG)}
-                    alt="Outdoor seating among mango trees at Mavu Days"
-                    className="md-day-at-mavu-img"
-                    width={960}
-                    height={640}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </figure>
               </div>
             </div>
           </div>

@@ -1933,6 +1933,28 @@ p.md-eyebrow-line {
   .md-day-at-mavu-split-inner {
     grid-template-columns: minmax(0, 0.4fr) minmax(0, 0.6fr);
     gap: clamp(2rem, 4.8vw, 3.75rem);
+    align-items: start;
+  }
+
+  /** Story col: copy (row 1) + CTAs (row 2); image spans both rows beside them. */
+  .md-day-at-mavu-split-inner > .md-day-at-mavu-story-intro {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .md-day-at-mavu-split-inner > .md-day-at-mavu-visual {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: stretch;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .md-day-at-mavu-split-inner > .md-day-at-mavu-story-after-visual {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
   }
 }
 
