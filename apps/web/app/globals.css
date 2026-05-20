@@ -398,22 +398,12 @@ body {
 }
 
 .md-hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  margin: 0 0 1.1rem;
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--yellow);
-  margin-bottom: 1.1rem;
-}
-
-.md-hero-eyebrow span {
-  width: 32px;
-  height: 1px;
-  background: var(--yellow);
-  display: inline-block;
 }
 
 .md-h1 {

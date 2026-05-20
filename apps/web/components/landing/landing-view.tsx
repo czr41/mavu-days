@@ -163,7 +163,6 @@ export async function LandingView({ path }: { path: Path }) {
             <HeroReveal>
               <div className="md-hero-text">
                 <p className="md-hero-eyebrow">
-                  <span />
                   Private Mango Farm Stay {'\u00b7'} Near Bangalore
                 </p>
                 <h1 id="hero-heading" className="md-h1">
