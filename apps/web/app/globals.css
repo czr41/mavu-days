@@ -5067,8 +5067,26 @@ img { max-width: 100%; }
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.adm-cal-day-trigger-icon:first-child {
-  margin-left: 0;
+.adm-cal-day-trigger-icon .adm-cal-src-svg {
+  border-radius: 999px;
+  overflow: hidden;
+}
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.adm-cal-src-svg svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.adm-cal-src-svg.adm-cal-src-svg--img .adm-cal-src-img {
+  border-radius: 6px;
+  object-fit: contain;
 }
 
 .adm-cal-src-img {

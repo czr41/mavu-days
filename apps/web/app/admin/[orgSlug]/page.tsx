@@ -10,7 +10,7 @@ import {
 import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
 import { resolveMarketingImageSrcForPreview } from '@/lib/marketing-image-url';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
 
@@ -525,30 +525,177 @@ function bookingOverlapsLocalDay(b: Booking, day: Date): boolean {
   return ci < e && co > s;
 }
 
-function bookingKind(b: Booking): 'airbnb' | 'site' | 'other' {
-  if (b.externalProvider === ICAL_INGEST_PROVIDER) return 'airbnb';
-  if (b.source === 'DIRECT_WEB') return 'site';
-  return 'other';
+/** First colon-delimited segment of `externalId`: `CHANNEL:linkId:eventUid`. */
+function icalChannelPrefix(b: Pick<Booking, 'externalId'>): string | null {
+  const id = b.externalId?.trim();
+  if (!id?.includes(':')) return null;
+  const head = id.split(':')[0]?.trim().toUpperCase();
+  return head?.length ? head : null;
+}
+
+type BookingCalendarSourceMark =
+  | 'airbnb'
+  | 'booking'
+  | 'vrbo'
+  | 'ical'
+  | 'website'
+  | 'manual'
+  | 'platform';
+
+function bookingCalendarSourceMark(b: Booking): BookingCalendarSourceMark {
+  if (b.externalProvider === ICAL_INGEST_PROVIDER) {
+    const ch = icalChannelPrefix(b);
+    if (ch === 'AIRBNB') return 'airbnb';
+    if (ch === 'BOOKING_COM') return 'booking';
+    if (ch === 'VRBO') return 'vrbo';
+    return 'ical';
+  }
+  if (b.source === 'DIRECT_WEB') return 'website';
+  if (b.source === 'MANUAL') return 'manual';
+  return 'platform';
+}
+
+function prettifyListingChannel(seg: string): string {
+  if (seg === 'BOOKING_COM') return 'Booking.com';
+  if (seg === 'AIRBNB') return 'Airbnb';
+  if (seg === 'VRBO') return 'Vrbo';
+  if (seg === 'DIRECT') return 'Direct';
+  return seg.replace(/_/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase());
+}
+
+function bookingChannelLabel(b: Booking): string {
+  const mark = bookingCalendarSourceMark(b);
+  switch (mark) {
+    case 'airbnb':
+      return 'Airbnb (calendar import)';
+    case 'booking':
+      return 'Booking.com (calendar import)';
+    case 'vrbo':
+      return 'Vrbo (calendar import)';
+    case 'ical': {
+      const head = icalChannelPrefix(b);
+      if (!head || head === 'OTHER') return 'Calendar import';
+      return `${prettifyListingChannel(head)} (calendar import)`;
+    }
+    case 'website':
+      return 'Mavu Days website';
+    case 'manual':
+      return 'Manual';
+    default:
+      return 'Platform';
+  }
+}
+
+function bookingCalendarSourceAriaLabel(b: Booking): string {
+  const mark = bookingCalendarSourceMark(b);
+  switch (mark) {
+    case 'airbnb':
+      return 'Booking source: Airbnb';
+    case 'booking':
+      return 'Booking source: Booking.com';
+    case 'vrbo':
+      return 'Booking source: Vrbo';
+    case 'ical': {
+      const head = icalChannelPrefix(b);
+      return head && head !== 'OTHER'
+        ? `Booking source: ${prettifyListingChannel(head)} calendar`
+        : 'Booking source: Calendar import';
+    }
+    case 'website':
+      return 'Booking source: Mavu Days website';
+    case 'manual':
+      return 'Booking source: Manual';
+    default:
+      return 'Booking source: Platform';
+  }
 }
 
 function BookingSourceGlyph({ b, size = 18 }: { b: Booking; size?: number }) {
-  const k = bookingKind(b);
-  if (k === 'airbnb') {
-    return (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img src="https://www.airbnb.com/favicon.ico" alt="" width={size} height={size} className="adm-cal-src-img" />
-    );
-  }
-  if (k === 'site') {
-    return (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img src="/logo.svg" alt="" width={size} height={size} className="adm-cal-src-img" />
-    );
-  }
-  return (
-    <span className="adm-cal-src-dot" style={{ width: size, height: size }} aria-hidden>
-      ●
+  const mark = bookingCalendarSourceMark(b);
+  const aria = bookingCalendarSourceAriaLabel(b);
+  const wrap = (inner: ReactNode, extraClass?: string): ReactElement => (
+    <span
+      className={`adm-cal-src-svg${extraClass ? ` ${extraClass}` : ''}`}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={aria}
+      title={aria.replace(/^Booking source:\s*/, '')}
+    >
+      {inner}
     </span>
+  );
+
+  if (mark === 'airbnb') {
+    return wrap(
+      <svg viewBox="0 0 24 24" role="presentation" xmlns="http://www.w3.org/2000/svg">
+        <path
+          fill="#FF385C"
+          d="M12.001 18.275c-1.353-1.697-2.148-3.184-2.413-4.457-.263-1.027-.16-1.848.291-2.465.477-.71 1.188-1.056 2.121-1.056s1.643.345 2.12 1.063c.446.61.558 1.432.286 2.465-.291 1.298-1.085 2.785-2.412 4.458zm9.601 1.14c-.185 1.246-1.034 2.28-2.2 2.783-2.253.98-4.483-.583-6.392-2.704 3.157-3.951 3.74-7.028 2.385-9.018-.795-1.14-1.933-1.695-3.394-1.695-2.944 0-4.563 2.49-3.927 5.382.37 1.565 1.352 3.343 2.917 5.332-.98 1.085-1.91 1.856-2.732 2.333-.636.344-1.245.558-1.828.609-2.679.399-4.778-2.2-3.825-4.88.132-.345.395-.98.845-1.961l.025-.053c1.464-3.178 3.242-6.79 5.285-10.795l.053-.132.58-1.116c.45-.822.635-1.19 1.351-1.643.346-.21.77-.315 1.246-.315.954 0 1.698.558 2.016 1.007.158.239.345.557.582.953l.558 1.089.08.159c2.041 4.004 3.821 7.608 5.279 10.794l.026.025.533 1.22.318.764c.243.613.294 1.222.213 1.858zm1.22-2.39c-.186-.583-.505-1.271-.9-2.094v-.03c-1.889-4.006-3.642-7.608-5.307-10.844l-.111-.163C15.317 1.461 14.468 0 12.001 0c-2.44 0-3.476 1.695-4.535 3.898l-.081.16c-1.669 3.236-3.421 6.843-5.303 10.847v.053l-.559 1.22c-.21.504-.317.768-.345.847C-.172 20.74 2.611 24 5.98 24c.027 0 .132 0 .265-.027h.372c1.75-.213 3.554-1.325 5.384-3.317 1.829 1.989 3.635 3.104 5.382 3.317h.372c.133.027.239.027.265.027 3.37.003 6.152-3.261 4.802-6.975z"
+        />
+      </svg>,
+    );
+  }
+
+  if (mark === 'booking') {
+    /* Booking-inspired palette / block layout — not Booking.com® artwork. */
+    return wrap(
+      <svg viewBox="0 0 24 24" role="presentation" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" rx="4.5" fill="#009fe3" />
+        <rect x="3.5" y="3.5" width="13" height="17" rx="3" fill="#003580" />
+      </svg>,
+    );
+  }
+
+  if (mark === 'vrbo') {
+    return wrap(
+      <svg viewBox="0 0 24 24" role="presentation" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" rx="4" fill="#642F6C" />
+        <path fill="#fff" d="m12 5.5 8.75 13.5h-17.5L12 5.5z" />
+      </svg>,
+    );
+  }
+
+  if (mark === 'ical') {
+    return wrap(
+      <svg viewBox="0 0 24 24" role="presentation" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <path
+          stroke="#4b5563"
+          strokeWidth="1.5"
+          d="M4.75 10.75h14.5M8 7.75V5.5m8 2.25V5.5M6.25 18.75h11.5a1.5 1.5 0 001.5-1.5v-9a1.5 1.5 0 00-1.5-1.5h-11.5a1.5 1.5 0 00-1.5 1.5v9a1.5 1.5 0 001.5 1.5z"
+        />
+        <circle cx="8.75" cy="14.75" r="1" fill="#6b7280" />
+      </svg>,
+    );
+  }
+
+  if (mark === 'website') {
+    return wrap(
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src="/logo.svg" alt="" width={size} height={size} className="adm-cal-src-img" />,
+      'adm-cal-src-svg--img',
+    );
+  }
+
+  if (mark === 'manual') {
+    return wrap(
+      <svg viewBox="0 0 24 24" role="presentation" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <path
+          stroke="#4b5563"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8.75 17.75h-.5a3 3 0 01-3-3v-8.5l5-4 10 10v8.5a3 3 0 01-3 3h-.5"
+        />
+        <path stroke="#4b5563" strokeWidth="1.5" strokeLinecap="round" d="M8.75 17.75v2.75M15.25 17.75v2.75" />
+      </svg>,
+    );
+  }
+
+  return wrap(
+    <svg viewBox="0 0 24 24" role="presentation" xmlns="http://www.w3.org/2000/svg" fill="none">
+      <circle cx="12" cy="12" r="8.75" stroke="#6b7280" strokeWidth="1.35" />
+      <path stroke="#6b7280" strokeWidth="1.25" d="M2.85 11.95h18.35M11.93 20.72a10.82 10.82 0 006.92-17.94M12.06 20.72a10.82 10.82 0 00-6.92-17.94" />
+    </svg>,
   );
 }
 
@@ -1153,6 +1300,15 @@ export default function OrgAdminPage() {
     lastInboundIcalFetchedAtMs === null
       ? 'No inbound iCal fetch has succeeded yet for this workspace. Configure inbound URLs below, then run Sync calendars now—or wait for the background worker (~15 minutes when Redis is configured). Failed fetches do not update this.'
       : 'Most recent successful fetch across any inbound feed in this org. Manual sync or the worker updates this when a feed returns valid calendar data.';
+
+  const icalFeedLinkCount = useMemo(
+    () =>
+      properties.reduce(
+        (n, p) => n + p.units.reduce((m, u) => m + (u.listingLinks?.length ?? 0), 0),
+        0,
+      ),
+    [properties],
+  );
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -3237,12 +3393,29 @@ export default function OrgAdminPage() {
                   removed: number;
                   links: number;
                   errors: number;
-                }>(`${base}/channels/sync-ical`, { method: 'POST' });
+                }>(`${base}/channels/sync-ical`, {
+                  method: 'POST',
+                  body: '{}',
+                });
                 setBusy(false);
                 if (!r) return;
                 await loadProps();
+                if (r.links === 0) {
+                  notify(
+                    'No inbound iCal feeds yet — add Export calendar links under Host & Airbnb (Save connection) or use Connect channel below, then sync again.',
+                    false,
+                  );
+                  return;
+                }
+                if (r.errors > 0) {
+                  notify(
+                    `Pull finished with ${String(r.errors)} feed error(s): ${String(r.updated)} upserted, ${String(r.removed)} removed. Check the Last error column — Airbnb 403 often means re-copy the iCal URL from Airbnb or that the link expired.`,
+                    false,
+                  );
+                  return;
+                }
                 notify(
-                  `Pull complete: ${r.links} feed(s), ${r.updated} upserted, ${r.removed} removed (no longer on remote calendar), ${r.errors} fetch error(s).`,
+                  `Pull complete: ${r.links} feed(s), ${r.updated} upserted, ${r.removed} removed (no longer on remote calendar).`,
                 );
               }}
             >
@@ -3269,45 +3442,79 @@ export default function OrgAdminPage() {
                 <th>Airbnb profile</th>
                 <th>Channel</th>
                 <th>Inbound iCal</th>
+                <th>Last pulled</th>
+                <th>Last error</th>
                 <th>Outbound feed URL</th>
               </tr>
             </thead>
             <tbody>
-              {properties.flatMap((p) =>
-                p.units.flatMap((u) =>
-                  (u.listingLinks ?? []).map((l) => (
-                    <tr key={l.id}>
-                      <td>{p.name}</td>
-                      <td>
-                        <span className="adm-badge adm-badge-gray">{u.name}</span>
-                      </td>
-                      <td style={{ fontSize: '0.82rem' }}>
-                        {l.airbnbHostAccount ? (
-                          <span className="adm-badge adm-badge-green">{l.airbnbHostAccount.label}</span>
-                        ) : (
-                          <span style={{ color: '#9CA3AF' }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="adm-badge adm-badge-blue">{l.channel}</span>
-                      </td>
-                      <td style={{ fontSize: '0.78rem' }}>
-                        {l.inboundIcalUrl ? (
-                          <a href={l.inboundIcalUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--sage)' }}>
-                            Linked ↗
-                          </a>
-                        ) : (
-                          <span style={{ color: '#9CA3AF' }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <code style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>
-                          {api}/feeds/{l.outboundFeedSlug}.ics
-                        </code>
-                      </td>
-                    </tr>
-                  )),
-                ),
+              {icalFeedLinkCount === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: '1rem', color: '#6B7280', fontSize: '0.84rem', lineHeight: 1.5 }}>
+                    <strong>No rows yet.</strong> Feeds appear here after you save an Airbnb (or other) connection for a unit above, or add one in{' '}
+                    <strong>Connect channel / add iCal feed</strong> below. Inbound sync only runs for links that have an <strong>Inbound iCal</strong> URL.
+                  </td>
+                </tr>
+              ) : (
+                properties.flatMap((p) =>
+                  p.units.flatMap((u) =>
+                    (u.listingLinks ?? []).map((l) => {
+                      const err = l.lastIcalFetchError?.trim();
+                      const errShort = err && err.length > 140 ? `${err.slice(0, 137)}\u2026` : err ?? '';
+                      return (
+                        <tr key={l.id}>
+                          <td>{p.name}</td>
+                          <td>
+                            <span className="adm-badge adm-badge-gray">{u.name}</span>
+                          </td>
+                          <td style={{ fontSize: '0.82rem' }}>
+                            {l.airbnbHostAccount ? (
+                              <span className="adm-badge adm-badge-green">{l.airbnbHostAccount.label}</span>
+                            ) : (
+                              <span style={{ color: '#9CA3AF' }}>—</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="adm-badge adm-badge-blue">{l.channel}</span>
+                          </td>
+                          <td style={{ fontSize: '0.78rem' }}>
+                            {l.inboundIcalUrl ? (
+                              <a href={l.inboundIcalUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--sage)' }}>
+                                Linked ↗
+                              </a>
+                            ) : (
+                              <span style={{ color: '#9CA3AF' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                            {l.lastIcalFetchedAt
+                              ? new Date(l.lastIcalFetchedAt).toLocaleString(undefined, {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })
+                              : '—'}
+                          </td>
+                          <td
+                            style={{
+                              fontSize: '0.75rem',
+                              color: err ? '#B91C1C' : '#9CA3AF',
+                              maxWidth: 220,
+                              lineHeight: 1.35,
+                            }}
+                            title={err || undefined}
+                          >
+                            {errShort || '—'}
+                          </td>
+                          <td>
+                            <code style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>
+                              {api}/feeds/{l.outboundFeedSlug}.ics
+                            </code>
+                          </td>
+                        </tr>
+                      );
+                    }),
+                  ),
+                )
               )}
             </tbody>
           </table>
@@ -3567,15 +3774,11 @@ export default function OrgAdminPage() {
               <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <strong>Status</strong> — <StatusBadge s={overviewBookingDetail.status} />
               </p>
-              <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem' }}>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
                 <strong>Channel</strong> —{' '}
-                {overviewBookingDetail.externalProvider === ICAL_INGEST_PROVIDER
-                  ? 'Airbnb (calendar import)'
-                  : overviewBookingDetail.source === 'DIRECT_WEB'
-                    ? 'Mavu Days website'
-                    : overviewBookingDetail.source === 'MANUAL'
-                      ? 'Manual'
-                      : overviewBookingDetail.source}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <BookingSourceGlyph b={overviewBookingDetail} size={18} /> {bookingChannelLabel(overviewBookingDetail)}
+                </span>
               </p>
               {overviewBookingDetail.guestEmail ? (
                 <p style={{ margin: '0 0 0.35rem', fontSize: '0.875rem' }}>

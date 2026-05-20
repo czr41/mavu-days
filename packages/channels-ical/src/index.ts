@@ -51,15 +51,31 @@ export function parseIcs(body: string): CalendarEvent[] {
   return events;
 }
 
+/** Airbnb/Booking often reject datacenter fetches without a normal browser UA (403). */
+const ICAL_FETCH_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  Accept: 'text/calendar,text/plain;q=0.9,*/*;q=0.8',
+};
+
 export class IcalChannelConnector {
   readonly channelId = 'ical';
 
   async fetchExternalCalendar(icalUrl: string): Promise<CalendarEvent[]> {
-    const res = await globalFetch()(icalUrl, { redirect: 'follow' });
+    const res = await globalFetch()(icalUrl, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(45_000),
+      headers: ICAL_FETCH_HEADERS,
+    });
     if (!res.ok) {
-      throw new Error(`iCal fetch failed ${res.status}`);
+      throw new Error(
+        `iCal fetch failed HTTP ${res.status} (403 from Airbnb often means the server blocked the request—re-copy the export link or check Last error after sync).`,
+      );
     }
     const text = await res.text();
+    if (!text.trim()) {
+      throw new Error('iCal response was empty — check the inbound URL is still valid.');
+    }
     return parseIcs(text);
   }
 }
