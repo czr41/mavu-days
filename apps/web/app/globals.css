@@ -3017,10 +3017,10 @@ p.md-eyebrow-line {
   color: var(--muted);
 }
 
-/* “What’s near” — tag cloud under OSM embed */
+/* “What’s near” — carousel under map embed */
 .md-near-farm-cloud {
-  margin-top: clamp(0.85rem, 2.2vw, 1.15rem);
-  padding-top: clamp(0.75rem, 2vw, 1rem);
+  margin-top: clamp(0.55rem, 1.6vw, 0.92rem);
+  padding: clamp(0.95rem, 2.4vw, 1.2rem) 1rem 0.68rem;
   border-top: 1px solid rgba(54, 60, 48, 0.1);
 }
 
@@ -3034,35 +3034,91 @@ p.md-eyebrow-line {
 }
 
 .md-near-farm-cloud-heading-row {
-  margin-bottom: 0.5rem;
+  margin-bottom: clamp(0.65rem, 2vw, 0.92rem);
 }
 
 .md-near-farm-scroll-hint {
-  margin: 0.26rem 0 0;
-  font-size: 0.675rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.67rem;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.42;
   color: var(--muted);
-  opacity: 0.9;
+  opacity: 0.92;
+}
+
+/* Wrapper: side arrows vertically centered over chip strip */
+.md-near-farm-carousel {
+  position: relative;
+}
+
+.md-near-farm-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(54, 60, 48, 0.18);
+  background: rgba(255, 255, 255, 0.94);
+  color: rgba(46, 59, 41, 0.92);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82) inset,
+    0 6px 16px rgba(36, 48, 38, 0.12);
+  cursor: pointer;
+}
+
+.md-near-farm-nav:not(:disabled):hover {
+  border-color: rgba(54, 60, 48, 0.28);
+  color: rgba(38, 50, 35, 0.96);
+}
+
+.md-near-farm-nav:not(:disabled):active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.md-near-farm-nav:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.md-near-farm-nav--prev {
+  left: clamp(4px, 1.2vw, 8px);
+}
+
+.md-near-farm-nav--next {
+  right: clamp(4px, 1.2vw, 8px);
 }
 
 .md-near-farm-tags-scroll {
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(64, 84, 62, 0.35) transparent;
-  margin: 0 -0.1rem;
-  padding: 0.15rem 0.15rem 0.55rem;
+  margin: 0;
 }
 
-.md-near-farm-tags-scroll::-webkit-scrollbar {
-  height: 7px;
+/* Carousel strip: hide native scrollbar */
+.md-near-farm-tags-scroll--carousel {
+  padding: 0.12rem 0 0.62rem;
+  scrollbar-width: none;
+  outline: none;
+  outline-offset: 2px;
 }
 
-.md-near-farm-tags-scroll::-webkit-scrollbar-thumb {
-  background: rgba(64, 84, 62, 0.28);
-  border-radius: 999px;
+.md-near-farm-tags-scroll--carousel:focus-visible {
+  outline: 2px solid rgba(127, 148, 101, 0.55);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.md-near-farm-tags-scroll--carousel::-webkit-scrollbar {
+  height: 0 !important;
+  width: 0 !important;
+  display: none;
 }
 
 .md-near-farm-tags {

@@ -21,6 +21,7 @@ import { FeatureGlyph, WhoGlyph } from '@/components/landing/landing-glyphs';
 import { OffersTicker } from '@/components/landing/offers-ticker';
 import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
+import { NearFarmCarousel } from '@/components/landing/near-farm-carousel';
 import { GuestReviewStars } from '@/components/landing/guest-review-stars';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
 
@@ -550,25 +551,11 @@ export async function LandingView({ path }: { path: Path }) {
                           What&apos;s near the farm
                         </p>
                         <p className="md-near-farm-scroll-hint">
-                          Drag or swipe sideways to see every stop.
+                          Hover here and scroll sideways, swipe on touch, or tap the arrows.
                         </p>
                       </div>
                     </div>
-                    <span className="md-sr-only">Swipe or scroll sideways to see more nearby places.</span>
-                    <div className="md-near-farm-tags-scroll">
-                      <ul className="md-near-farm-tags md-near-farm-tags--scroll" role="list">
-                        {NEAR_FARM_ATTRACTIONS.map((spot) => (
-                          <li key={spot.name} className="md-near-farm-chip">
-                            <span className="md-near-farm-chip-name">{spot.name}</span>
-                            <span className="md-near-farm-chip-meta">
-                              {spot.distance}
-                              <span aria-hidden> · </span>
-                              {spot.drive}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    <NearFarmCarousel spots={NEAR_FARM_ATTRACTIONS} />
                   </div>
                 </div>
               </div>
