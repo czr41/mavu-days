@@ -2576,8 +2576,63 @@ p.md-eyebrow-line {
 }
 
 .md-gallery-full-page {
-  padding: clamp(2rem, 5vw, 3.5rem) 0 4rem;
-  background: var(--cream, #fdfaf4);
+  /* Background from `.md-section-cream`; keep bottom breathing room below category blocks */
+  padding-bottom: clamp(3rem, 6vw, 4.5rem);
+}
+
+.md-gallery-full-title {
+  /* Slightly larger than section h2 for a dedicated page title, still readable on cream */
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  line-height: 1.06;
+}
+
+.md-gallery-full-back-lead.md-lead {
+  margin-bottom: clamp(1.35rem, 3vw, 2rem);
+}
+
+.md-gallery-route .md-gallery-full-page > .md-wrap > .md-section-head:first-of-type {
+  margin-bottom: clamp(1.35rem, 3vw, 2.25rem);
+}
+
+.md-gallery-full-footer {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: clamp(1.25rem, 3vw, 1.5rem) 0;
+  background: var(--sage-soft);
+  border-top: 1px solid var(--border);
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.md-gallery-full-footer-inner {
+  max-width: var(--md-content-max);
+  margin: 0 auto;
+  padding: 0 var(--md-page-pad-x);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.md-gallery-full-footer-copy {
+  min-width: 0;
+}
+
+@media (max-width: 520px) {
+  .md-gallery-full-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Full gallery route: show which nav item is active */
+.md-gallery-route .md-nav a[aria-current='page'] {
+  font-weight: 600;
+  color: var(--yellow);
+  text-underline-offset: 3px;
+  text-decoration: underline;
 }
 
 .md-gallery-full-head {
@@ -3028,11 +3083,23 @@ p.md-eyebrow-line {
   font-weight: 650;
 }
 
+.md-pet-welcome-banner-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin-top: clamp(0.85rem, 2vw, 1.15rem);
+}
+
 @media (max-width: 520px) {
   .md-pet-welcome-banner {
     flex-direction: column;
     align-items: stretch;
     text-align: center;
+  }
+
+  .md-pet-welcome-banner-ctas {
+    justify-content: center;
   }
 
   .md-pet-welcome-banner-graphic {

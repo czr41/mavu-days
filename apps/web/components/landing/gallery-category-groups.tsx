@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { LandingSectionHead } from '@/components/landing/landing-section-head';
+import { OffersTicker } from '@/components/landing/offers-ticker';
 import {
   groupGalleryByCategory,
   representativesPerCategory,
@@ -7,6 +9,7 @@ import {
   type GallerySlide,
 } from '@/lib/gallery-categories';
 import { resolveMarketingImageSrc } from '@/lib/marketing-image-url';
+import type { PublicLandingOfferDto } from '@/lib/public-types';
 import { RevealFigure } from '@/components/landing/reveal-section';
 
 const HOMEPAGE_FULL_CATEGORY_PREVIEW = 10;
@@ -135,40 +138,93 @@ export function GalleryFullView({
   items,
   heroImageUrl,
   orgName,
+  offers = [],
 }: {
   items: GallerySlide[];
   heroImageUrl?: string | null;
   orgName?: string;
+  offers?: readonly PublicLandingOfferDto[];
 }) {
   const { hero, rest } = splitGalleryHero(items, heroImageUrl);
   const groups = groupGalleryByCategory(rest);
   let delay = 0;
+  const brand = orgName?.trim() || 'Mavu Days';
 
   return (
-    <div className="md-gallery-full-page">
-      <div className="md-wrap">
-        <header className="md-gallery-full-head">
-          <p className="md-section-label md-section-label-left">Around the homestead</p>
-          <h1 className="md-h1">{orgName ? `${orgName} — Gallery` : 'Gallery'}</h1>
-          <p className="md-lead md-lead-tight">
-            <Link href="/#gallery" className="md-link">
-              ← Back to homepage
+    <div className="md-page md-page-premium md-gallery-route" id="md-top">
+      <header className="md-bar md-bar-premium">
+        <div className="md-bar-inner">
+          <div className="md-bar-logo-col">
+            <Link className="md-logo" href="/" aria-label={brand}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt="" className="md-logo-img" />
             </Link>
-          </p>
-        </header>
-
-        {hero?.url ? (
-          <div className="md-gallery-full-hero-wrap">
-            <GalleryHeroTile slide={hero} />
           </div>
-        ) : null}
 
-        {groups.map((group) => {
-          const block = <CategoryBento key={group.id} group={group} delayStart={delay + 1} />;
-          delay += group.items.length;
-          return block;
-        })}
-      </div>
+          <div className="md-bar-nav-col">
+            <nav className="md-nav" aria-label="Site sections">
+              <Link href="/#about">About</Link>
+              <Link href="/#stays">Stay</Link>
+              <Link href="/#experience">Experiences</Link>
+              <Link href="/gallery" aria-current="page">
+                Gallery
+              </Link>
+              <Link href="/#faqs">FAQs</Link>
+              <Link href="/#footer">Contact</Link>
+            </nav>
+          </div>
+          <div className="md-bar-cta-col">
+            <a className="md-btn-primary-nav" href="/#booking">
+              Book Your Stay
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <OffersTicker offers={[...offers]} />
+
+      <section className="md-section md-section-cream md-gallery-full-page" aria-labelledby="gallery-page-heading">
+        <div className="md-wrap">
+          <LandingSectionHead
+            align="left"
+            eyebrowDecoration={false}
+            eyebrow="Around the homestead"
+            title={
+              <h1 id="gallery-page-heading" className="md-h2 md-gallery-full-title">
+                {orgName ? `${orgName} — Gallery` : 'Gallery'}
+              </h1>
+            }
+            lead={
+              <p className="md-lead md-lead-tight md-gallery-full-back-lead">
+                <Link href="/#gallery" className="md-link">
+                  ← Back to homepage gallery
+                </Link>
+              </p>
+            }
+          />
+
+          {hero?.url ? (
+            <div className="md-gallery-full-hero-wrap">
+              <GalleryHeroTile slide={hero} />
+            </div>
+          ) : null}
+
+          {groups.map((group) => {
+            const block = <CategoryBento key={group.id} group={group} delayStart={delay + 1} />;
+            delay += group.items.length;
+            return block;
+          })}
+        </div>
+      </section>
+
+      <footer className="md-gallery-full-footer">
+        <div className="md-gallery-full-footer-inner">
+          <span className="md-gallery-full-footer-copy">© {new Date().getFullYear()} {brand}. All rights reserved.</span>
+          <Link href="/" className="md-link">
+            ← Home
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

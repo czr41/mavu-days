@@ -68,6 +68,10 @@ export async function LandingView({ path }: { path: Path }) {
     "Hi — I'm interested in a longer stay at Mavu Days. Could you share long-stay or special pricing options?",
   );
   const longStayCtaHref = longStayWaHref.startsWith('http') ? longStayWaHref : '#booking';
+  const bulkBookingWaHref = whatsappHref(
+    phone,
+    "Hi — I'd like to enquire about bulk or group booking at Mavu Days. Could you share options and availability?",
+  );
 
   const cappedGallery = merged.gallery.slice(0, 48);
   const galleryItems =
@@ -130,7 +134,6 @@ export async function LandingView({ path }: { path: Path }) {
               <nav className="md-nav" aria-label="Page sections">
                 <a href="#about">About</a>
                 <a href="#stays">Stay</a>
-                <a href="#pet-friendly">Pets</a>
                 <a href="#experience">Experiences</a>
                 <a href="#gallery">Gallery</a>
                 <a href="#faqs">FAQs</a>
@@ -565,11 +568,16 @@ export async function LandingView({ path }: { path: Path }) {
 
             <aside id="pet-friendly" className="md-pet-welcome-banner" aria-labelledby="pet-welcome-banner-heading">
               <span className="md-pet-welcome-banner-graphic" aria-hidden>
-                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4.5 9.5L3 11c-.8.8-.8 2.1 0 2.9l.9.9c.6.6 1.5.8 2.3.4a6 6 0 014.5-.6c.8.2 1.6 0 2.2-.5l1.2-1.1c.7-.6.7-1.7 0-2.3l-1.3-1.2" />
-                  <ellipse cx="12" cy="15.5" rx="4.2" ry="3.2" />
-                  <circle cx="9" cy="11" r="1.35" />
-                  <circle cx="15" cy="11" r="1.35" />
+                {/* Paw motif — clearer at small sizes than the previous abstract mark */}
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    opacity="0.92"
+                    d="M12 10.75c-.65 0-1.28.42-1.66 1.08-.53.93-.53 2.22 0 3.06.42.73 1.05 1.11 1.66 1.11s1.24-.38 1.66-1.11c.53-.84.53-2.13 0-3.06-.38-.66-1.01-1.08-1.66-1.08z"
+                  />
+                  <circle cx="7.25" cy="8.35" r="1.42" opacity="0.95" />
+                  <circle cx="10.05" cy="5.85" r="1.22" opacity="0.95" />
+                  <circle cx="13.95" cy="5.85" r="1.22" opacity="0.95" />
+                  <circle cx="16.75" cy="8.35" r="1.42" opacity="0.95" />
                 </svg>
               </span>
               <div className="md-pet-welcome-banner-body">
@@ -581,16 +589,20 @@ export async function LandingView({ path }: { path: Path }) {
                   <a href="#house-rules" className="md-link">
                     house guidelines
                   </a>{' '}
-                  target people, not pups.{' '}
-                  <a href="#booking" className="md-link">
-                    Book
-                  </a>{' '}
-                  or{' '}
-                  <a href={waHref} className="md-link" target="_blank" rel="noreferrer">
-                    WhatsApp
-                  </a>{' '}
-                  with breed &amp; temperament.
+                  target people, not pups.
                 </p>
+                <div className="md-pet-welcome-banner-ctas">
+                  <a href="#booking" className="md-btn md-btn-primary md-btn-sm">
+                    Book Now
+                  </a>
+                  <a
+                    href={bulkBookingWaHref}
+                    className="md-btn md-btn-secondary md-btn-sm"
+                    {...(bulkBookingWaHref.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
+                  >
+                    Bulk Booking Enquiry
+                  </a>
+                </div>
               </div>
             </aside>
           </div>

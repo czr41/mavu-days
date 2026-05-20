@@ -7,6 +7,13 @@ export const metadata = {
 };
 
 export default async function GalleryPage() {
-  const { merged, orgName } = await loadLandingPayload();
-  return <GalleryFullView items={merged.gallery} heroImageUrl={merged.heroImageUrl} orgName={orgName} />;
+  const { merged, orgName, landingOffers } = await loadLandingPayload();
+  return (
+    <GalleryFullView
+      items={merged.gallery}
+      heroImageUrl={merged.heroImageUrl}
+      orgName={orgName}
+      offers={landingOffers}
+    />
+  );
 }
