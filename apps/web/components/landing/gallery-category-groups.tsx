@@ -174,9 +174,9 @@ export function GalleryFullView({
             </nav>
           </div>
           <div className="md-bar-cta-col">
-            <a className="md-btn-primary-nav" href="/#booking">
+            <Link className="md-btn-primary-nav" href="/#booking">
               Book Your Stay
-            </a>
+            </Link>
           </div>
         </div>
       </header>
