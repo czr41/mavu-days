@@ -10,6 +10,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src",
+    "prelint": "node ../../scripts/api-prebuild-deps.cjs",
     "pretypecheck": "node ../../scripts/api-prebuild-deps.cjs",
     "typecheck": "tsc --noEmit"
   },

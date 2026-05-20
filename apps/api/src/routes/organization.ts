@@ -823,8 +823,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
 
     if (typeof airbnbPatch === 'string' && airbnbPatch.length > 10) {
       try {
-        // eslint-disable-next-line no-new
-        new URL(airbnbPatch);
+        void new URL(airbnbPatch);
       } catch {
         return reply.status(400).send({ error: 'airbnbReviewsListingUrl must be a valid HTTP(S) URL or empty.' });
       }
