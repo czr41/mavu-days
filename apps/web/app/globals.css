@@ -5067,10 +5067,16 @@ img { max-width: 100%; }
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+.adm-cal-day-trigger-icon:first-child {
+  margin-left: 0;
+}
+
 .adm-cal-day-trigger-icon .adm-cal-src-svg {
   border-radius: 999px;
   overflow: hidden;
 }
+
+.adm-cal-src-svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
