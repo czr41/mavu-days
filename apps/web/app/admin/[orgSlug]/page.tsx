@@ -75,6 +75,7 @@ type GuestReview = {
   pinnedOrder: number;
   externalId: string | null;
   autoSynced?: boolean;
+  syncedAt?: string | null;
 };
 
 type SiteSection = { id: string; key: string; title: string; bodyMarkdown: string; sortOrder: number; published: boolean };
@@ -1042,6 +1043,17 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function fmtReviewSyncAt(iso: string | null | undefined): string {
+  if (!iso) return 'Never';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return '—';
+  }
+}
+
 /** When `useParams()` is briefly empty on the client, the path still yields `/admin/<slug>`. */
 function orgSlugFromPathname(pathname: string | null): string {
   if (!pathname?.startsWith('/admin/')) return '';
@@ -1064,6 +1076,7 @@ export default function OrgAdminPage() {
     orgSlugFromPathname(pathname);
   /** Drops stale `/properties` responses if slug changes or a newer fetch supersedes this one */
   const propsFetchGenRef = useRef(0);
+  const bulkImportedLandingRef = useRef<HTMLInputElement>(null);
   const api = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '');
 
   const [tab, setTab]             = useState('overview');
@@ -1071,6 +1084,9 @@ export default function OrgAdminPage() {
   const [properties, setProps]    = useState<Property[]>([]);
   const [bookings, setBookings]   = useState<Booking[]>([]);
   const [reviews, setReviews]     = useState<GuestReview[]>([]);
+  const [reviewsMeta, setReviewsMeta] = useState<{ lastExternalReviewsSyncAt: string | null }>({
+    lastExternalReviewsSyncAt: null,
+  });
   const [sections, setSections]   = useState<SiteSection[]>([]);
   const [offers, setOffers]       = useState<LandingOfferRow[]>([]);
   const [media, setMedia]         = useState<MediaAsset[]>([]);
@@ -1190,7 +1206,12 @@ export default function OrgAdminPage() {
     setProps(d.properties);
   }, [apiFetch, base]);
   const loadBk    = useCallback(async () => { const d = await apiFetch<{ bookings: Booking[] }>(`${base}/bookings`); if (d) setBookings(d.bookings); }, [apiFetch, base]);
-  const loadRev   = useCallback(async () => { const d = await apiFetch<{ reviews: GuestReview[] }>(`${base}/cms/reviews`); if (d) setReviews(d.reviews); }, [apiFetch, base]);
+  const loadRev   = useCallback(async () => {
+    const d = await apiFetch<{ reviews: GuestReview[]; lastExternalReviewsSyncAt?: string | null }>(`${base}/cms/reviews`);
+    if (!d) return;
+    setReviews(Array.isArray(d.reviews) ? d.reviews : []);
+    setReviewsMeta({ lastExternalReviewsSyncAt: d.lastExternalReviewsSyncAt ?? null });
+  }, [apiFetch, base]);
   const loadCms   = useCallback(async () => {
     const [s, m, o] = await Promise.all([
       apiFetch<{ sections: SiteSection[] }>(`${base}/cms/sections`),
@@ -1861,6 +1882,17 @@ export default function OrgAdminPage() {
     </>
   );
 
+  const importedReviews = useMemo(() => reviews.filter((r) => r.autoSynced), [reviews]);
+  const allImportedOnLanding =
+    importedReviews.length > 0 && importedReviews.every((r) => r.showOnLanding);
+  const someImportedOnLanding = importedReviews.some((r) => r.showOnLanding);
+
+  useEffect(() => {
+    const el = bulkImportedLandingRef.current;
+    if (!el) return;
+    el.indeterminate = someImportedOnLanding && !allImportedOnLanding;
+  }, [someImportedOnLanding, allImportedOnLanding]);
+
   /* ─── Reviews ─── */
   const [revForm, setRevForm] = useState({ platform:'AIRBNB', rating:5, guestDisplayName:'', title:'', body:'', pinnedOrder:'6', showOnLanding:true, externalId:'' });
   const [editRev, setEditRev] = useState<string|null>(null);
@@ -1870,30 +1902,34 @@ export default function OrgAdminPage() {
     <>
       <div className="adm-card" style={{ marginBottom: '1.25rem', borderLeft: '4px solid #b8983c' }}>
         <div className="adm-card-header">
-          <h2 className="adm-card-title">Where review sync pulls from</h2>
+          <h2 className="adm-card-title">How guest reviews get here</h2>
         </div>
         <div className="adm-card-body" style={{ fontSize: '0.875rem', lineHeight: 1.58, color: '#374151' }}>
           <p style={{ marginTop: 0, color: '#4B5563' }}>
-            The API merges Google Maps snippets and Airbnb excerpts when you tap <strong>Sync reviews now</strong> below.
-            Server secrets (<code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_PLACES_API_KEY</code>,
-            optional <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>OUTSCRAPER_API_KEY</code>,
-            fallback <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>GOOGLE_MAPS_API_KEY</code>) must be on the API server
-            (<code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>.env</code> next to the deployed repo, or injected by your host). For Oracle + GitHub Actions deploys, optional repo secrets with the same names are written into that <code>.env</code> on each deploy—see <code style={{ background: '#F3F4F6', padding: '0.06rem 0.3rem' }}>docs/deploy/oracle-api-vercel-web.md</code> §10.
+            Use <strong>Sync reviews now</strong> below to refresh short, high-scoring snippets from Google Maps and Airbnb for your homepage
+            quote strip. Handwritten reviews you add here are left alone.
           </p>
-          <ul style={{ margin: '0 0 0 1rem', padding: 0, color: '#4B5563' }}>
+          <ul style={{ margin: '0 0 0.75rem 1rem', padding: 0, color: '#4B5563' }}>
             <li style={{ marginBottom: '0.45rem' }}>
-              <strong>Google Maps reviews</strong> — set a <strong>Place ID per property</strong> under{' '}
+              <strong>Google Maps</strong> — For each building, save its Google Business <strong>Place ID</strong> under{' '}
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('properties')}>
                 Properties &amp; Units
               </button>
-              . The sync job calls Google Places for every property Place ID configured (historical org-wide Place ID on the API is used only when no property IDs are saved).
+              . If no property has a Place ID, the older single org-wide Place ID (if any) is still used. If Google still returns nothing, confirm the API key is set on the server that runs the booking API.
             </li>
             <li>
-              <strong>Airbnb reviews</strong> — add the public <strong>Airbnb listing URL</strong> on each stay under CMS →{' '}
+              <strong>Airbnb</strong> — Add each stay&apos;s public listing link under CMS →{' '}
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => { setTab('cms'); setCmsSubTab('listings'); }}>Stay listings</button>{' '}
-              (<em>published or draft</em>). Sync collects <strong>every distinct Airbnb URL</strong> on those listings. Prefer <code>OUTSCRAPER_API_KEY</code> on the API server so pulls stay stable. Older org-wide Airbnb override URLs in site settings still merge into the pull list.
+              (draft or published). Airbnb text is more reliable when your host adds the optional Outscraper key on that same API server.
             </li>
           </ul>
+          <details style={{ fontSize: '0.82rem', color: '#6B7280' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#4B5563' }}>Technical setup (API keys &amp; deploy)</summary>
+            <p style={{ margin: '0.5rem 0 0' }}>
+              The marketing site calls your <strong>Fastify API</strong>. That server needs <code>GOOGLE_PLACES_API_KEY</code> (or <code>GOOGLE_MAPS_API_KEY</code>) for Google, and{' '}
+              <code>OUTSCRAPER_API_KEY</code> is recommended for Airbnb. Set them in the API <code>.env</code> on the VM, or as GitHub Actions secrets if your deploy writes them into that file.
+            </p>
+          </details>
         </div>
       </div>
 
@@ -1901,13 +1937,53 @@ export default function OrgAdminPage() {
         <div className="adm-card-header"><h2 className="adm-card-title">Pull Google &amp; Airbnb reviews</h2></div>
         <div className="adm-card-body" style={{ fontSize: '0.84rem', lineHeight: 1.55, color: '#4B5563' }}>
           <p style={{ marginTop: 0 }}>
-            Configure property Place IDs plus stay-level Airbnb URLs, then run a pull. Imported rows are roughly{' '}
-            <strong>4★+</strong> excerpts for the homepage strip (up to ~96 quotes). Rows created by sync refresh on each pull;
-            handwritten reviews stay as-is.
+            Only roughly <strong>4★+</strong> excerpts are kept for the homepage (up to about 96). Each sync replaces the previous imported rows; your own reviews below are not removed.
           </p>
-          <button type="button" className="adm-btn adm-btn-primary" disabled={reviewSyncBusy || busy} onClick={() => void syncLandingReviewsExternal()}>
-            {reviewSyncBusy ? 'Pulling reviews…' : 'Sync reviews now'}
-          </button>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '0.75rem 1.25rem',
+              marginTop: '0.75rem',
+            }}
+          >
+            <button type="button" className="adm-btn adm-btn-primary" disabled={reviewSyncBusy || busy} onClick={() => void syncLandingReviewsExternal()}>
+              {reviewSyncBusy ? 'Pulling reviews…' : 'Sync reviews now'}
+            </button>
+            <span style={{ fontSize: '0.84rem', color: '#6B7280' }}>
+              Last import: <strong style={{ color: '#374151' }}>{fmtReviewSyncAt(reviewsMeta.lastExternalReviewsSyncAt)}</strong>
+            </span>
+            <label className="adm-toggle-row" style={{ margin: 0, gap: '0.5rem' }}>
+              <input
+                ref={bulkImportedLandingRef}
+                type="checkbox"
+                checked={allImportedOnLanding}
+                disabled={busy || reviewSyncBusy || importedReviews.length === 0}
+                onChange={async (e) => {
+                  const on = e.target.checked;
+                  setBusy(true);
+                  const r = await apiFetch<{ updated?: number }>(`${base}/cms/reviews/auto-synced-landing`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ showOnLanding: on }),
+                  });
+                  setBusy(false);
+                  if (!r) return;
+                  await loadRev();
+                  notify(
+                    on ? 'Imported reviews will show on the homepage.' : 'Imported reviews are hidden from the homepage.',
+                    true,
+                  );
+                }}
+              />
+              Show imported reviews on homepage
+            </label>
+          </div>
+          {importedReviews.length === 0 ? (
+            <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#9CA3AF' }}>
+              Run a sync first to enable the homepage toggle for imported quotes.
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>

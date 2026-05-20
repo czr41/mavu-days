@@ -1311,12 +1311,32 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   app.get('/orgs/:orgSlug/cms/reviews', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
-    const rows = await app.prisma.guestReview.findMany({
-      where: { organizationId: m.organizationId },
-      orderBy: [{ pinnedOrder: 'asc' }, { reviewedAt: 'desc' }, { createdAt: 'desc' }],
-      take: 200,
+    const whereOrg = { organizationId: m.organizationId };
+    const [rows, syncAgg] = await Promise.all([
+      app.prisma.guestReview.findMany({
+        where: whereOrg,
+        orderBy: [{ pinnedOrder: 'asc' }, { reviewedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 200,
+      }),
+      app.prisma.guestReview.aggregate({
+        where: { ...whereOrg, autoSynced: true },
+        _max: { syncedAt: true },
+      }),
+    ]);
+    const lastExternalReviewsSyncAt = syncAgg._max.syncedAt?.toISOString() ?? null;
+    return reply.send({ reviews: rows, lastExternalReviewsSyncAt });
+  });
+
+  app.patch('/orgs/:orgSlug/cms/reviews/auto-synced-landing', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const body = z.object({ showOnLanding: z.boolean() }).safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    const res = await app.prisma.guestReview.updateMany({
+      where: { organizationId: m.organizationId, autoSynced: true },
+      data: { showOnLanding: body.data.showOnLanding },
     });
-    return reply.send({ reviews: rows });
+    return reply.send({ updated: res.count });
   });
 
   app.post('/orgs/:orgSlug/cms/reviews', async (req, reply) => {
