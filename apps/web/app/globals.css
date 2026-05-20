@@ -3028,7 +3028,39 @@ p.md-eyebrow-line {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 0 0 0.55rem;
+  margin: 0;
+}
+
+.md-near-farm-cloud-heading-row {
+  margin-bottom: 0.5rem;
+}
+
+.md-near-farm-scroll-hint {
+  margin: 0.26rem 0 0;
+  font-size: 0.675rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+.md-near-farm-tags-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(64, 84, 62, 0.35) transparent;
+  margin: 0 -0.1rem;
+  padding: 0.15rem 0.15rem 0.55rem;
+}
+
+.md-near-farm-tags-scroll::-webkit-scrollbar {
+  height: 7px;
+}
+
+.md-near-farm-tags-scroll::-webkit-scrollbar-thumb {
+  background: rgba(64, 84, 62, 0.28);
+  border-radius: 999px;
 }
 
 .md-near-farm-tags {
@@ -3039,6 +3071,13 @@ p.md-eyebrow-line {
   flex-wrap: wrap;
   gap: 0.45rem 0.55rem;
   align-items: stretch;
+}
+
+.md-near-farm-tags.md-near-farm-tags--scroll {
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  width: max-content;
+  max-width: none;
 }
 
 .md-near-farm-chip {
@@ -3053,6 +3092,12 @@ p.md-eyebrow-line {
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(54, 60, 48, 0.1);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+}
+
+.md-near-farm-tags--scroll .md-near-farm-chip {
+  flex: 0 0 auto;
+  min-width: 10.75rem;
+  max-width: 13.75rem;
 }
 
 .md-near-farm-chip-name {

@@ -544,21 +544,31 @@ export async function LandingView({ path }: { path: Path }) {
                     {'Mavu Days Farm House \u00b7 Near Channapatna, Karnataka'}
                   </span>
                   <div className="md-near-farm-cloud" aria-labelledby="near-farm-cloud-label">
-                    <p id="near-farm-cloud-label" className="md-near-farm-cloud-label">
-                      What&apos;s near the farm
-                    </p>
-                    <ul className="md-near-farm-tags">
-                      {NEAR_FARM_ATTRACTIONS.map((spot) => (
-                        <li key={spot.name} className="md-near-farm-chip">
-                          <span className="md-near-farm-chip-name">{spot.name}</span>
-                          <span className="md-near-farm-chip-meta">
-                            {spot.distance}
-                            <span aria-hidden> · </span>
-                            {spot.drive}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="md-near-farm-cloud-heading-row">
+                      <div>
+                        <p id="near-farm-cloud-label" className="md-near-farm-cloud-label">
+                          What&apos;s near the farm
+                        </p>
+                        <p className="md-near-farm-scroll-hint">
+                          Drag or swipe sideways to see every stop.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="md-sr-only">Swipe or scroll sideways to see more nearby places.</span>
+                    <div className="md-near-farm-tags-scroll">
+                      <ul className="md-near-farm-tags md-near-farm-tags--scroll" role="list">
+                        {NEAR_FARM_ATTRACTIONS.map((spot) => (
+                          <li key={spot.name} className="md-near-farm-chip">
+                            <span className="md-near-farm-chip-name">{spot.name}</span>
+                            <span className="md-near-farm-chip-meta">
+                              {spot.distance}
+                              <span aria-hidden> · </span>
+                              {spot.drive}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>

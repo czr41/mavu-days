@@ -18,10 +18,16 @@ export const MAVU_DAYS_GEO = { latitude: 13.3827478, longitude: 77.9243319 } as 
 export const MAVU_DAYS_OSM_EMBED_URL =
   'https://www.openstreetmap.org/export/embed.html?bbox=77.9093319%2C13.3677478%2C77.9393319%2C13.3977478&layer=mapnik&marker=13.3827478%2C77.9243319';
 
-/** Day-trip / hill spots near the homestead (copy-only; not synced from CMS yet). */
+/** Day-trip picks near Mavu Days (approx. drive bands from the homestead — verify before publishing). */
 export const NEAR_FARM_ATTRACTIONS: readonly { name: string; distance: string; drive: string }[] = [
   { name: 'Bheema Betta / Bhima Bakasura Betta', distance: '~11–14 km', drive: '~20–30 min' },
   { name: 'Kailasagiri Cave Temple', distance: '~17–20 km', drive: '~35–45 min' },
+  { name: 'Channapatna craft & lacquer toy town', distance: '~8–15 km', drive: '~15–30 min' },
+  { name: 'Janapada Loka Folk Museum', distance: '~18–28 km', drive: '~28–45 min' },
+  { name: 'Ramanagara / Ramadevara Betta (granite hills)', distance: '~24–38 km', drive: '~38–55 min' },
+  { name: 'Shivalli / Kanakapura day-trip belt', distance: '~32–52 km', drive: '~48–72 min' },
+  { name: 'Bidadi & Innovative Film City (IFC)', distance: '~40–58 km', drive: '~50–85 min' },
+  { name: 'Savandurga monolith foothills', distance: '~46–68 km', drive: '~62–92 min' },
 ] as const;
 
 export type LandingMergePayload = PublicSitePayload | PublicContentPayload | null;
