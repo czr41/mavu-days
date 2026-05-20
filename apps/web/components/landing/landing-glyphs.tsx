@@ -1,4 +1,5 @@
-/** Minimal stroke glyphs for landing cards — renders at ~1.65rem square. */
+/** Stroke glyphs built from primitives (lines, rects, polygons, circles) for landing tiles. */
+
 
 import type { PropsWithChildren, ReactNode } from 'react';
 
@@ -28,30 +29,44 @@ const STROKE_MINIMAL = 1.35;
 
 /** Tighter mono-line metaphors for USP flip row (paired with taller cards). */
 const featurePathsMinimal: ReactNode[] = [
-  /* farm / grove */
-  <path key={0} d="M12 21V10m0 0l-5-4m5 4l8-7M8 21h8" />,
-  /* road — gentle ridge line + destination dot */
+  /* farm — roof + grove trunks */
+  <g key={0}>
+    <polygon points="12,6 19,13 5,13" strokeLinejoin="round" />
+    <line x1={9} x2={9} y1={13} y2={21} />
+    <line x1={12} x2={12} y1={13} y2={21} />
+    <line x1={15} x2={15} y1={13} y2={21} />
+    <line x1={6} x2={18} y1={21} y2={21} strokeLinecap="square" />
+  </g>,
+  /* road — chevron route + waypoint */
   <g key={1}>
-    <path d="M5 17l5-5 8 5" />
-    <circle cx={19} cy={8} r={1.35} />
+    <polyline points="5,19 11,13 17,17 21,11" strokeLinejoin="round" />
+    <rect x={18.75} y={7.75} width={3.5} height={3.5} rx={0.75} />
   </g>,
-  /* private stays */
-  <path key={2} d="M5 21V11l7-8 7 8v10M10 21v-8h6v8" />,
-  /* slow weekend — mug + vapor */
+  /* private stays — schematic gable cabin */
+  <g key={2}>
+    <polygon points="12,5 20,13 4,13" strokeLinejoin="round" />
+    <rect x={8} y={13} width={8} height={8} rx={1.25} />
+    <rect x={10} y={16} width={4} height={5} rx={0.75} />
+  </g>,
+  /* slow weekend — mug + vapor as vertical bars */
   <g key={3}>
-    <rect x={8} y={13} width={11} height={8} rx={2} ry={2} />
-    <path d="M19 15h2.5v5H19z" />
-    <path d="M10 10v-2M13 11V8M16 11V7" opacity={0.5} />
+    <rect x={7.75} y={13} width={10.25} height={8} rx={1.75} />
+    <rect x={18.75} y={14.75} width={2.85} height={5.85} rx={0.85} />
+    <line x1={10} x2={10} y1={8.75} y2={11} opacity={0.45} strokeLinecap="square" />
+    <line x1={12.85} x2={12.85} y1={7.85} y2={11} opacity={0.45} strokeLinecap="square" />
+    <line x1={15.7} x2={15.7} y1={8.95} y2={11} opacity={0.45} strokeLinecap="square" />
   </g>,
-  /* groups — two circles */
+  /* groups — three aligned circles */
   <g key={4}>
-    <circle cx={9} cy={10} r={2.75} />
-    <circle cx={16} cy={10} r={2.75} />
+    <circle cx={8} cy={11.5} r={2.85} />
+    <circle cx={16} cy={11.5} r={2.85} />
+    <circle cx={12} cy={16.85} r={2.65} />
   </g>,
-  /* nature — sun over ridge */
+  /* nature — sun block + layered horizon slabs */
   <g key={5}>
-    <circle cx={18} cy={6.5} r={2} />
-    <path d="M4 21L13 13l9 8" />
+    <circle cx={18.75} cy={7.85} r={2.65} />
+    <rect x={3.25} y={15.85} width={17.15} height={2.85} rx={0.85} opacity={0.55} strokeLinecap="square" />
+    <rect x={6.85} y={18.95} width={13.95} height={2} rx={0.65} opacity={0.45} strokeLinecap="square" />
   </g>,
 ];
 
@@ -94,43 +109,51 @@ export function FeatureGlyph({ index, variant = 'default' }: { index: number; va
 const whoGlyphs: Record<string, ReactNode> = {
   Families: (
     <>
-      <circle cx={11} cy={7} r={2.25} />
-      <circle cx={17} cy={10} r={2} />
-      <path d="M4 21c0-8 15-13 21-21" />
+      {/* Triad heads — schematic “crew” */}
+      <circle cx={12} cy={8.85} r={2.65} />
+      <circle cx={7.95} cy={17.15} r={2.75} />
+      <circle cx={16.05} cy={17.15} r={2.75} />
     </>
   ),
   Couples: (
     <>
-      <path d="M12 21s6-10 9-14a4 4 0 00-7-5 7 7 0 00-13 9c4 10 11 14 11 14z" />
+      {/* Offset rings — Vesica motif */}
+      <circle cx={10.15} cy={12.95} r={4.85} opacity={0.55} />
+      <circle cx={13.95} cy={12.95} r={4.85} />
     </>
   ),
   'Friend Groups': (
     <>
-      <circle cx={8} cy={8} r={2.5} />
-      <circle cx={16} cy={7} r={2.5} />
-      <circle cx={12} cy={15} r={2.5} />
-      <path d="M4 21c2-11 17-17 20-21" />
+      {/* Four circles on a lattice */}
+      <circle cx={8.25} cy={8} r={2.65} />
+      <circle cx={15.75} cy={8} r={2.65} />
+      <circle cx={6.95} cy={14.95} r={2.65} />
+      <circle cx={17.05} cy={14.95} r={2.65} />
     </>
   ),
   'Work-from-Nature Guests': (
     <>
-      <rect x={3} y={5} width={18} height={12} rx={2} />
-      <path d="M8 21h8M2 21h20" />
+      {/* Laptop stack — rects + hinge strip */}
+      <rect x={3.95} y={6.95} width={16.1} height={10.85} rx={1.85} />
+      <rect x={6.95} y={9.95} width={10.1} height={6.95} rx={0.95} opacity={0.35} strokeLinecap="square" />
+      <rect x={8.95} y={18.95} width={6.1} height={1.95} rx={0.85} opacity={0.55} strokeLinecap="square" />
+      <line x1={3.25} x2={20.75} y1={17.95} y2={17.95} strokeLinecap="square" />
     </>
   ),
   'Small Celebrations': (
     <>
-      <path d="M12 3l2 8-6 9h12l-6-9 2-8" />
-      <path d="M8 21h10" />
+      {/* Cone + band — marquee / party tent read */}
+      <polygon points="12,4 19.5,21.5 4.5,21.5" strokeLinejoin="round" />
+      <line x1={5.95} x2={18.05} y1={18.95} y2={18.95} strokeLinecap="square" />
     </>
   ),
   'Pet Parents': (
     <>
-      <ellipse cx={12} cy={14.5} rx={5} ry={3.8} />
-      <circle cx={8.5} cy={10.5} r={1.6} />
-      <circle cx={15.5} cy={10.5} r={1.6} />
-      <circle cx={10.5} cy={8} r={1.25} />
-      <circle cx={13.5} cy={8} r={1.25} />
+      {/* Rounded pad + three oval toe pads as circles */}
+      <rect x={8.95} y={15.95} width={6.1} height={4.95} rx={2.25} />
+      <circle cx={10.25} cy={11.95} r={1.85} />
+      <circle cx={12} cy={10.85} r={1.95} />
+      <circle cx={13.85} cy={11.95} r={1.85} />
     </>
   ),
 };

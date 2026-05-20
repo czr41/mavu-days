@@ -8,7 +8,7 @@ import {
 import {
   listingUrlPath,
   MAVU_DAYS_DIRECTIONS_URL,
-  MAVU_DAYS_OSM_EMBED_URL,
+  MAVU_DAYS_MAP_EMBED_URL,
   NEAR_FARM_ATTRACTIONS,
 } from '@/lib/landing-content';
 import { loadLandingPayload } from '@/lib/landing-data';
@@ -529,8 +529,9 @@ export async function LandingView({ path }: { path: Path }) {
                       title="Map — Mavu Days Farm House"
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
+                      allowFullScreen
                       className="md-map-frame"
-                      src={MAVU_DAYS_OSM_EMBED_URL}
+                      src={MAVU_DAYS_MAP_EMBED_URL}
                     />
                     <span className="md-map-drive-badge">
                       ~1.5 hrs drive <span aria-hidden className="md-map-drive-dot">{'\u00b7'}</span> From Bangalore

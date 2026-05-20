@@ -14,7 +14,16 @@ export const MAVU_DAYS_DIRECTIONS_URL = 'https://maps.app.goo.gl/H3Y5mzF4gbhURee
 /** Coordinates aligned with the Google Maps place pin. */
 export const MAVU_DAYS_GEO = { latitude: 13.3827478, longitude: 77.9243319 } as const;
 
-/** OpenStreetMap embed (bbox + marker matches {@link MAVU_DAYS_GEO}). */
+/**
+ * In-page map iframe. Google’s `output=embed` path uses a broadly compatible renderer.
+ * OpenStreetMap’s official embed now relies on WebGL, which fails when hardware acceleration or
+ * WebGL is unavailable (common in some embedded browsers / strict corporate profiles).
+ */
+export const MAVU_DAYS_MAP_EMBED_URL = `https://www.google.com/maps?q=${encodeURIComponent(
+  `${MAVU_DAYS_GEO.latitude},${MAVU_DAYS_GEO.longitude}`,
+)}&z=15&hl=en-IN&output=embed`;
+
+/** @deprecated Prefer {@link MAVU_DAYS_MAP_EMBED_URL} — OSM embed may require WebGL. */
 export const MAVU_DAYS_OSM_EMBED_URL =
   'https://www.openstreetmap.org/export/embed.html?bbox=77.9093319%2C13.3677478%2C77.9393319%2C13.3977478&layer=mapnik&marker=13.3827478%2C77.9243319';
 

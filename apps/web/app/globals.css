@@ -2857,9 +2857,21 @@ p.md-eyebrow-line {
 }
 
 @media (min-width: 1024px) {
+  /*
+   * Full-bleed row within .md-wrap: equal flex tracks so first/last cards
+   * sit on container edges (avoid repeat(6) when CMS has fewer than 6 cards).
+   */
   .md-who-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.92rem;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: clamp(0.65rem, 1.2vw, 0.92rem);
+  }
+
+  .md-who-grid > .md-who-flip-cell {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
