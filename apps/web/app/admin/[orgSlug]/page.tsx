@@ -1047,6 +1047,8 @@ export default function OrgAdminPage() {
   const params = useParams();
   const router = useRouter();
   const slug = segmentFromParams(params?.orgSlug);
+  /** Drops stale `/properties` responses if slug changes or a newer fetch supersedes this one */
+  const propsFetchGenRef = useRef(0);
   const api = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '');
 
   const [tab, setTab]             = useState('overview');
@@ -1164,7 +1166,14 @@ export default function OrgAdminPage() {
   const base = `/orgs/${encodeURIComponent(slug)}`;
 
   const loadDash  = useCallback(async () => { const d = await apiFetch<DashStats>(`${base}/dashboard`); if (d) setDash(d); }, [apiFetch, base]);
-  const loadProps = useCallback(async () => { const d = await apiFetch<{ properties: Property[] }>(`${base}/properties`); if (d) setProps(d.properties); }, [apiFetch, base]);
+  const loadProps = useCallback(async () => {
+    const generation = ++propsFetchGenRef.current;
+    const d = await apiFetch<{ properties?: Property[] | null }>(`${base}/properties`);
+    if (generation !== propsFetchGenRef.current) return;
+    if (!d) return;
+    if (!Array.isArray(d.properties)) return;
+    setProps(d.properties);
+  }, [apiFetch, base]);
   const loadBk    = useCallback(async () => { const d = await apiFetch<{ bookings: Booking[] }>(`${base}/bookings`); if (d) setBookings(d.bookings); }, [apiFetch, base]);
   const loadRev   = useCallback(async () => { const d = await apiFetch<{ reviews: GuestReview[] }>(`${base}/cms/reviews`); if (d) setReviews(d.reviews); }, [apiFetch, base]);
   const loadCms   = useCallback(async () => {
