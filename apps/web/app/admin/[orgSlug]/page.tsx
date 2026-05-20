@@ -9,7 +9,7 @@ import {
 } from '@/lib/gallery-categories';
 import { MEDIA_KEY, SECTION_KEY } from '@/lib/landing-content';
 import { resolveMarketingImageSrcForPreview } from '@/lib/marketing-image-url';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
@@ -1042,11 +1042,26 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** When `useParams()` is briefly empty on the client, the path still yields `/admin/<slug>`. */
+function orgSlugFromPathname(pathname: string | null): string {
+  if (!pathname?.startsWith('/admin/')) return '';
+  const rest = pathname.slice('/admin/'.length);
+  const raw = rest.split('/').find((s) => s.length > 0) ?? '';
+  try {
+    return decodeURIComponent(raw).trim();
+  } catch {
+    return raw.trim();
+  }
+}
+
 /* ─────────────────────────────── Page ─────────────────────────────── */
 export default function OrgAdminPage() {
   const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
-  const slug = segmentFromParams(params?.orgSlug);
+  const slug =
+    segmentFromParams(params?.orgSlug) ||
+    orgSlugFromPathname(pathname);
   /** Drops stale `/properties` responses if slug changes or a newer fetch supersedes this one */
   const propsFetchGenRef = useRef(0);
   const api = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '');
