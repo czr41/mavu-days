@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { publicOrgSlugCandidates } from '@/lib/public-org-slug';
-
 type DayDto = { date: string; available: boolean };
 
 type Props = {

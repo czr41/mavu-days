@@ -1041,8 +1041,15 @@ export default function OrgAdminPage() {
   const overviewCalInitRef = useRef(false);
   const [overviewBookingDetail, setOverviewBookingDetail] = useState<Booking | null>(null);
 
-  const tok = () => localStorage.getItem('mavu_token') ?? '';
-  const ah  = (extra?: Record<string, string>) => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json', ...extra });
+  const tok = useCallback(() => localStorage.getItem('mavu_token') ?? '', []);
+  const ah = useCallback(
+    (extra?: Record<string, string>) => ({
+      Authorization: `Bearer ${tok()}`,
+      'Content-Type': 'application/json',
+      ...extra,
+    }),
+    [tok],
+  );
 
   const notify = useCallback((msg: unknown, ok = true) => {
     setToast({ msg: toToastMessage(msg), ok });
@@ -1110,7 +1117,7 @@ export default function OrgAdminPage() {
       }
       return j as T;
     },
-    [api, notify, router],
+    [api, ah, notify, router],
   );
 
   const base = `/orgs/${encodeURIComponent(slug)}`;
@@ -1221,7 +1228,7 @@ export default function OrgAdminPage() {
     void loadProps();
     void loadRev();
     void loadBk();
-  }, [slug, router, loadDash, loadProps, loadRev, loadBk]);
+  }, [slug, router, tok, loadDash, loadProps, loadRev, loadBk]);
 
   useEffect(() => {
     if (!slug) return;

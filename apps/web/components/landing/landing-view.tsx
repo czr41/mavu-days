@@ -23,6 +23,7 @@ import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
 import { NearFarmCarousel } from '@/components/landing/near-farm-carousel';
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
+import { GuestReviewStars } from '@/components/landing/guest-review-stars';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
 
 type Path = '/' | '/farm-stay-near-bangalore';
