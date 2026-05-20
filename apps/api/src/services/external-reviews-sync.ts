@@ -17,6 +17,38 @@ import { PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
 const GOOGLE_PLACES_DETAILS = 'https://places.googleapis.com/v1/places/';
 const OUTSCRAPER_AIRBNB_REVIEWS = 'https://api.outscraper.cloud/airbnb-reviews';
 
+/** Trim pasted URLs / labels down to a Google Maps Place ID for Places API (New). */
+export function normalizeGooglePlaceIdInput(raw: string | null | undefined): string {
+  if (raw == null) return '';
+  let s = String(raw).trim();
+  if (!s) return '';
+  const qp = s.match(/[?&]place_id=([^&]+)/i);
+  if (qp?.[1]) {
+    try {
+      s = decodeURIComponent(qp[1].trim());
+    } catch {
+      s = qp[1].trim();
+    }
+  }
+  s = s.replace(/^place[_\s-]?id:?\s*/i, '').trim();
+  if (s.startsWith('places/')) {
+    const rest = s.slice('places/'.length);
+    s = rest.split('/')[0] ?? rest;
+  }
+  const m = s.match(/\b(ChIJ[A-Za-z0-9_-]{8,}|GhIJ[A-Za-z0-9_-]{8,})\b/);
+  if (m?.[1]) return m[1];
+  if (/^[A-Za-z0-9_-]{15,80}$/.test(s)) return s;
+  return s.length > 6 ? s : '';
+}
+
+function localizedReviewText(v: unknown): string {
+  if (typeof v === 'string') return v.trim();
+  if (v && typeof v === 'object' && 'text' in v && typeof (v as { text?: unknown }).text === 'string') {
+    return (v as { text: string }).text.trim();
+  }
+  return '';
+}
+
 /** Airbnb / Google batches — request enough to populate the horizontal review strip after de-dupe + 4★+ filter */
 const MAX_FETCH_PER_SOURCE = 120;
 
@@ -173,7 +205,12 @@ type GooglePlacesReviewJSON = {
 async function fetchGoogleReviews(
   placeId: string,
   apiKey: string,
-): Promise<{ rows: NormalizedIncoming[]; error?: string }> {
+): Promise<{
+  rows: NormalizedIncoming[];
+  error?: string;
+  rawReviewCount?: number;
+  skippedNoBody?: number;
+}> {
   let id = clip(placeId.trim(), 240);
   if (id.startsWith('places/')) id = id.slice('places/'.length);
   const url = `${GOOGLE_PLACES_DETAILS}${encodeURIComponent(id)}`;
@@ -219,17 +256,22 @@ async function fetchGoogleReviews(
 
   const reviewsUnknown = typeof json === 'object' && json && 'reviews' in json ? (json as { reviews?: unknown }).reviews : null;
   if (!Array.isArray(reviewsUnknown)) {
-    return { rows: [] };
+    return { rows: [], rawReviewCount: 0, skippedNoBody: 0 };
   }
 
+  const rawReviewCount = reviewsUnknown.length;
+  let skippedNoBody = 0;
   const rows: NormalizedIncoming[] = [];
   for (const raw of reviewsUnknown as GooglePlacesReviewJSON[]) {
     const bodyRaw =
-      (typeof raw.originalText?.text === 'string' && raw.originalText.text.trim()) ||
-      (typeof raw.text?.text === 'string' && raw.text.text.trim()) ||
+      localizedReviewText(raw.originalText) ||
+      localizedReviewText(raw.text) ||
       '';
     const body = clip(bodyRaw.trim(), 8000);
-    if (!body) continue;
+    if (!body) {
+      skippedNoBody += 1;
+      continue;
+    }
 
     let ratingRound = typeof raw.rating === 'number' ? Math.round(raw.rating) : 5;
     if (ratingRound < 1) ratingRound = 1;
@@ -258,7 +300,7 @@ async function fetchGoogleReviews(
     });
   }
 
-  return { rows };
+  return { rows, rawReviewCount, skippedNoBody };
 }
 
 function unwrapOutscraperRows(payload: unknown): Record<string, unknown>[] {
@@ -745,14 +787,25 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
 
   const placeSet = new Set<string>();
   for (const raw of args.propertyGooglePlaceIds) {
-    const t = typeof raw === 'string' ? raw.trim() : '';
-    if (t.length > 6) placeSet.add(t);
+    const rawS = typeof raw === 'string' ? raw.trim() : '';
+    if (!rawS) continue;
+    const n = normalizeGooglePlaceIdInput(rawS);
+    if (rawS.length > 6 && n.length <= 6) {
+      warnings.push(
+        `Google: A property Place ID could not be parsed (${rawS.length > 52 ? `${rawS.slice(0, 49)}\u2026` : rawS}). Paste the ChIJ… value or a Maps link that contains place_id=.`,
+      );
+      continue;
+    }
+    if (n.length > 6) placeSet.add(n);
   }
-  if (!placeSet.size) {
-    const legacy =
-      typeof args.legacyOrgGooglePlaceId === 'string' ? args.legacyOrgGooglePlaceId.trim() : '';
-    if (legacy.length > 6) placeSet.add(legacy);
+  const legacyRaw = typeof args.legacyOrgGooglePlaceId === 'string' ? args.legacyOrgGooglePlaceId.trim() : '';
+  const legacyNorm = normalizeGooglePlaceIdInput(legacyRaw);
+  if (legacyRaw.length > 6 && legacyNorm.length <= 6) {
+    warnings.push(
+      'Google: The legacy org-wide Place ID in site settings could not be parsed. Paste the ChIJ… ID or a Maps link that includes place_id=.',
+    );
   }
+  if (legacyNorm.length > 6) placeSet.add(legacyNorm);
 
   const googleRows: NormalizedIncoming[] = [];
   const placeIds = [...placeSet];
@@ -769,6 +822,19 @@ export async function syncExternalGuestReviews(prisma: PrismaClient, args: {
     for (const gpId of placeIds) {
       const g = await fetchGoogleReviews(gpId, key);
       if (g.error) errors.push(`${gpId.slice(0, 10)}\u2026: ${g.error}`);
+      if (!g.error && (g.rawReviewCount ?? 0) === 0) {
+        warnings.push(
+          `Google (${gpId.slice(0, 12)}\u2026): API returned no reviews for this place. Confirm it is the correct listing and has public Google reviews.`,
+        );
+      } else if (!g.error && (g.rawReviewCount ?? 0) > 0 && g.rows.length === 0) {
+        warnings.push(
+          `Google (${gpId.slice(0, 12)}\u2026): ${String(g.rawReviewCount)} review slot(s) returned but none had usable text (rating-only rows).`,
+        );
+      } else if (!g.error && (g.skippedNoBody ?? 0) > 0 && g.rows.length > 0) {
+        warnings.push(
+          `Google (${gpId.slice(0, 12)}\u2026): ${String(g.skippedNoBody)} of ${String(g.rawReviewCount)} returned reviews had no text and were skipped.`,
+        );
+      }
       googleRows.push(...g.rows.slice(0, MAX_FETCH_PER_SOURCE));
     }
   }
