@@ -325,6 +325,97 @@ function unwrapOutscraperRows(payload: unknown): Record<string, unknown>[] {
   return d.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object');
 }
 
+/** Outscraper + flat CSV shapes: reviewer may be nested object or snake_case keys. */
+function guestDisplayNameFromOutscraperOrFlatRow(raw: Record<string, unknown>): string | null {
+  const fromAirbnbShape = reviewerDisplayNameFromAirbnbNode(raw);
+  if (fromAirbnbShape) return fromAirbnbShape;
+
+  const flatKeys = [
+    'reviewer_name',
+    'reviewerName',
+    'reviewer_full_name',
+    'reviewerFullName',
+    'reviewer_first_name',
+    'reviewerFirstName',
+    'guest_name',
+    'guestName',
+    'author_name',
+    'authorName',
+    'user_name',
+    'userName',
+    'user_full_name',
+    'userFullName',
+    'display_name',
+    'displayName',
+    'public_name',
+    'publicName',
+    'reviewer_display_name',
+    'reviewerDisplayName',
+    'author',
+    'guest',
+  ];
+  for (const k of flatKeys) {
+    const v = raw[k];
+    if (typeof v === 'string' && v.trim()) return clip(v.trim(), 120);
+  }
+
+  const pickFromObject = (obj: Record<string, unknown>, keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = obj[k];
+      if (typeof v === 'string' && v.trim()) return clip(v.trim(), 120);
+    }
+    return null;
+  };
+
+  const rev = raw.reviewer;
+  if (rev && typeof rev === 'object' && !Array.isArray(rev)) {
+    const fromRev = pickFromObject(rev as Record<string, unknown>, [
+      'smartName',
+      'firstName',
+      'first_name',
+      'displayName',
+      'display_name',
+      'name',
+      'publicName',
+      'nickname',
+      'full_name',
+      'fullName',
+    ]);
+    if (fromRev) return fromRev;
+  }
+
+  const author = raw.author;
+  if (author && typeof author === 'object' && !Array.isArray(author)) {
+    const fromAuthor = pickFromObject(author as Record<string, unknown>, [
+      'name',
+      'display_name',
+      'displayName',
+      'firstName',
+      'first_name',
+    ]);
+    if (fromAuthor) return fromAuthor;
+  }
+
+  const user = raw.user;
+  if (user && typeof user === 'object' && !Array.isArray(user)) {
+    const fromUser = pickFromObject(user as Record<string, unknown>, [
+      'name',
+      'display_name',
+      'displayName',
+      'firstName',
+      'username',
+    ]);
+    if (fromUser) return fromUser;
+  }
+
+  const vName = raw.name;
+  if (typeof vName === 'string' && vName.trim().length >= 2 && vName.trim().length <= 80) {
+    return clip(vName.trim(), 120);
+  }
+
+  return null;
+}
+
 function mapAirbnbRow(raw: Record<string, unknown>): NormalizedIncoming | null {
   const bodyRaw =
     (typeof raw.comments === 'string' && raw.comments.trim()) ||
@@ -348,15 +439,7 @@ function mapAirbnbRow(raw: Record<string, unknown>): NormalizedIncoming | null {
   if (ratingRound < 1) ratingRound = 1;
   if (ratingRound > 5) ratingRound = 5;
 
-  const nameCandidates = ['reviewer_name', 'reviewer', 'guest_name', 'author', 'name'];
-  let guestDisplayName: string | null = null;
-  for (const k of nameCandidates) {
-    const v = raw[k];
-    if (typeof v === 'string' && v.trim()) {
-      guestDisplayName = clip(v.trim(), 120);
-      break;
-    }
-  }
+  const guestDisplayName = guestDisplayNameFromOutscraperOrFlatRow(raw);
 
   let reviewedAt: Date | null = null;
   const dateRaw = raw.created_at ?? raw.date ?? raw.review_created_at ?? raw.timestamp;
