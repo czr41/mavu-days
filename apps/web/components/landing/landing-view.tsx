@@ -22,6 +22,7 @@ import { OffersTicker } from '@/components/landing/offers-ticker';
 import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
 import { NearFarmCarousel } from '@/components/landing/near-farm-carousel';
+import { GuestReviewsCarousel } from '@/components/landing/guest-reviews-carousel';
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { GuestReviewStars } from '@/components/landing/guest-review-stars';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
@@ -704,34 +705,34 @@ export async function LandingView({ path }: { path: Path }) {
               {hasImportedReviews ? (
                 <>
                   Showing roughly{' '}
-                  <strong style={{ fontWeight: 600, color: 'var(--heading)' }}>4★+</strong> guest feedback only · drag or
-                  swipe sideways to browse all quotes.
+                  <strong style={{ fontWeight: 600, color: 'var(--heading)' }}>4★+</strong> guest feedback only · quotes
+                  scroll automatically (pauses on hover) — use the arrows, trackpad, or swipe to browse.
                 </>
               ) : reviewQuoteFallbackSuppressed ? (
                 <>Imported testimonials are synced from Google Maps or Airbnb. None matched the 4★+ strip yet—you can tweak copy or sync again.</>
               ) : (
-                <>Drag or swipe sideways to browse guest quotes.</>
+                <>Quotes scroll automatically (pauses on hover) — use the arrows, trackpad, or swipe to browse.</>
               )}
             </p>
             <div className="md-review-scroller-shell">
-              <div className="md-review-scroller" role="region" aria-label="Guest reviews carousel">
-                {hasImportedReviews
-                  ? landingReviews.map((r, idx) => (
-                      <RevealFigure key={r.id} delayIndex={idx} className="md-review-card md-review-scroll-card">
-                        <div className="md-review-card-top">
-                          <GuestReviewStars rating={r.rating} ratingMax={r.ratingMax} />
-                          <GuestReviewPlatformBadge platform={r.platform} />
-                        </div>
-                        <blockquote className="md-quote">
-                          <p>{`"${r.body}"`}</p>
-                        </blockquote>
-                        <div>
-                          <p className="md-reviewer">{r.guestDisplayName || 'Verified Guest'}</p>
-                        </div>
-                      </RevealFigure>
-                    ))
-                  : showMarketingQuoteFallbackCarousel
-                    ? defaultReviews.map((q, idx) => (
+              {hasImportedReviews || showMarketingQuoteFallbackCarousel ? (
+                <GuestReviewsCarousel aria-label="Guest reviews carousel">
+                  {hasImportedReviews
+                    ? landingReviews.map((r, idx) => (
+                        <RevealFigure key={r.id} delayIndex={idx} className="md-review-card md-review-scroll-card">
+                          <div className="md-review-card-top">
+                            <GuestReviewStars rating={r.rating} ratingMax={r.ratingMax} />
+                            <GuestReviewPlatformBadge platform={r.platform} />
+                          </div>
+                          <blockquote className="md-quote">
+                            <p>{`"${r.body}"`}</p>
+                          </blockquote>
+                          <div>
+                            <p className="md-reviewer">{r.guestDisplayName || 'Verified Guest'}</p>
+                          </div>
+                        </RevealFigure>
+                      ))
+                    : defaultReviews.map((q, idx) => (
                         <RevealBlock key={idx} delayIndex={idx} className="md-review-card md-review-scroll-card">
                           <div className="md-review-stars">{'★★★★★'}</div>
                           <blockquote className="md-quote">
@@ -742,14 +743,14 @@ export async function LandingView({ path }: { path: Path }) {
                             {q.loc ? <p className="md-reviewer-loc">{q.loc}</p> : null}
                           </div>
                         </RevealBlock>
-                      ))
-                    : (
-                        <p className="md-muted" style={{ margin: '0.75rem 0 0', maxWidth: '40rem' }}>
-                          Guest reviews synced from linked platforms appear here automatically after the next deploy cache
-                          refresh. Check back shortly, or widen your sync sources in Host Dashboard → Guest Reviews.
-                        </p>
-                      )}
-              </div>
+                      ))}
+                </GuestReviewsCarousel>
+              ) : (
+                <p className="md-muted" style={{ margin: '0.75rem 0 0', maxWidth: '40rem' }}>
+                  Guest reviews synced from linked platforms appear here automatically after the next deploy cache refresh.
+                  Check back shortly, or widen your sync sources in Host Dashboard → Guest Reviews.
+                </p>
+              )}
             </div>
             {hasImportedReviews && reviewSectionHasPlatforms ? (
               <p className="md-muted md-review-source-attrib md-footnote-compact">

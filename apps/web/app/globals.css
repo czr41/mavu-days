@@ -3325,7 +3325,8 @@ a.md-map-pin-hint-link:focus-visible {
   position: relative;
 }
 
-.md-near-farm-nav {
+.md-near-farm-nav,
+.md-review-marquee-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -3346,25 +3347,30 @@ a.md-map-pin-hint-link:focus-visible {
   cursor: pointer;
 }
 
-.md-near-farm-nav:not(:disabled):hover {
+.md-near-farm-nav:not(:disabled):hover,
+.md-review-marquee-nav:not(:disabled):hover {
   border-color: rgba(54, 60, 48, 0.28);
   color: rgba(38, 50, 35, 0.96);
 }
 
-.md-near-farm-nav:not(:disabled):active {
+.md-near-farm-nav:not(:disabled):active,
+.md-review-marquee-nav:not(:disabled):active {
   transform: translateY(-50%) scale(0.96);
 }
 
-.md-near-farm-nav:disabled {
+.md-near-farm-nav:disabled,
+.md-review-marquee-nav:disabled {
   opacity: 0.28;
   cursor: default;
 }
 
-.md-near-farm-nav--prev {
+.md-near-farm-nav--prev,
+.md-review-marquee-nav--prev {
   left: clamp(4px, 1.2vw, 8px);
 }
 
-.md-near-farm-nav--next {
+.md-near-farm-nav--next,
+.md-review-marquee-nav--next {
   right: clamp(4px, 1.2vw, 8px);
 }
 
@@ -3730,6 +3736,57 @@ div.md-amenities {
   margin-bottom: 0.25rem;
 }
 
+/* Reviews marquee: same interaction model as nearby-places strip (arrows, wheel, hidden scrollbar) */
+.md-review-marquee-carousel {
+  position: relative;
+}
+
+.md-review-marquee-viewport {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  margin: 0;
+  padding: 0.25rem clamp(42px, 5.5vw, 56px) 0.85rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  outline: none;
+  scroll-snap-type: none;
+  cursor: default;
+}
+
+.md-review-marquee-viewport::-webkit-scrollbar {
+  height: 0 !important;
+  width: 0 !important;
+  display: none;
+}
+
+.md-review-marquee-viewport:focus-visible {
+  outline: 2px solid rgba(127, 148, 101, 0.55);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.md-review-marquee-track {
+  display: flex;
+  flex-flow: row nowrap;
+  gap: 1rem;
+  width: max-content;
+  max-width: none;
+  align-items: stretch;
+}
+
+.md-review-marquee-segment {
+  display: flex;
+  flex-flow: row nowrap;
+  gap: 1rem;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+
+.md-review-marquee-fallback-node {
+  flex-shrink: 0;
+}
+
 .md-review-scroller {
   display: flex;
   gap: 1rem;
@@ -3741,14 +3798,16 @@ div.md-amenities {
   scrollbar-gutter: stable;
 }
 
-.md-review-scroller .md-review-scroll-card {
+.md-review-scroller .md-review-scroll-card,
+.md-review-marquee-segment .md-review-scroll-card {
   flex: 0 0 min(92vw, 22rem);
   scroll-snap-align: start;
   min-height: 12rem;
 }
 
 @media (min-width: 768px) {
-  .md-review-scroller .md-review-scroll-card {
+  .md-review-scroller .md-review-scroll-card,
+  .md-review-marquee-segment .md-review-scroll-card {
     flex-basis: 20rem;
   }
 }
