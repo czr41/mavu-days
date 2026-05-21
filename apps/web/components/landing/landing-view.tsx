@@ -700,18 +700,6 @@ export async function LandingView({ path }: { path: Path }) {
               title={<h2 className="md-h2">{t.reviewsTitle || 'What Our Guests Say'}</h2>}
               lead={t.reviewsIntroDefault ? <p className="md-lead">{t.reviewsIntroDefault}</p> : null}
             />
-            <p className="md-muted md-review-scroller-hint">
-              {hasImportedReviews ? (
-                <>
-                  Highlights from recent <strong style={{ fontWeight: 600, color: 'var(--heading)' }}>4★+</strong> stays.
-                  Quotes drift slowly—hover to pause, or use the arrows, trackpad, or swipe to explore.
-                </>
-              ) : reviewQuoteFallbackSuppressed ? (
-                <>We highlight real guest feedback when it&apos;s available. More stories will appear here over time.</>
-              ) : (
-                <>Quotes drift slowly—hover to pause, or use the arrows, trackpad, or swipe to browse.</>
-              )}
-            </p>
             <div className="md-review-scroller-shell">
               {hasImportedReviews || showMarketingQuoteFallbackCarousel ? (
                 <>

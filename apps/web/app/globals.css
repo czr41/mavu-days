@@ -3723,14 +3723,6 @@ div.md-amenities {
 }
 
 /* ——— Reviews ——— */
-.md-review-scroller-hint {
-  margin: 0 auto clamp(0.85rem, 2.5vw, 1.25rem);
-  max-width: 48ch;
-  text-align: center;
-  font-size: 0.9rem;
-  line-height: 1.52;
-}
-
 .md-review-scroller-shell {
   margin-top: 0;
   margin-bottom: 0.25rem;
