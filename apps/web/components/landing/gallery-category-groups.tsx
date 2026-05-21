@@ -169,6 +169,7 @@ export function GalleryFullView({
               <Link href="/gallery" aria-current="page">
                 Gallery
               </Link>
+              <Link href="/guest-reviews">Guest stories</Link>
               <Link href="/#faqs">FAQs</Link>
               <Link href="/#footer">Contact</Link>
             </nav>

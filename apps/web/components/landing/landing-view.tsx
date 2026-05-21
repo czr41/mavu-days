@@ -23,6 +23,7 @@ import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
 import { NearFarmCarousel } from '@/components/landing/near-farm-carousel';
 import { GuestReviewsCarousel } from '@/components/landing/guest-reviews-carousel';
+import { GuestReviewTile } from '@/components/landing/guest-review-tile';
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { GuestReviewStars } from '@/components/landing/guest-review-stars';
 import { RevealArticle, RevealBlock, RevealFigure, RevealSection } from '@/components/landing/reveal-section';
@@ -142,6 +143,7 @@ export async function LandingView({ path }: { path: Path }) {
                 <a href="#stays">Stay</a>
                 <a href="#experience">Experiences</a>
                 <a href="#gallery">Gallery</a>
+                <Link href="/guest-reviews">Guest stories</Link>
                 <a href="#faqs">FAQs</a>
                 <a href="#footer">Contact</a>
               </nav>
@@ -716,35 +718,49 @@ export async function LandingView({ path }: { path: Path }) {
             </p>
             <div className="md-review-scroller-shell">
               {hasImportedReviews || showMarketingQuoteFallbackCarousel ? (
-                <GuestReviewsCarousel aria-label="Guest reviews carousel">
-                  {hasImportedReviews
-                    ? landingReviews.map((r, idx) => (
-                        <RevealFigure key={r.id} delayIndex={idx} className="md-review-card md-review-scroll-card">
-                          <div className="md-review-card-top">
-                            <GuestReviewStars rating={r.rating} ratingMax={r.ratingMax} />
-                            <GuestReviewPlatformBadge platform={r.platform} />
-                          </div>
-                          <blockquote className="md-quote">
-                            <p>{`"${r.body}"`}</p>
-                          </blockquote>
-                          <div>
-                            <p className="md-reviewer">{r.guestDisplayName || 'Verified Guest'}</p>
-                          </div>
-                        </RevealFigure>
-                      ))
-                    : defaultReviews.map((q, idx) => (
-                        <RevealBlock key={idx} delayIndex={idx} className="md-review-card md-review-scroll-card">
-                          <div className="md-review-stars">{'★★★★★'}</div>
-                          <blockquote className="md-quote">
-                            <p>{`"${q.quote}"`}</p>
-                          </blockquote>
-                          <div>
-                            <p className="md-reviewer">{q.name}</p>
-                            {q.loc ? <p className="md-reviewer-loc">{q.loc}</p> : null}
-                          </div>
-                        </RevealBlock>
-                      ))}
-                </GuestReviewsCarousel>
+                <>
+                  <GuestReviewsCarousel aria-label="Guest reviews carousel">
+                    {hasImportedReviews
+                      ? landingReviews.map((r, idx) => (
+                          <RevealFigure
+                            key={r.id}
+                            delayIndex={idx}
+                            className="md-review-card md-review-scroll-card md-review-scroll-card--tile"
+                          >
+                            <GuestReviewTile
+                              header={
+                                <>
+                                  <GuestReviewStars rating={r.rating} ratingMax={r.ratingMax} />
+                                  <GuestReviewPlatformBadge platform={r.platform} size="sm" />
+                                </>
+                              }
+                              guestLabel={r.guestDisplayName || 'Verified Guest'}
+                              body={r.body}
+                              reviewAnchorId={`review-${r.id}`}
+                            />
+                          </RevealFigure>
+                        ))
+                      : defaultReviews.map((q, idx) => (
+                          <RevealBlock
+                            key={idx}
+                            delayIndex={idx}
+                            className="md-review-card md-review-scroll-card md-review-scroll-card--tile"
+                          >
+                            <GuestReviewTile
+                              header={<div className="md-review-stars">{'★★★★★'}</div>}
+                              guestLabel={q.name}
+                              sublabel={q.loc}
+                              body={q.quote}
+                            />
+                          </RevealBlock>
+                        ))}
+                  </GuestReviewsCarousel>
+                  <div className="md-review-strip-footer">
+                    <Link href="/guest-reviews" className="md-btn md-btn-secondary md-btn-sm">
+                      All guest stories
+                    </Link>
+                  </div>
+                </>
               ) : (
                 <p className="md-muted" style={{ margin: '0.75rem 0 0', maxWidth: '40rem' }}>
                   Guest reviews synced from linked platforms appear here automatically after the next deploy cache refresh.

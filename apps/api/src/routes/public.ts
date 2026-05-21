@@ -14,7 +14,8 @@ import {
 import { computePublicUnitCalendarMonth } from '../services/unit-calendar-availability.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { buildPublicSitePayload } from '../lib/public-site-dto.js';
-import { PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
+import { PUBLIC_GUEST_REVIEWS_PAGE_LIMIT, PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
+import { toPublicGuestReviewDto } from '../lib/guest-review-dto.js';
 
 type OrgInventoryPayload = Prisma.OrganizationGetPayload<{
   include: {
@@ -210,6 +211,33 @@ export function registerPublicRoutes(app: FastifyInstance) {
       media: dto.media,
       reviews: dto.reviews,
       offers: dto.offers,
+    });
+  });
+
+  /** Full guest-review list for the marketing “all reviews” page (wider cap than homepage strip). */
+  app.get('/public/orgs/:orgSlug/guest-reviews', async (req, reply) => {
+    const slug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
+    const org = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(slug),
+      select: {
+        slug: true,
+        name: true,
+        guestReviews: {
+          where: { showOnLanding: true },
+          orderBy: [
+            { pinnedOrder: 'asc' },
+            { rating: 'desc' },
+            { reviewedAt: 'desc' },
+            { createdAt: 'desc' },
+          ],
+          take: PUBLIC_GUEST_REVIEWS_PAGE_LIMIT,
+        },
+      },
+    });
+    if (!org) return reply.status(404).send({ error: 'Organization not found' });
+    return reply.send({
+      organization: { slug: org.slug, name: org.name },
+      reviews: org.guestReviews.map((r) => toPublicGuestReviewDto(r)),
     });
   });
 

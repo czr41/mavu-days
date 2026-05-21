@@ -1145,12 +1145,10 @@ export default function OrgAdminPage() {
         let msg = raw;
         if (isHttpsSite && apiLooksLocal) {
           msg =
-            'This production build has no NEXT_PUBLIC_API_URL (it is falling back to localhost). ' +
-            'In Vercel → Settings → Environment Variables set NEXT_PUBLIC_API_URL=https://api.mavudays.com then Redeploy the web app.';
+            'The admin panel cannot reach your booking API. Set the public API URL in your web app environment (same value you use in local development), redeploy, then try again.';
         } else if (msgLc === 'failed to fetch' || msgLc.includes('networkerror')) {
           msg =
-            `${raw} — Check DevTools → Network (request URL host). Confirm Vercel has NEXT_PUBLIC_API_URL and redeployed after setting it. ` +
-            'Some ad blockers block paths containing «airbnb» — try Incognito or disable extensions. Confirm https://api.mavudays.com/health/live works.';
+            `${raw} — Check your connection, try another browser or window without extensions, and confirm your booking API is reachable.`;
         }
         notify(msg, false);
         return null;
@@ -1174,13 +1172,9 @@ export default function OrgAdminPage() {
           (/not\s*found/i.test(errMsg) || errMsg === `HTTP ${res.status}`)
         ) {
           if (path.includes('/airbnb-host-accounts')) {
-            errMsg =
-              `${errMsg} — Airbnb profiles are served by your Fastify API on the VM, not Vercel. ` +
-              'Frontend-only deploys do not add API routes: GitHub → Actions → "Deploy API (Oracle VM)" → Run workflow, ' +
-              'or SSH → git pull, npm run build -w @mavu/api, sudo systemctl restart mavu-api (adjust the systemd unit). ' +
-              'Ensure NEXT_PUBLIC_API_URL is your API origin (same host as GET /health/live), not your marketing www domain.';
+            errMsg = `${errMsg} — This list comes from your booking API. Deploy or restart that service if you recently added routes.`;
           } else {
-            errMsg = `${errMsg} — admin calls your Fastify API. On Vercel, set NEXT_PUBLIC_API_URL to that API base URL (not your marketing site). Redeploy the API if routes are missing.`;
+            errMsg = `${errMsg} — Confirm your web app is pointed at the booking API base URL (not the marketing site) and that the API is running the latest version.`;
           }
         }
         if (res.status === 403 && errMsg.toLowerCase() === 'forbidden') {
@@ -1287,10 +1281,7 @@ export default function OrgAdminPage() {
         return;
       }
 
-      notify(
-        `Imported ${String(j.createdCount ?? 0)} positive reviews (${String(j.googleFetched ?? 0)} Google rows sampled, ${String(j.airbnbFetched ?? 0)} Airbnb rows sampled). Scrolling strip shows ${String(j.landingVisibleCount ?? 0)} (4★+ only).${warningsLine}`,
-        true,
-      );
+      notify(`Imported ${String(j.createdCount ?? 0)} reviews for your homepage (4★+ excerpts).${warningsLine}`, true);
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Review sync failed', false);
     } finally {
@@ -1497,13 +1488,9 @@ export default function OrgAdminPage() {
   const TabProperties = (
     <>
       {/* Add property */}
-      <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
-        <strong>Landing site alignment:</strong>{' '}
-        Canonical unit slugs for the matrix grid include{' '}
-        <code style={{fontSize:'0.78rem'}}>full-farm</code>, <code style={{fontSize:'0.78rem'}}>1bhk-villa</code>,{' '}
-        <code style={{fontSize:'0.78rem'}}>2bhk-villa</code>. Run <code style={{fontSize:'0.78rem'}}>npm run db:seed</code> after register when the DB is empty.
-        Stay cards and detail copy live under <strong>CMS → Stay listings</strong>. Airbnb listing URLs and calendar feeds live under{' '}
-        <strong>        Host & Airbnb</strong> feed URLs stay with each unit below. Homepage prose: CMS → Text sections / Gallery.
+      <div className="adm-alert adm-alert-info" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
+        <strong>Tip:</strong> Edit stay copy and photos under <strong>CMS</strong>. Airbnb links and calendar URLs live under{' '}
+        <strong>Host &amp; Airbnb</strong> and on each unit below.
       </div>
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
         <div className="adm-card-header"><h2 className="adm-card-title">Add Property</h2></div>
@@ -1911,25 +1898,21 @@ export default function OrgAdminPage() {
           </p>
           <ul style={{ margin: '0 0 0.75rem 1rem', padding: 0, color: '#4B5563' }}>
             <li style={{ marginBottom: '0.45rem' }}>
-              <strong>Google Maps</strong> — For each building, save its Google Business <strong>Place ID</strong> under{' '}
+              <strong>Google Maps</strong> — Save each property&apos;s Google Business <strong>Place ID</strong> under{' '}
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('properties')}>
                 Properties &amp; Units
               </button>
-              . If no property has a Place ID, the older single org-wide Place ID (if any) is still used. If Google still returns nothing, confirm the API key is set on the server that runs the booking API.
+              . If nothing imports, ask your technical contact to confirm the Google key on the booking API.
             </li>
             <li>
               <strong>Airbnb</strong> — Add each stay&apos;s public listing link under CMS →{' '}
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => { setTab('cms'); setCmsSubTab('listings'); }}>Stay listings</button>{' '}
-              (draft or published). Airbnb text is more reliable when your host adds the optional Outscraper key on that same API server.
+              (draft or published). Airbnb excerpts work best when Outscraper is configured on that same API.
             </li>
           </ul>
-          <details style={{ fontSize: '0.82rem', color: '#6B7280' }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#4B5563' }}>Technical setup (API keys &amp; deploy)</summary>
-            <p style={{ margin: '0.5rem 0 0' }}>
-              The marketing site calls your <strong>Fastify API</strong>. That server needs <code>GOOGLE_PLACES_API_KEY</code> (or <code>GOOGLE_MAPS_API_KEY</code>) for Google, and{' '}
-              <code>OUTSCRAPER_API_KEY</code> is recommended for Airbnb. Set them in the API <code>.env</code> on the VM, or as GitHub Actions secrets if your deploy writes them into that file.
-            </p>
-          </details>
+          <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#6B7280', lineHeight: 1.55 }}>
+            If sync still fails, whoever hosts your booking API should verify Google and Outscraper credentials there—not in this browser app.
+          </p>
         </div>
       </div>
 
@@ -2136,9 +2119,11 @@ export default function OrgAdminPage() {
               </select>
             </div>
             <div className="adm-alert adm-alert-info" style={{ fontSize: '0.84rem', lineHeight: 1.55 }}>
-              Google Maps and Airbnb excerpts for the homepage strip use each property&apos;s Place ID (<strong>Properties &amp; Units</strong>)
-              plus Airbnb URLs saved on stays (<strong>Stay listings</strong>, published or draft). Tap{' '}
-              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>Guest Reviews</button> → Sync reviews.
+              Homepage quotes pull from Google (Place ID on each property) and from Airbnb listing URLs on your stays. Open{' '}
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>
+                Guest Reviews
+              </button>{' '}
+              and run <strong>Sync reviews now</strong>.
             </div>
             <button className="adm-btn adm-btn-primary" type="button" disabled={busy} onClick={async () => {
               setBusy(true);
@@ -2156,11 +2141,8 @@ export default function OrgAdminPage() {
 
       {cmsSubTab==='listings' && (
         <>
-          <div className="adm-alert adm-alert-info" style={{marginBottom:'1.25rem',fontSize:'0.84rem',lineHeight:1.55}}>
-            Marketing copy and pricing for each stay—published listings appear on the public site immediately after save.
-            Each listing has one <strong>gallery</strong> (detail hero URL + gallery images below it). Tagged <strong>homepage categories</strong> on each Airbnb-imported shot help the mosaic pick interiors vs outdoors across every stay — duplicate URLs still appear only once.
-            Airbnb listing URLs on stays (published <em>or</em> draft) drive &quot;View on Airbnb&quot; where shown and{' '}
-            <strong>Airbnb review sync</strong> (every distinct listing URL). Calendar feeds remain under Host &amp; Airbnb.
+          <div className="adm-alert adm-alert-info" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
+            Published listings update your public site on save. Keep Airbnb listing links current for “View on Airbnb” and for review sync. Calendar feeds stay under <strong>Host &amp; Airbnb</strong>.
           </div>
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
           {unitBundles.map((row)=>{
