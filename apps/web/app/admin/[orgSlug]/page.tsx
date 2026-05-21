@@ -23,7 +23,7 @@ type ListingLink = {
   inboundIcalUrl: string | null;
   externalLabel: string | null;
   airbnbHostAccount: { id: string; label: string } | null;
-  /** Set when an inbound iCal fetch succeeds (worker or “Sync calendars now”). */
+  /** Set after a successful calendar import fetch (manual sync or scheduled refresh). */
   lastIcalFetchedAt?: string | null;
   lastIcalFetchError?: string | null;
 };
@@ -302,10 +302,8 @@ function StayGalleryEditorPanel({
           </span>
         </label>
         <p className="adm-listing-gallery-lead">
-          Photos appear on the public stay detail page in this order. Assign a{' '}
-          <strong>homepage category</strong> so the mosaic can pick the right shot per tile (otherwise titles/URLs still
-          use keyword guesses). Pull from Airbnb under <strong>Host &amp; Airbnb → Pull photos</strong>, then tag and
-          reorder here.
+          Photos show on the public stay page in this order. Pick a <strong>homepage category</strong> so the right shots group together on the home page, or leave Auto.
+          You can also pull photos under <strong>Host &amp; Airbnb → Pull photos</strong>, then arrange them here.
         </p>
       </div>
 
@@ -498,7 +496,7 @@ const NAV = [
   { key: 'properties',  label: 'Properties',     icon: HomeI },
   { key: 'bookings',    label: 'Bookings',        icon: CalI },
   { key: 'reviews',     label: 'Guest Reviews',  icon: StarI },
-  { key: 'cms',         label: 'CMS / Content',  icon: EditI },
+  { key: 'cms',         label: 'Site content',  icon: EditI },
   { key: 'host',        label: 'Host & Airbnb',  icon: LinkI },
   { key: 'team',        label: 'Team',            icon: UsersI },
 ];
@@ -1145,10 +1143,10 @@ export default function OrgAdminPage() {
         let msg = raw;
         if (isHttpsSite && apiLooksLocal) {
           msg =
-            'The admin panel cannot reach your booking API. Set the public API URL in your web app environment (same value you use in local development), redeploy, then try again.';
+            'This admin app cannot reach your booking server. Check the server address configured for the web app, redeploy if you changed it, then try again.';
         } else if (msgLc === 'failed to fetch' || msgLc.includes('networkerror')) {
           msg =
-            `${raw} — Check your connection, try another browser or window without extensions, and confirm your booking API is reachable.`;
+            `${raw} — Check your connection, try another browser or window without extensions, and confirm your booking server is reachable.`;
         }
         notify(msg, false);
         return null;
@@ -1172,9 +1170,9 @@ export default function OrgAdminPage() {
           (/not\s*found/i.test(errMsg) || errMsg === `HTTP ${res.status}`)
         ) {
           if (path.includes('/airbnb-host-accounts')) {
-            errMsg = `${errMsg} — This list comes from your booking API. Deploy or restart that service if you recently added routes.`;
+            errMsg = `${errMsg} — This list comes from your booking server. Deploy or restart that service if you recently added routes.`;
           } else {
-            errMsg = `${errMsg} — Confirm your web app is pointed at the booking API base URL (not the marketing site) and that the API is running the latest version.`;
+            errMsg = `${errMsg} — Confirm this admin app uses your booking server’s address (not the public marketing site) and that the server is running the latest version.`;
           }
         }
         if (res.status === 403 && errMsg.toLowerCase() === 'forbidden') {
@@ -1356,7 +1354,7 @@ export default function OrgAdminPage() {
   // Flat list of all units across all properties (for dropdowns)
   const allUnits = properties.flatMap(p => p.units.map(u => ({ ...u, propertyName: p.name, propertySlug: p.slug })));
 
-  /** Most recent successful inbound iCal fetch in this org (any feed). */
+  /** Most recent successful calendar import for any feed in this org. */
   const lastInboundIcalFetchedAtMs = useMemo(() => {
     let max: number | null = null;
     for (const p of properties) {
@@ -1373,8 +1371,8 @@ export default function OrgAdminPage() {
   }, [properties]);
 
   const lastInboundIcalFetchedLine = useMemo(() => {
-    if (lastInboundIcalFetchedAtMs === null) return 'Last inbound pull: —';
-    return `Last inbound pull: ${new Date(lastInboundIcalFetchedAtMs).toLocaleString(undefined, {
+    if (lastInboundIcalFetchedAtMs === null) return 'Last calendar pull: —';
+    return `Last calendar pull: ${new Date(lastInboundIcalFetchedAtMs).toLocaleString(undefined, {
       dateStyle: 'medium',
       timeStyle: 'short',
     })}`;
@@ -1382,8 +1380,8 @@ export default function OrgAdminPage() {
 
   const lastInboundIcalFetchedTitle =
     lastInboundIcalFetchedAtMs === null
-      ? 'No inbound iCal fetch has succeeded yet for this workspace. Configure inbound URLs below, then run Sync calendars now—or wait for the background worker (~15 minutes when Redis is configured). Failed fetches do not update this.'
-      : 'Most recent successful fetch across any inbound feed in this org. Manual sync or the worker updates this when a feed returns valid calendar data.';
+      ? 'No calendar import has succeeded yet. Add inbound links for your units, then use Sync calendars now.'
+      : 'When any linked calendar was last read successfully. Use Sync calendars now to refresh.';
 
   const icalFeedLinkCount = useMemo(
     () =>
@@ -1489,7 +1487,7 @@ export default function OrgAdminPage() {
     <>
       {/* Add property */}
       <div className="adm-alert adm-alert-info" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
-        <strong>Tip:</strong> Edit stay copy and photos under <strong>CMS</strong>. Airbnb links and calendar URLs live under{' '}
+        <strong>Tip:</strong> Edit stay copy and photos under <strong>Site content</strong>. Airbnb links and calendar URLs live under{' '}
         <strong>Host &amp; Airbnb</strong> and on each unit below.
       </div>
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
@@ -1538,10 +1536,11 @@ export default function OrgAdminPage() {
             {/* Google Maps reviews (property scope) */}
             <div style={{ padding: '1rem', background: '#FAFAF9', borderRadius: 12, marginBottom: '1rem', border: '1px solid #E7E5E4' }}>
               <h3 style={{ fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#57534e', marginTop: 0, marginBottom: '0.5rem' }}>
-                Google Maps reviews (this property)
+                Google Maps (optional)
               </h3>
               <p style={{ fontSize: '0.8rem', color: '#78716c', margin: '0 0 0.65rem', lineHeight: 1.55 }}>
-                Paste your Google Business Profile <strong>Place ID</strong> (starts with ChIJ…) so <strong>Sync reviews now</strong> on Guest Reviews pulls Google Maps feedback for buildings that belong to this property.
+                Add your Google Business map listing ID so guest quotes can include Maps reviews for this property. Run{' '}
+                <strong>Sync reviews now</strong> under Guest Reviews when you change it.
               </p>
               <div className="adm-form-grid">
                 <div className="adm-field adm-field-full">
@@ -1617,7 +1616,7 @@ export default function OrgAdminPage() {
                 try {
                   void new URL(ic);
                 } catch {
-                  notify('Inbound iCal must be a valid URL.', false);
+                  notify('Calendar import link must be a valid URL.', false);
                   return;
                 }
               }
@@ -1666,7 +1665,7 @@ export default function OrgAdminPage() {
                     onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??EMPTY_UNIT_FORM),airbnbListingUrl:e.target.value}}))} />
                 </div>
                 <div className="adm-field adm-field-full">
-                  <label className="adm-label">Inbound iCal URL <span style={{fontWeight:400,color:'#9CA3AF'}}>(optional)</span></label>
+                  <label className="adm-label">Calendar import URL <span style={{fontWeight:400,color:'#9CA3AF'}}>(optional)</span></label>
                   <input className="adm-input" type="url" placeholder="Airbnb → Export calendar (.ics)"
                     value={(unitForms[p.id]?.inboundIcalUrl??'')}
                     onChange={e=>setUnitForms(s=>({...s,[p.id]:{...(s[p.id]??EMPTY_UNIT_FORM),inboundIcalUrl:e.target.value}}))} />
@@ -1893,25 +1892,25 @@ export default function OrgAdminPage() {
         </div>
         <div className="adm-card-body" style={{ fontSize: '0.875rem', lineHeight: 1.58, color: '#374151' }}>
           <p style={{ marginTop: 0, color: '#4B5563' }}>
-            Use <strong>Sync reviews now</strong> below to refresh short, high-scoring snippets from Google Maps and Airbnb for your homepage
-            quote strip. Handwritten reviews you add here are left alone.
+            Use <strong>Sync reviews now</strong> to refresh short, high-scoring snippets from Google Maps and Airbnb on your public site.
+            Reviews you add by hand below are never removed by that sync.
           </p>
           <ul style={{ margin: '0 0 0.75rem 1rem', padding: 0, color: '#4B5563' }}>
             <li style={{ marginBottom: '0.45rem' }}>
-              <strong>Google Maps</strong> — Save each property&apos;s Google Business <strong>Place ID</strong> under{' '}
+              <strong>Google Maps</strong> — Save each property&apos;s Google map listing ID under{' '}
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('properties')}>
                 Properties &amp; Units
               </button>
-              . If nothing imports, ask your technical contact to confirm the Google key on the booking API.
+              . If quotes stay empty, confirm Google access is enabled on your booking server.
             </li>
             <li>
-              <strong>Airbnb</strong> — Add each stay&apos;s public listing link under CMS →{' '}
+              <strong>Airbnb</strong> — Add each stay&apos;s public listing link under{' '}
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => { setTab('cms'); setCmsSubTab('listings'); }}>Stay listings</button>{' '}
-              (draft or published). Airbnb excerpts work best when Outscraper is configured on that same API.
+              (draft or published). Airbnb text imports best when your booking server is set up for Airbnb review import.
             </li>
           </ul>
           <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#6B7280', lineHeight: 1.55 }}>
-            If sync still fails, whoever hosts your booking API should verify Google and Outscraper credentials there—not in this browser app.
+            If imports still fail, whoever runs your booking server should check Google and Airbnb import settings there.
           </p>
         </div>
       </div>
@@ -1920,7 +1919,7 @@ export default function OrgAdminPage() {
         <div className="adm-card-header"><h2 className="adm-card-title">Pull Google &amp; Airbnb reviews</h2></div>
         <div className="adm-card-body" style={{ fontSize: '0.84rem', lineHeight: 1.55, color: '#4B5563' }}>
           <p style={{ marginTop: 0 }}>
-            Only roughly <strong>4★+</strong> excerpts are kept for the homepage (up to about 96). Each sync replaces the previous imported rows; your own reviews below are not removed.
+            Only about <strong>4★+</strong> excerpts are shown on the public homepage (up to roughly 96). Each sync replaces earlier imported quotes; your own reviews below stay as you wrote them.
           </p>
           <div
             style={{
@@ -1964,14 +1963,14 @@ export default function OrgAdminPage() {
           </div>
           {importedReviews.length === 0 ? (
             <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#9CA3AF' }}>
-              Run a sync first to enable the homepage toggle for imported quotes.
+              Run <strong>Sync reviews now</strong> first to turn on the homepage toggle for imported quotes.
             </p>
           ) : null}
         </div>
       </div>
       <div className="adm-card" style={{marginBottom:'1.5rem'}}>
         <div className="adm-card-header">
-          <h2 className="adm-card-title">Reviews ({reviews.filter(r=>r.showOnLanding).length} visible on landing)</h2>
+          <h2 className="adm-card-title">Reviews ({reviews.filter(r=>r.showOnLanding).length} on public site)</h2>
         </div>
         <div className="adm-card-body" style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
           {reviews.length===0 && <div className="adm-empty"><StarI size={28}/>No reviews yet.</div>}
@@ -2007,7 +2006,7 @@ export default function OrgAdminPage() {
                     {r.guestDisplayName&&<strong style={{fontSize:'0.875rem'}}>{r.guestDisplayName}</strong>}
                     {!r.showOnLanding && <span className="adm-badge adm-badge-yellow">Hidden</span>}
                     {r.autoSynced ? (
-                      <span className="adm-badge adm-badge-gray">synced</span>
+                      <span className="adm-badge adm-badge-gray">Imported</span>
                     ) : null}
                     <span className="adm-badge adm-badge-gray">pin {r.pinnedOrder}</span>
                   </div>
@@ -2108,18 +2107,18 @@ export default function OrgAdminPage() {
           <div className="adm-card-header"><h2 className="adm-card-title">Public homepage layout</h2></div>
           <div className="adm-card-body">
             <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0,lineHeight:1.55}}>
-              <strong>Listing grid</strong> shows every published unit as a card (good for multiple properties).{' '}
-              <strong>Three-SKU matrix</strong> matches Full Farm / 1BHK / 2BHK availability like the current Mavu Days flow.
+              <strong>Listing grid</strong> suits several properties, each stay as its own card.{' '}
+              <strong>Three-SKU layout</strong> suits one compound with Full Farm, 1BHK, and 2BHK availability.
             </p>
             <div className="adm-field adm-field-full">
               <label className="adm-label">Layout</label>
               <select className="adm-select" value={homepageKind} onChange={(e)=>setHomepageKind(e.target.value as 'LISTING_GRID'|'MATRIX_THREE_SKU')}>
                 <option value="LISTING_GRID">Listing grid (multi-property)</option>
-                <option value="MATRIX_THREE_SKU">Three-SKU matrix (single compound)</option>
+                <option value="MATRIX_THREE_SKU">Three-SKU (single compound)</option>
               </select>
             </div>
             <div className="adm-alert adm-alert-info" style={{ fontSize: '0.84rem', lineHeight: 1.55 }}>
-              Homepage quotes pull from Google (Place ID on each property) and from Airbnb listing URLs on your stays. Open{' '}
+              Homepage quotes use the Google map ID saved on each property and the Airbnb links on your stays. Open{' '}
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ verticalAlign: 'baseline' }} onClick={() => setTab('reviews')}>
                 Guest Reviews
               </button>{' '}
@@ -2142,7 +2141,7 @@ export default function OrgAdminPage() {
       {cmsSubTab==='listings' && (
         <>
           <div className="adm-alert adm-alert-info" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
-            Published listings update your public site on save. Keep Airbnb listing links current for “View on Airbnb” and for review sync. Calendar feeds stay under <strong>Host &amp; Airbnb</strong>.
+            Published listings go live on your public site when you save. Keep Airbnb links current for “View on Airbnb” and for guest quotes. Calendar links stay under <strong>Host &amp; Airbnb</strong>.
           </div>
           {unitBundles.length===0 ? <div className="adm-empty"><HomeI size={28}/>No units found. Add properties &amp; units first.</div> : null}
           {unitBundles.map((row)=>{
@@ -2338,17 +2337,16 @@ export default function OrgAdminPage() {
       {cmsSubTab==='sections' && (
         <>
           <details className="adm-card" style={{marginBottom:'1.25rem'}}>
-            <summary style={{cursor:'pointer',padding:'1rem 1.5rem',fontWeight:600,color:'#1a1a2e'}}>Section key reference (public landing page)</summary>
+            <summary style={{cursor:'pointer',padding:'1rem 1.5rem',fontWeight:600,color:'#1a1a2e'}}>Section keys (public site)</summary>
             <div className="adm-card-body" style={{paddingTop:0}}>
               <p style={{fontSize:'0.84rem',color:'#6B7280',lineHeight:1.55,marginTop:0}}>
-                Published rows override built-in defaults. Use <strong>Markdown</strong> for long prose. For JSON-driven blocks paste a valid JSON array in the section body{' '}
-                (why blocks / house rules: objects with <code>title</code> and <code>text</code>; who cards: <code>title</code> and <code>body</code>; FAQs: <code>q</code> and <code>a</code>).
+                Published text replaces built-in defaults. Use Markdown for long prose. Some sections expect JSON arrays in the body—follow the shape your template uses (titles, FAQs, and similar blocks).
               </p>
               <p style={{fontSize:'0.78rem',color:'#6B7280',wordBreak:'break-all',marginBottom:'0.35rem'}}>
                 Keys: {[...new Set(Object.values(SECTION_KEY) as string[])].sort().join(', ')}
               </p>
               <p style={{fontSize:'0.78rem',color:'#6B7280',margin:0}}>
-                Marketing hero image key (home top banner + JSON-LD): <code>{MEDIA_KEY.heroCover}</code>. Site-wide photo gallery tiles are aggregated from each published listing’s gallery URLs above — CMS media keys don’t drive gallery tiles anymore.
+                The home hero image uses the media key <code>{MEDIA_KEY.heroCover}</code>. The main photo gallery on the public site comes from each published stay&apos;s gallery URLs in Stay listings—not from this media list alone.
               </p>
             </div>
           </details>
@@ -2835,11 +2833,7 @@ export default function OrgAdminPage() {
             <div className="adm-card-header"><h2 className="adm-card-title">Register image URL</h2></div>
             <div className="adm-card-body">
               <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>
-                Use a full HTTPS URL or a root-relative path (e.g. <code>/marketing/hero.jpg</code>). Pick a{' '}
-                <strong>gallery category</strong> for homepage bento groups (Room, Outdoor, Porch, View, Others). Hero key:{' '}
-                <code>{MEDIA_KEY.heroCover}</code> (no category — shows as the large banner). You can also attach this asset
-                to one or more <strong>stays</strong> below — those URLs are merged into each stay&apos;s public gallery after
-                any lines typed under CMS → Stay listings.
+                Use a full web address or a path starting with <code>/</code>. Choose a <strong>gallery category</strong> for home-page groupings (Room, Outdoor, Porch, View, Others). The key <code>{MEDIA_KEY.heroCover}</code> is reserved for the large home banner (no category). You can attach an image to one or more stays below so it also appears on those stay pages.
               </p>
               <form onSubmit={async e=>{
                 e.preventDefault(); setBusy(true);
@@ -3016,8 +3010,8 @@ export default function OrgAdminPage() {
   const TabHost = (
     <>
       <div className="adm-alert adm-alert-info" style={{ marginBottom: '1.25rem', fontSize: '0.84rem', lineHeight: 1.55 }}>
-        Set each unit&apos;s <strong>listing URL</strong> and <strong>inbound iCal</strong> under <strong>Listing Airbnb connections</strong> below (or when adding a unit on Properties).
-        Other channels (Booking.com, etc.) still use <a href="#connect-ical-feed" style={{ fontWeight: 700, color: 'inherit' }}>Connect channel</a>.
+        Add each unit&apos;s <strong>Airbnb listing link</strong> and <strong>calendar import link</strong> under <strong>Listing Airbnb connections</strong> below (or when you add a unit under Properties).
+        Other sites (Booking.com, etc.) use <a href="#connect-ical-feed" style={{ fontWeight: 700, color: 'inherit' }}>Connect channel</a>.
       </div>
 
       <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
@@ -3026,12 +3020,12 @@ export default function OrgAdminPage() {
         </div>
         <div className="adm-card-body">
           <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0 }}>
-            Profiles are <strong>optional labels</strong> to organise rows when you manage several Airbnb accounts—not where you paste calendar URLs.
-            Export <code>.ics</code> links always go under{' '}
+            Profiles are <strong>optional labels</strong> when you manage several Airbnb sign-ins—they are not where you paste calendar links.
+            Calendar import links belong under{' '}
             <a href="#connect-ical-feed" style={{ fontWeight: 600, color: 'var(--sage)' }}>
-              Connect channel / add iCal feed
+              Connect channel / add calendar feed
             </a>{' '}
-            → unit → Inbound iCal URL. Availability is <strong>iCal only</strong>: inbound pulls update Mavu; outbound URLs refresh when Airbnb or Booking imports your feed.
+            for each unit. Inbound links update availability here; outbound links let Airbnb or Booking read your Mavu calendar.
           </p>
           {!abEditing ? (
             <form
@@ -3145,7 +3139,7 @@ export default function OrgAdminPage() {
                   <div style={{ flex: '1', minWidth: '200px' }}>
                     <div style={{ fontWeight: 600, color: '#111827' }}>{a.label}</div>
                     <p style={{ fontSize: '0.75rem', color: '#9CA3AF', margin: '0.35rem 0 0' }}>
-                      {a.listingLinkCount} iCal feed{a.listingLinkCount === 1 ? '' : 's'} tagged
+                      {a.listingLinkCount} calendar feed{a.listingLinkCount === 1 ? '' : 's'} tagged
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
@@ -3163,7 +3157,7 @@ export default function OrgAdminPage() {
                       style={{ color: '#B91C1C' }}
                       disabled={busy}
                       onClick={async () => {
-                        if (!globalThis.confirm(`Remove profile “${a.label}”? iCal feeds remain; they are detached from this profile.`)) return;
+                        if (!globalThis.confirm(`Remove profile “${a.label}”? Calendar feeds stay connected; they are no longer grouped under this profile.`)) return;
                         setBusy(true);
                         await apiFetch(`${base}/airbnb-host-accounts/${a.id}`, { method: 'DELETE' });
                         setBusy(false);
@@ -3188,7 +3182,7 @@ export default function OrgAdminPage() {
         </div>
         <div className="adm-card-body">
           <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0, lineHeight: 1.55 }}>
-            Public Airbnb <strong>listing URL</strong> (required here to save), optional marketing label, <strong>inbound .ics</strong> from Airbnb, and optional profile tag.
+            Public Airbnb <strong>listing URL</strong> (required here to save), optional marketing label, <strong>calendar import link</strong> from Airbnb, and optional profile tag.
           </p>
           {unitBundles.length === 0 ? (
             <div className="adm-empty">
@@ -3239,7 +3233,7 @@ export default function OrgAdminPage() {
                         />
                       </div>
                       <div className="adm-field adm-field-full">
-                        <label className="adm-label">Inbound iCal URL</label>
+                        <label className="adm-label">Calendar import URL</label>
                         <input
                           className="adm-input"
                           type="url"
@@ -3352,7 +3346,7 @@ export default function OrgAdminPage() {
                               );
                             } else {
                               notify(
-                                `Added ${ga.addedCount} new photo(s) to this stay's gallery (${ga.galleryTotal}/24). Open CMS → Stay listings to reorder or remove.`,
+                                `Added ${ga.addedCount} new photo(s) to this stay's gallery (${ga.galleryTotal}/24). Open Site content → Stay listings to reorder or remove.`,
                               );
                             }
                           } else {
@@ -3375,7 +3369,7 @@ export default function OrgAdminPage() {
                         }}
                       >
                         <label className="adm-label" style={{ color: '#14532D' }}>
-                          Outbound iCal for Airbnb (Step 2 — “Other website link”)
+                          Outbound calendar link for Airbnb (Step 2 — “Other website link”)
                         </label>
                         <p style={{ fontSize: '0.78rem', color: '#166534', margin: '0 0 0.65rem', lineHeight: 1.5 }}>
                           In Airbnb <strong>Sync calendars</strong>, paste this <strong>entire URL</strong> (it ends with{' '}
@@ -3505,12 +3499,11 @@ export default function OrgAdminPage() {
 
       <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
         <div className="adm-card-header">
-          <h2 className="adm-card-title">All iCal feeds</h2>
+          <h2 className="adm-card-title">All calendar feeds</h2>
         </div>
         <div className="adm-card-body" style={{ paddingBottom: '0.75rem' }}>
           <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0 }}>
-            Two-way calendar sync uses iCal only: <strong>Inbound</strong> pulls below update Mavu when Airbnb or Booking changes; reservations removed there are cancelled here after the next sync.
-            <strong> Outbound</strong> URLs refresh whenever Airbnb/Booking re-fetch them (plus immediately on each pull for display consistency). Production also runs a worker every ~15 minutes if Redis is configured.
+            <strong>Inbound</strong> links read your Airbnb or Booking calendar into Mavu. <strong>Outbound</strong> links let those sites read Mavu. After you change a link, use <strong>Sync calendars now</strong> below. Scheduled refreshes also run in the background when enabled on your server.
           </p>
           <div
             style={{
@@ -3542,20 +3535,20 @@ export default function OrgAdminPage() {
                 await loadProps();
                 if (r.links === 0) {
                   notify(
-                    'No inbound iCal feeds yet — add Export calendar links under Host & Airbnb (Save connection) or use Connect channel below, then sync again.',
+                    'No calendar feeds yet — save an Airbnb connection above or add a feed under Connect channel, then sync again.',
                     false,
                   );
                   return;
                 }
                 if (r.errors > 0) {
                   notify(
-                    `Pull finished with ${String(r.errors)} feed error(s): ${String(r.updated)} upserted, ${String(r.removed)} removed. Check the Last error column — Airbnb 403 often means re-copy the iCal URL from Airbnb or that the link expired.`,
+                    `Calendar sync finished with ${String(r.errors)} problem(s). ${String(r.updated)} updated, ${String(r.removed)} removed. See Last error—often a copied link expired or needs to be pasted again from Airbnb.`,
                     false,
                   );
                   return;
                 }
                 notify(
-                  `Pull complete: ${r.links} feed(s), ${r.updated} upserted, ${r.removed} removed (no longer on remote calendar).`,
+                  `Sync complete: ${r.links} feed(s), ${r.updated} updated, ${r.removed} removed.`,
                 );
               }}
             >
@@ -3581,7 +3574,7 @@ export default function OrgAdminPage() {
                 <th>Unit</th>
                 <th>Airbnb profile</th>
                 <th>Channel</th>
-                <th>Inbound iCal</th>
+                <th>Calendar import</th>
                 <th>Last pulled</th>
                 <th>Last error</th>
                 <th>Outbound feed URL</th>
@@ -3591,8 +3584,8 @@ export default function OrgAdminPage() {
               {icalFeedLinkCount === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ padding: '1rem', color: '#6B7280', fontSize: '0.84rem', lineHeight: 1.5 }}>
-                    <strong>No rows yet.</strong> Feeds appear here after you save an Airbnb (or other) connection for a unit above, or add one in{' '}
-                    <strong>Connect channel / add iCal feed</strong> below. Inbound sync only runs for links that have an <strong>Inbound iCal</strong> URL.
+                    <strong>No feeds yet.</strong> They appear after you save a unit&apos;s Airbnb (or other) connection above, or add one under{' '}
+                    <strong>Connect channel / add calendar feed</strong>. Each row needs a calendar <strong>import</strong> link to sync.
                   </td>
                 </tr>
               ) : (
@@ -3663,7 +3656,7 @@ export default function OrgAdminPage() {
 
       <div className="adm-card" id="connect-ical-feed" style={{ marginBottom: '1.5rem', scrollMarginTop: '6rem' }}>
         <div className="adm-card-header">
-          <h2 className="adm-card-title">Connect channel / add iCal feed</h2>
+          <h2 className="adm-card-title">Connect channel / add calendar feed</h2>
         </div>
         <div className="adm-card-body">
           <p style={{ fontSize: '0.84rem', color: '#6B7280', marginTop: 0 }}>
@@ -3680,7 +3673,7 @@ export default function OrgAdminPage() {
                 return;
               }
               if (chForm.channel === 'AIRBNB' && !chForm.inboundIcalUrl.trim()) {
-                notify('Paste Airbnb’s Inbound iCal URL (Export calendar link from Airbnb).', false);
+                notify('Add Airbnb’s calendar import link (the “Export calendar” URL from Airbnb).', false);
                 return;
               }
               const payload: Record<string, unknown> = {
@@ -3755,7 +3748,7 @@ export default function OrgAdminPage() {
                 />
               </div>
               <div className="adm-field adm-field-full">
-                <label className="adm-label">Inbound iCal URL</label>
+                <label className="adm-label">Calendar import URL</label>
                 <input
                   className="adm-input"
                   type="url"
@@ -3821,7 +3814,7 @@ export default function OrgAdminPage() {
     </div>
   );
 
-  const TAB_TITLES: Record<string, string> = { overview:'Overview', properties:'Properties & Units', bookings:'Bookings', reviews:'Guest Reviews', cms:'CMS / Content', host:'Host & Airbnb', team:'Team' };
+  const TAB_TITLES: Record<string, string> = { overview:'Overview', properties:'Properties & Units', bookings:'Bookings', reviews:'Guest Reviews', cms:'Site content', host:'Host & Airbnb', team:'Team' };
 
   return (
     <div className="adm-root">

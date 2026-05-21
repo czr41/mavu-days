@@ -75,7 +75,7 @@ export function GuestReviewsFullPage({ orgName, reviews, offers = [] }: Props) {
 
           {reviews.length === 0 ? (
             <p className="md-muted" style={{ marginTop: '0.5rem' }}>
-              Guest stories will appear here after they are published on the homepage.
+              We&apos;re gathering more guest moments to share here—please check back soon.
             </p>
           ) : (
             <ul className="md-guest-reviews-page-grid">

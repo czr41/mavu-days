@@ -30,7 +30,7 @@ export default function LoginPage() {
       });
     } catch {
       setError(
-        `Cannot reach the booking API (${loginUrl}). Check your connection and that NEXT_PUBLIC_API_URL matches your deployed API, then try again.`,
+        'Cannot reach the sign-in server. Check your connection and try again. If this keeps happening, ask your administrator to confirm the web app is configured with the correct booking server address.',
       );
       return;
     }

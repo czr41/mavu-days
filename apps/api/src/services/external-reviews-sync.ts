@@ -163,6 +163,67 @@ function clip(s: string, max: number): string {
   return s.slice(0, max - 1) + '\u2026';
 }
 
+/** Airbnb / some scrapers use "Guest" when the profile is masked — keep looking for a real field. */
+function isAnonymousGuestLabel(v: string): boolean {
+  const t = v.trim();
+  if (!t) return true;
+  return /^guest$/i.test(t) || /^anonymous$/i.test(t);
+}
+
+function pickMeaningfulNameString(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  if (t.length < 1 || isAnonymousGuestLabel(t)) return null;
+  return clip(t, 120);
+}
+
+function joinFirstLast(first: string, last: string): string | null {
+  const f = first.trim();
+  const l = last.trim();
+  if (f && l) return clip(`${f} ${l}`, 120);
+  if (f) return clip(f, 120);
+  if (l) return clip(l, 120);
+  return null;
+}
+
+/** Airbnb GraphQL reviewer / Outscraper reviewer objects — many key variants. */
+function displayNameFromReviewerLikeRecord(rev: Record<string, unknown> | null | undefined): string | null {
+  if (!rev || typeof rev !== 'object') return null;
+
+  const tryKeys = [
+    'smartName',
+    'localizedName',
+    'localized_name',
+    'displayName',
+    'display_name',
+    'publicName',
+    'public_name',
+    'preferredName',
+    'nickname',
+    'name',
+    'fullName',
+    'full_name',
+    'username',
+  ];
+  for (const k of tryKeys) {
+    const got = pickMeaningfulNameString(rev[k]);
+    if (got) return got;
+  }
+
+  const first =
+    (typeof rev.firstName === 'string' && rev.firstName) ||
+    (typeof rev.first_name === 'string' && rev.first_name) ||
+    '';
+  const last =
+    (typeof rev.lastName === 'string' && rev.lastName) ||
+    (typeof rev.last_name === 'string' && rev.last_name) ||
+    '';
+  const joined = joinFirstLast(String(first), String(last));
+  if (joined && !isAnonymousGuestLabel(joined)) return joined;
+
+  return null;
+}
+
 /** Distinct Airbnb room URLs from CMS stay listings with an Airbnb URL saved (published or draft). */
 export function pickAllPublishedAirbnbListingUrls(org: OrgWithListingUrls): string[] {
   const seen = new Set<string>();
@@ -326,7 +387,8 @@ function unwrapOutscraperRows(payload: unknown): Record<string, unknown>[] {
 }
 
 /** Outscraper + flat CSV shapes: reviewer may be nested object or snake_case keys. */
-function guestDisplayNameFromOutscraperOrFlatRow(raw: Record<string, unknown>): string | null {
+function guestDisplayNameFromOutscraperOrFlatRow(raw: Record<string, unknown>, depth = 0): string | null {
+  if (depth > 4) return null;
   const fromAirbnbShape = reviewerDisplayNameFromAirbnbNode(raw);
   if (fromAirbnbShape) return fromAirbnbShape;
 
@@ -351,67 +413,66 @@ function guestDisplayNameFromOutscraperOrFlatRow(raw: Record<string, unknown>): 
     'publicName',
     'reviewer_display_name',
     'reviewerDisplayName',
-    'author',
-    'guest',
+    'review_author',
+    'reviewAuthor',
+    'author_first_name',
+    'authorFirstName',
+    'commenter_name',
+    'commenterName',
+    'public_first_name',
+    'publicFirstName',
   ];
   for (const k of flatKeys) {
-    const v = raw[k];
-    if (typeof v === 'string' && v.trim()) return clip(v.trim(), 120);
+    const got = pickMeaningfulNameString(raw[k]);
+    if (got) return got;
   }
 
   const pickFromObject = (obj: Record<string, unknown>, keys: string[]): string | null => {
     for (const k of keys) {
-      const v = obj[k];
-      if (typeof v === 'string' && v.trim()) return clip(v.trim(), 120);
+      const got = pickMeaningfulNameString(obj[k]);
+      if (got) return got;
     }
     return null;
   };
 
   const rev = raw.reviewer;
   if (rev && typeof rev === 'object' && !Array.isArray(rev)) {
-    const fromRev = pickFromObject(rev as Record<string, unknown>, [
-      'smartName',
-      'firstName',
-      'first_name',
-      'displayName',
-      'display_name',
-      'name',
-      'publicName',
-      'nickname',
-      'full_name',
-      'fullName',
-    ]);
+    const fromRev = displayNameFromReviewerLikeRecord(rev as Record<string, unknown>);
     if (fromRev) return fromRev;
+    const legacy = pickFromObject(rev as Record<string, unknown>, ['smartName', 'firstName', 'first_name', 'name']);
+    if (legacy) return legacy;
   }
 
   const author = raw.author;
   if (author && typeof author === 'object' && !Array.isArray(author)) {
-    const fromAuthor = pickFromObject(author as Record<string, unknown>, [
-      'name',
-      'display_name',
-      'displayName',
-      'firstName',
-      'first_name',
-    ]);
+    const fromAuthor = displayNameFromReviewerLikeRecord(author as Record<string, unknown>);
     if (fromAuthor) return fromAuthor;
+    const legacy = pickFromObject(author as Record<string, unknown>, ['name', 'display_name', 'displayName', 'firstName', 'first_name']);
+    if (legacy) return legacy;
   }
 
   const user = raw.user;
   if (user && typeof user === 'object' && !Array.isArray(user)) {
-    const fromUser = pickFromObject(user as Record<string, unknown>, [
-      'name',
-      'display_name',
-      'displayName',
-      'firstName',
-      'username',
-    ]);
+    const fromUser = displayNameFromReviewerLikeRecord(user as Record<string, unknown>);
     if (fromUser) return fromUser;
+    const legacy = pickFromObject(user as Record<string, unknown>, ['name', 'display_name', 'displayName', 'firstName', 'username']);
+    if (legacy) return legacy;
   }
 
-  const vName = raw.name;
-  if (typeof vName === 'string' && vName.trim().length >= 2 && vName.trim().length <= 80) {
-    return clip(vName.trim(), 120);
+  const guest = raw.guest ?? raw.guestProfile ?? raw.guest_profile ?? raw.authorProfile;
+  if (guest && typeof guest === 'object' && !Array.isArray(guest)) {
+    const fromGuest = displayNameFromReviewerLikeRecord(guest as Record<string, unknown>);
+    if (fromGuest) return fromGuest;
   }
+
+  const reviewWrap = raw.review ?? raw.review_data;
+  if (reviewWrap && typeof reviewWrap === 'object' && !Array.isArray(reviewWrap)) {
+    const nested = guestDisplayNameFromOutscraperOrFlatRow(reviewWrap as Record<string, unknown>, depth + 1);
+    if (nested) return nested;
+  }
+
+  const vName = pickMeaningfulNameString(raw.name);
+  if (vName && vName.length >= 2 && vName.length <= 80) return vName;
 
   return null;
 }
@@ -578,30 +639,45 @@ function dedupeNormalizedByBodyKey(rows: NormalizedIncoming[]): NormalizedIncomi
 }
 
 function reviewerDisplayNameFromAirbnbNode(raw: Record<string, unknown>): string | null {
-  const reviewer =
+  if (typeof raw.reviewer === 'string') {
+    const s = pickMeaningfulNameString(raw.reviewer);
+    if (s) return s;
+  }
+
+  const top = displayNameFromReviewerLikeRecord(
     typeof raw.reviewer === 'object' && raw.reviewer !== null && !Array.isArray(raw.reviewer)
       ? (raw.reviewer as Record<string, unknown>)
-      : null;
+      : null,
+  );
+  if (top) return top;
+
   const lr =
     typeof raw.localizedReview === 'object' && raw.localizedReview !== null && !Array.isArray(raw.localizedReview)
       ? (raw.localizedReview as Record<string, unknown>)
       : null;
-  const localizedRev =
-    lr &&
-    typeof lr.localizedReviewer === 'object' &&
-    lr.localizedReviewer !== null &&
-    !Array.isArray(lr.localizedReviewer)
-      ? (lr.localizedReviewer as Record<string, unknown>)
-      : null;
 
-  const cand = [
-    typeof reviewer?.smartName === 'string' ? reviewer.smartName.trim() : '',
-    typeof reviewer?.firstName === 'string' ? reviewer.firstName.trim() : '',
-    typeof localizedRev?.localizedName === 'string' ? localizedRev.localizedName.trim() : '',
-    typeof localizedRev?.name === 'string' ? localizedRev.name.trim() : '',
-  ].filter((s) => s.length > 0);
-  const first = cand[0];
-  return typeof first === 'string' ? clip(first, 120) || null : null;
+  if (lr) {
+    const lrReviewerObj =
+      typeof lr.reviewer === 'object' && lr.reviewer !== null && !Array.isArray(lr.reviewer)
+        ? (lr.reviewer as Record<string, unknown>)
+        : null;
+    const fromLrReviewer = displayNameFromReviewerLikeRecord(lrReviewerObj);
+    if (fromLrReviewer) return fromLrReviewer;
+
+    const localizedRev =
+      typeof lr.localizedReviewer === 'object' && lr.localizedReviewer !== null && !Array.isArray(lr.localizedReviewer)
+        ? (lr.localizedReviewer as Record<string, unknown>)
+        : null;
+    const fromLoc = displayNameFromReviewerLikeRecord(localizedRev);
+    if (fromLoc) return fromLoc;
+
+    const direct = pickMeaningfulNameString(
+      lr.reviewerName ?? lr.reviewer_name ?? lr.authorName ?? lr.author_name ?? lr.guestName ?? lr.guest_name,
+    );
+    if (direct) return direct;
+  }
+
+  return null;
 }
 
 /** Category rows may expose multiple 1–5 scores — treat an overall as the arithmetic mean rounded */
@@ -685,8 +761,6 @@ function mapAirbnbHtmlJsonReview(raw: Record<string, unknown>): NormalizedIncomi
   const rounded = pickRatingFromAirbnbEmbeddedNode(raw);
   if (rounded === null) return null;
 
-  const guestDisplayName = reviewerDisplayNameFromAirbnbNode(raw) ?? 'Guest';
-
   const created =
     (typeof raw.createdAt === 'string' && raw.createdAt.trim()) ||
     (lr && typeof lr.createdAt === 'string' && lr.createdAt.trim()) ||
@@ -699,15 +773,18 @@ function mapAirbnbHtmlJsonReview(raw: Record<string, unknown>): NormalizedIncomi
     (typeof raw.review_id === 'string' && raw.review_id.trim()) ||
     '';
 
-  const flat: Record<string, unknown> = {
+  /** Keep full Airbnb JSON so name extraction can walk `reviewer` / `localizedReview` trees — avoid pinning "Guest" too early. */
+  const merged: Record<string, unknown> = {
+    ...raw,
     comments: body,
+    comment: body,
     star_rating: rounded,
-    reviewer_name: guestDisplayName,
+    rating: rounded,
     created_at: created || undefined,
   };
-  if (idCandidate.length) flat.id = idCandidate;
+  if (idCandidate.length) merged.id = idCandidate;
 
-  return mapAirbnbRow(flat);
+  return mapAirbnbRow(merged);
 }
 
 function shouldProbeAirbnbReviewLikeObject(o: Record<string, unknown>): boolean {

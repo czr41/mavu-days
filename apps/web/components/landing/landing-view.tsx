@@ -62,9 +62,6 @@ export async function LandingView({ path }: { path: Path }) {
         ];
   const hasImportedReviews = landingReviews.length > 0;
   const showMarketingQuoteFallbackCarousel = landingReviews.length === 0 && !reviewQuoteFallbackSuppressed;
-  const reviewSectionHasPlatforms = landingReviews.some(
-    (r) => r.platform === 'GOOGLE' || r.platform === 'AIRBNB',
-  );
   const t = merged.texts;
   const phone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.replace(/\D/g, '') ?? '';
   const email = process.env.NEXT_PUBLIC_BOOKING_EMAIL?.trim() ?? '';
@@ -706,14 +703,13 @@ export async function LandingView({ path }: { path: Path }) {
             <p className="md-muted md-review-scroller-hint">
               {hasImportedReviews ? (
                 <>
-                  Showing roughly{' '}
-                  <strong style={{ fontWeight: 600, color: 'var(--heading)' }}>4★+</strong> guest feedback only · quotes
-                  scroll automatically (pauses on hover) — use the arrows, trackpad, or swipe to browse.
+                  Highlights from recent <strong style={{ fontWeight: 600, color: 'var(--heading)' }}>4★+</strong> stays.
+                  Quotes drift slowly—hover to pause, or use the arrows, trackpad, or swipe to explore.
                 </>
               ) : reviewQuoteFallbackSuppressed ? (
-                <>Imported testimonials are synced from Google Maps or Airbnb. None matched the 4★+ strip yet—you can tweak copy or sync again.</>
+                <>We highlight real guest feedback when it&apos;s available. More stories will appear here over time.</>
               ) : (
-                <>Quotes scroll automatically (pauses on hover) — use the arrows, trackpad, or swipe to browse.</>
+                <>Quotes drift slowly—hover to pause, or use the arrows, trackpad, or swipe to browse.</>
               )}
             </p>
             <div className="md-review-scroller-shell">
@@ -763,17 +759,14 @@ export async function LandingView({ path }: { path: Path }) {
                 </>
               ) : (
                 <p className="md-muted" style={{ margin: '0.75rem 0 0', maxWidth: '40rem' }}>
-                  Guest reviews synced from linked platforms appear here automatically after the next deploy cache refresh.
-                  Check back shortly, or widen your sync sources in Host Dashboard → Guest Reviews.
+                  Guest stories will appear here soon.{' '}
+                  <a href={waHref} className="md-link" target="_blank" rel="noreferrer">
+                    Message us on WhatsApp
+                  </a>{' '}
+                  for availability and questions.
                 </p>
               )}
             </div>
-            {hasImportedReviews && reviewSectionHasPlatforms ? (
-              <p className="md-muted md-review-source-attrib md-footnote-compact">
-                Many of these excerpts are synced from labelled sources (Google Maps or Airbnb logos on each card). Manual
-                reviews show a short text label instead of a logo.
-              </p>
-            ) : null}
           </div>
         </RevealSection>
 

@@ -3882,15 +3882,6 @@ div.md-amenities {
   letter-spacing: 0;
 }
 
-.md-review-source-attrib {
-  margin-top: clamp(1.25rem, 3vw, 2rem);
-  max-width: 52ch;
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
-  line-height: 1.55;
-}
-
 .md-review-stars {
   color: var(--yellow);
   font-size: 1.05rem;
