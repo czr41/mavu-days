@@ -13,6 +13,7 @@ import { registerFeedsRoutes } from './routes/feeds.js';
 import { registerPublicRoutes } from './routes/public.js';
 import { registerHooksRoutes } from './routes/hooks.js';
 import { registerOrganizationRoutes } from './routes/organization.js';
+import { scheduleInProcessIcalSync } from './jobs/in-process-ical-sync.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -44,3 +45,4 @@ registerOrganizationRoutes(app);
 
 const address = await app.listen({ host: env.API_HOST, port: env.API_PORT });
 app.log.info(`Listening on ${address}`);
+scheduleInProcessIcalSync(app, env.ICAL_SYNC_INTERVAL_MS);

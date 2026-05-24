@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { GuestReviewStars } from '@/components/landing/guest-review-stars';
 import { LandingSectionHead } from '@/components/landing/landing-section-head';
-import { OffersTicker } from '@/components/landing/offers-ticker';
+import { HeroOfferTickerBand } from '@/components/landing/hero-offer-ticker-band';
 import type { PublicGuestReviewDto, PublicLandingOfferDto } from '@/lib/public-types';
 
 type Props = {
@@ -51,7 +51,7 @@ export function GuestReviewsFullPage({ orgName, reviews, offers = [] }: Props) {
         </div>
       </header>
 
-      <OffersTicker offers={[...offers]} />
+      <HeroOfferTickerBand offers={[...offers]} />
 
       <section className="md-section md-section-cream md-guest-reviews-full-page" aria-labelledby="guest-reviews-page-heading">
         <div className="md-wrap">

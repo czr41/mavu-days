@@ -90,7 +90,28 @@ body {
 
 .md-page-premium { position: relative; }
 
-/* ——— Landing offers ticker (below navbar) ——— */
+/* ——— Landing offers ticker ——— */
+.md-hero-offer-band {
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.md-hero-offer-band-line {
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.45), rgba(255, 255, 255, 0.35), rgba(212, 175, 55, 0.45), transparent);
+}
+
+.md-offers-ticker--below-hero {
+  border-top: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.md-offers-ticker--below-hero .md-offers-ticker-marquee {
+  animation-duration: 56s;
+}
+
 .md-offers-ticker {
   width: 100%;
   background: linear-gradient(90deg, var(--deep-green), #3d5238);

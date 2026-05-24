@@ -39,7 +39,7 @@ type Column = {
   title: string;
   available: boolean;
   bookingTarget: BookingTarget | null;
-  offers: { id: string; label: string }[];
+  offers: { id: string; code: string; label: string }[];
   pricing?: ColumnPricing | null;
 };
 
@@ -478,7 +478,21 @@ export function AvailabilitySearch({
                           );
                         return (
                           <tr key={c.key} className={!c.available ? 'md-booking-price-row-muted' : undefined}>
-                            <td className="md-booking-col-stay">{c.title}</td>
+                            <td className="md-booking-col-stay">
+                              <div>{c.title}</div>
+                              {c.offers.length > 0 ? (
+                                <p className="md-booking-offer-codes" style={{ margin: '0.35rem 0 0', fontSize: '0.76rem', opacity: 0.88, lineHeight: 1.35 }}>
+                                  <span style={{ fontWeight: 600 }}>Offers</span>
+                                  {': '}
+                                  {c.offers.map((o, oi) => (
+                                    <span key={o.id}>
+                                      <kbd style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.74rem' }}>{o.code}</kbd>
+                                      {oi < c.offers.length - 1 ? ' · ' : ''}
+                                    </span>
+                                  ))}
+                                </p>
+                              ) : null}
+                            </td>
                             <td>{maxGuests}</td>
                             <td>
                               <BedroomsCell homepageKind={homepageKind} columnKey={c.key} bedrooms={p?.bedroomsHint ?? null} />

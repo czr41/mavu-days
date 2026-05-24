@@ -26,10 +26,15 @@ export type PublicGuestReviewDto = {
   reviewedAt: string | null;
 };
 
-/** Published landing ticker lines */
+/** Published landing ticker offers (hero band + shared marketing payload). */
 export type PublicLandingOfferDto = {
   id: string;
+  /** Uppercase guest-facing promo code, unique per organization. */
+  code: string;
+  /** Short marquee line. */
   label: string;
+  /** When the offer is scoped to one unit, the unit display name for the ticker. */
+  unitLabel: string | null;
 };
 
 export type PublicSiteSettingsDto = {

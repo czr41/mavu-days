@@ -14,6 +14,7 @@ import {
 import { computePublicUnitCalendarMonth } from '../services/unit-calendar-availability.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { buildPublicSitePayload } from '../lib/public-site-dto.js';
+import { landingOfferActiveOnDateClause, utcTodayDateOnly } from '../lib/landing-offer-calendar.js';
 import { PUBLIC_GUEST_REVIEWS_PAGE_LIMIT, PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
 import { toPublicGuestReviewDto } from '../lib/guest-review-dto.js';
 
@@ -109,9 +110,13 @@ export function registerPublicRoutes(app: FastifyInstance) {
           orderBy: { sortOrder: 'asc' },
         },
         landingOffers: {
-          where: { published: true, rentableUnitId: null },
+          where: {
+            published: true,
+            showOnHomeTicker: true,
+            ...landingOfferActiveOnDateClause(utcTodayDateOnly()),
+          },
           orderBy: { sortOrder: 'asc' },
-          select: { id: true, label: true },
+          select: { id: true, code: true, label: true, rentableUnitId: true },
         },
         media: {
           orderBy: { createdAt: 'asc' },
@@ -162,9 +167,13 @@ export function registerPublicRoutes(app: FastifyInstance) {
           orderBy: { sortOrder: 'asc' },
         },
         landingOffers: {
-          where: { published: true, rentableUnitId: null },
+          where: {
+            published: true,
+            showOnHomeTicker: true,
+            ...landingOfferActiveOnDateClause(utcTodayDateOnly()),
+          },
           orderBy: { sortOrder: 'asc' },
-          select: { id: true, label: true },
+          select: { id: true, code: true, label: true, rentableUnitId: true },
         },
         media: {
           orderBy: { createdAt: 'asc' },

@@ -81,7 +81,12 @@ type GuestReview = {
 type SiteSection = { id: string; key: string; title: string; bodyMarkdown: string; sortOrder: number; published: boolean };
 type LandingOfferRow = {
   id: string;
+  code: string;
   label: string;
+  detailMarkdown: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+  showOnHomeTicker: boolean;
   sortOrder: number;
   published: boolean;
   rentableUnitId: string | null;
@@ -1415,6 +1420,35 @@ export default function OrgAdminPage() {
     });
   }, [allUnits]);
 
+  const syncCalendarsNow = useCallback(async () => {
+    setBusy(true);
+    const r = await apiFetch<{
+      processed: number;
+      updated: number;
+      removed: number;
+      links: number;
+      errors: number;
+    }>(`${base}/channels/sync-ical`, { method: 'POST', body: '{}' });
+    setBusy(false);
+    if (!r) return;
+    await loadProps();
+    if (r.links === 0) {
+      notify(
+        'No calendar feeds yet — save an Airbnb connection under Host & Airbnb (or add a feed under Connect channel), then sync again.',
+        false,
+      );
+      return;
+    }
+    if (r.errors > 0) {
+      notify(
+        `Calendar sync finished with ${String(r.errors)} problem(s). ${String(r.updated)} updated, ${String(r.removed)} removed. See Last error—often a copied link expired or needs to be pasted again from Airbnb.`,
+        false,
+      );
+      return;
+    }
+    notify(`Sync complete: ${r.links} feed(s), ${r.updated} updated, ${r.removed} removed.`);
+  }, [base, apiFetch, loadProps, notify]);
+
   /* ─── Overview ─── */
   const TabOverview = (
     <>
@@ -1431,6 +1465,38 @@ export default function OrgAdminPage() {
             <span className="adm-stat-sub">{s.sub}</span>
           </div>
         ))}
+      </div>
+
+      <div className="adm-card" style={{ marginBottom: '1.25rem' }}>
+        <div className="adm-card-header">
+          <h2 className="adm-card-title">Calendars (Airbnb / Booking)</h2>
+        </div>
+        <div
+          className="adm-card-body"
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '0.75rem 1rem',
+            justifyContent: 'space-between',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '0.84rem', color: '#6B7280', flex: '1 1 240px', lineHeight: 1.55 }}>
+            Pull the latest blocked dates from your saved <strong>import</strong> links. Import URLs are configured under{' '}
+            <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" style={{ padding: '0.1rem 0.35rem', verticalAlign: 'baseline' }} onClick={() => setTab('host')}>
+              Host &amp; Airbnb
+            </button>
+            .
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+            <button type="button" className="adm-btn adm-btn-primary adm-btn-sm" disabled={busy} onClick={() => void syncCalendarsNow()}>
+              Sync calendars now
+            </button>
+            <span style={{ fontSize: '0.78rem', color: '#9CA3AF', maxWidth: 'min(42ch, 100%)' }} title={lastInboundIcalFetchedTitle}>
+              {lastInboundIcalFetchedLine}
+            </span>
+          </div>
+        </div>
       </div>
 
       {dash?.alerts?.filter(a => a).map(a => (
@@ -1797,6 +1863,8 @@ export default function OrgAdminPage() {
                             <input type="checkbox" checked={bkOfferIds.includes(o.id)} onChange={()=>{
                               setBkOfferIds(ids=>ids.includes(o.id)?ids.filter(x=>x!==o.id):[...ids,o.id]);
                             }}/>
+                            <span style={{ fontWeight: 600 }}>{o.code}</span>
+                            {' — '}
                             {o.label}
                           </label>
                         ))}
@@ -2078,8 +2146,28 @@ export default function OrgAdminPage() {
   const [bulkGalleryCategory, setBulkGalleryCategory] = useState<GalleryCategoryId>('room');
   const [bulkGalleryAlt, setBulkGalleryAlt] = useState('');
   const [editOffer, setEditOffer] = useState<string|null>(null);
-  const [editOfferPatch, setEditOfferPatch] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
-  const [offerForm, setOfferForm] = useState({label:'',sortOrder:'0',published:true,rentableUnitId:''});
+  const [editOfferPatch, setEditOfferPatch] = useState({
+    code: '',
+    label: '',
+    detailMarkdown: '',
+    validFrom: '',
+    validTo: '',
+    showOnHomeTicker: true,
+    sortOrder: '0',
+    published: true,
+    rentableUnitId: '',
+  });
+  const [offerForm, setOfferForm] = useState({
+    code: '',
+    label: '',
+    detailMarkdown: '',
+    validFrom: '',
+    validTo: '',
+    showOnHomeTicker: true,
+    sortOrder: '0',
+    published: true,
+    rentableUnitId: '',
+  });
 
   const optionalInt = (s: string) => {
     const t = s.trim();
@@ -2096,7 +2184,7 @@ export default function OrgAdminPage() {
           ['gallery','Gallery'],
           ['listings','Stay listings'],
           ['site','Homepage layout'],
-          ['offers','Landing offers'],
+          ['offers','Offers'],
         ] as const).map(([k,l])=>(
           <button key={k} className={`adm-btn ${cmsSubTab===k?'adm-btn-primary':'adm-btn-ghost'}`} onClick={()=>setCmsSubTab(k)} type="button">{l}</button>
         ))}
@@ -2893,10 +2981,11 @@ export default function OrgAdminPage() {
       {cmsSubTab==='offers' && (
         <>
           <div className="adm-card" style={{marginBottom:'1.5rem'}}>
-            <div className="adm-card-header"><h2 className="adm-card-title">Ticker lines ({offers.length})</h2></div>
-            <p style={{fontSize:'0.84rem',color:'#6B7280',margin:'0 1.5rem 1rem'}}>
-              Short promo messages for guests booking online: everyone sees lines scoped to &quot;All units&quot;; lines tied to a
-              specific unit appear only when that unit is booked. Only &quot;All units&quot; offers appear on the homepage ticker.
+            <div className="adm-card-header"><h2 className="adm-card-title">Offers ({offers.length})</h2></div>
+            <p style={{fontSize:'0.84rem',color:'#6B7280',margin:'0 1.5rem 1rem',lineHeight:1.55}}>
+              Each offer has a unique <strong>code</strong> (shown on the site). The marquee under the hero lists every published offer that is
+              in its date window and has <strong>Show on home ticker</strong> on—including unit-specific lines (prefixed with the unit name).
+              Unit-scoped offers also appear in the availability table and when creating a booking for that unit.
             </p>
             {offers.length===0
               ? <div className="adm-empty"><EditI size={28}/>No offers yet — add one below.</div>
@@ -2904,15 +2993,22 @@ export default function OrgAdminPage() {
                   <div key={o.id} style={{borderBottom:'1px solid #F3F4F6',padding:'1rem 1.5rem'}}>
                     {editOffer===o.id ? (
                       <div style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
-                        <input className="adm-input" value={editOfferPatch.label} onChange={e=>setEditOfferPatch(x=>({...x,label:e.target.value}))} placeholder="Offer text" maxLength={500}/>
                         <div className="adm-form-grid">
+                          <div className="adm-field"><label className="adm-label">Code</label><input className="adm-input" value={editOfferPatch.code} onChange={e=>setEditOfferPatch(x=>({...x,code:e.target.value}))} placeholder="e.g. MONTHU15" maxLength={48}/></div>
                           <div className="adm-field"><label className="adm-label">Sort order</label><input className="adm-input" type="number" value={editOfferPatch.sortOrder} onChange={e=>setEditOfferPatch(x=>({...x,sortOrder:e.target.value}))}/></div>
                         </div>
-                        <label className="adm-toggle-row"><input type="checkbox" checked={editOfferPatch.published} onChange={e=>setEditOfferPatch(x=>({...x,published:e.target.checked}))}/>Published on landing</label>
+                        <div className="adm-field adm-field-full"><label className="adm-label">Ticker line</label><input className="adm-input" value={editOfferPatch.label} onChange={e=>setEditOfferPatch(x=>({...x,label:e.target.value}))} placeholder="Short guest-facing message" maxLength={500}/></div>
+                        <div className="adm-field adm-field-full"><label className="adm-label">Details / terms (optional)</label><textarea className="adm-textarea" rows={3} value={editOfferPatch.detailMarkdown} onChange={e=>setEditOfferPatch(x=>({...x,detailMarkdown:e.target.value}))} placeholder="How to redeem, blackout notes, or internal reference"/></div>
+                        <div className="adm-form-grid">
+                          <div className="adm-field"><label className="adm-label">Valid from (optional)</label><input className="adm-input" type="date" value={editOfferPatch.validFrom} onChange={e=>setEditOfferPatch(x=>({...x,validFrom:e.target.value}))}/></div>
+                          <div className="adm-field"><label className="adm-label">Valid through (optional)</label><input className="adm-input" type="date" value={editOfferPatch.validTo} onChange={e=>setEditOfferPatch(x=>({...x,validTo:e.target.value}))}/></div>
+                        </div>
+                        <label className="adm-toggle-row"><input type="checkbox" checked={editOfferPatch.published} onChange={e=>setEditOfferPatch(x=>({...x,published:e.target.checked}))}/>Published</label>
+                        <label className="adm-toggle-row"><input type="checkbox" checked={editOfferPatch.showOnHomeTicker} onChange={e=>setEditOfferPatch(x=>({...x,showOnHomeTicker:e.target.checked}))}/>Show on home ticker (when in date range)</label>
                         <div className="adm-field adm-field-full">
                           <label className="adm-label">Applies to</label>
                           <select className="adm-select" value={editOfferPatch.rentableUnitId} onChange={e=>setEditOfferPatch(x=>({...x,rentableUnitId:e.target.value}))}>
-                            <option value="">All units + homepage ticker</option>
+                            <option value="">All units</option>
                             {allUnits.map(u=>(
                               <option key={u.id} value={u.id}>{u.propertyName} — {u.name}</option>
                             ))}
@@ -2923,9 +3019,14 @@ export default function OrgAdminPage() {
                             const sortOrder = parseInt(editOfferPatch.sortOrder,10);
                             if (Number.isNaN(sortOrder)) { notify('Sort order must be a number.',false); return; }
                             await apiFetch(`${base}/cms/offers/${encodeURIComponent(o.id)}`,{method:'PATCH',body:JSON.stringify({
+                              code: editOfferPatch.code.trim(),
                               label:editOfferPatch.label.trim(),
+                              detailMarkdown: editOfferPatch.detailMarkdown.trim() || null,
+                              validFrom: editOfferPatch.validFrom || null,
+                              validTo: editOfferPatch.validTo || null,
                               sortOrder,
                               published:editOfferPatch.published,
+                              showOnHomeTicker: editOfferPatch.showOnHomeTicker,
                               rentableUnitId: editOfferPatch.rentableUnitId === '' ? null : editOfferPatch.rentableUnitId,
                             })});
                             setEditOffer(null); await loadCms(); notify('Offer saved.');
@@ -2941,17 +3042,31 @@ export default function OrgAdminPage() {
                     ) : (
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'1rem'}}>
                         <div>
-                          <strong style={{fontSize:'0.95rem'}}>{o.label}</strong>
+                          <strong style={{fontSize:'0.95rem'}}><span style={{fontFamily:'ui-monospace,monospace'}}>{o.code}</span>{' — '}{o.label}</strong>
                           {!o.published&&<span className="adm-badge adm-badge-yellow" style={{marginLeft:'0.5rem'}}>Hidden</span>}
+                          {!o.showOnHomeTicker&&<span className="adm-badge adm-badge-gray" style={{marginLeft:'0.5rem'}}>Ticker off</span>}
                           <p style={{margin:'0.35rem 0 0',fontSize:'0.84rem',color:'#6B7280'}}>
                             Sort: {o.sortOrder}
                             {' · '}
                             <span style={{color:o.rentableUnitId?'#4B5563':'#059669'}}>
                               {o.rentableUnitId ? (allUnits.find(u=>u.id===o.rentableUnitId)?.name ?? 'Unit') : 'All units'}
                             </span>
+                            {(o.validFrom || o.validTo) ? (
+                              <span>{' · '}{o.validFrom ? String(o.validFrom).slice(0,10) : '…'} → {o.validTo ? String(o.validTo).slice(0,10) : '…'}</span>
+                            ) : null}
                           </p>
                         </div>
-                        <button className="adm-btn adm-btn-ghost adm-btn-sm" type="button" onClick={()=>{setEditOffer(o.id);setEditOfferPatch({label:o.label,sortOrder:String(o.sortOrder),published:o.published,rentableUnitId:o.rentableUnitId??''});}}>Edit</button>
+                        <button className="adm-btn adm-btn-ghost adm-btn-sm" type="button" onClick={()=>{setEditOffer(o.id);setEditOfferPatch({
+                          code:o.code,
+                          label:o.label,
+                          detailMarkdown:o.detailMarkdown ?? '',
+                          validFrom:o.validFrom ? String(o.validFrom).slice(0,10) : '',
+                          validTo:o.validTo ? String(o.validTo).slice(0,10) : '',
+                          showOnHomeTicker:o.showOnHomeTicker,
+                          sortOrder:String(o.sortOrder),
+                          published:o.published,
+                          rentableUnitId:o.rentableUnitId??'',
+                        });}}>Edit</button>
                       </div>
                     )}
                   </div>
@@ -2965,27 +3080,37 @@ export default function OrgAdminPage() {
                 const sortOrder = parseInt(offerForm.sortOrder,10);
                 if (Number.isNaN(sortOrder)) { setBusy(false); notify('Sort order must be a number.',false); return; }
                 const r = await apiFetch(`${base}/cms/offers`,{method:'POST',body:JSON.stringify({
+                  code: offerForm.code.trim(),
                   label:offerForm.label.trim(),
+                  detailMarkdown: offerForm.detailMarkdown.trim() || null,
+                  validFrom: offerForm.validFrom || null,
+                  validTo: offerForm.validTo || null,
                   sortOrder,
                   published:offerForm.published,
+                  showOnHomeTicker: offerForm.showOnHomeTicker,
                   rentableUnitId: offerForm.rentableUnitId === '' ? null : offerForm.rentableUnitId,
                 })});
                 setBusy(false); if(!r) return;
-                setOfferForm({label:'',sortOrder:String(offers.length),published:true,rentableUnitId:''}); await loadCms(); notify('Offer added.');
+                setOfferForm({code:'',label:'',detailMarkdown:'',validFrom:'',validTo:'',showOnHomeTicker:true,sortOrder:String(offers.length+1),published:true,rentableUnitId:''}); await loadCms(); notify('Offer added.');
               }}>
                 <div className="adm-form-grid">
-                  <div className="adm-field adm-field-full"><label className="adm-label">Ticker text</label><input className="adm-input" required maxLength={500} placeholder="e.g. Mon–Thu: 15% off on direct bookings" value={offerForm.label} onChange={e=>setOfferForm(s=>({...s,label:e.target.value}))}/></div>
+                  <div className="adm-field"><label className="adm-label">Code</label><input className="adm-input" required maxLength={48} placeholder="e.g. FARM20" value={offerForm.code} onChange={e=>setOfferForm(s=>({...s,code:e.target.value}))}/></div>
                   <div className="adm-field"><label className="adm-label">Sort order</label><input className="adm-input" type="number" required value={offerForm.sortOrder} onChange={e=>setOfferForm(s=>({...s,sortOrder:e.target.value}))}/></div>
+                  <div className="adm-field adm-field-full"><label className="adm-label">Ticker line</label><input className="adm-input" required maxLength={500} placeholder="e.g. 15% off Mon–Thu on direct bookings" value={offerForm.label} onChange={e=>setOfferForm(s=>({...s,label:e.target.value}))}/></div>
+                  <div className="adm-field adm-field-full"><label className="adm-label">Details / terms (optional)</label><textarea className="adm-textarea" rows={3} value={offerForm.detailMarkdown} onChange={e=>setOfferForm(s=>({...s,detailMarkdown:e.target.value}))} placeholder="Redemption rules, blackouts, or staff notes"/></div>
+                  <div className="adm-field"><label className="adm-label">Valid from (optional)</label><input className="adm-input" type="date" value={offerForm.validFrom} onChange={e=>setOfferForm(s=>({...s,validFrom:e.target.value}))}/></div>
+                  <div className="adm-field"><label className="adm-label">Valid through (optional)</label><input className="adm-input" type="date" value={offerForm.validTo} onChange={e=>setOfferForm(s=>({...s,validTo:e.target.value}))}/></div>
                   <div className="adm-field adm-field-full">
                     <label className="adm-label">Applies to</label>
                     <select className="adm-select" value={offerForm.rentableUnitId} onChange={e=>setOfferForm(s=>({...s,rentableUnitId:e.target.value}))}>
-                      <option value="">All units + homepage ticker</option>
+                      <option value="">All units</option>
                       {allUnits.map(u=>(
                         <option key={u.id} value={u.id}>{u.propertyName} — {u.name}</option>
                       ))}
                     </select>
                   </div>
-                  <div className="adm-field adm-field-full"><label className="adm-toggle-row"><input type="checkbox" checked={offerForm.published} onChange={e=>setOfferForm(s=>({...s,published:e.target.checked}))}/>Published on landing</label></div>
+                  <div className="adm-field adm-field-full"><label className="adm-toggle-row"><input type="checkbox" checked={offerForm.published} onChange={e=>setOfferForm(s=>({...s,published:e.target.checked}))}/>Published</label></div>
+                  <div className="adm-field adm-field-full"><label className="adm-toggle-row"><input type="checkbox" checked={offerForm.showOnHomeTicker} onChange={e=>setOfferForm(s=>({...s,showOnHomeTicker:e.target.checked}))}/>Show on home ticker (when in date range)</label></div>
                 </div>
                 <button className="adm-btn adm-btn-primary" style={{marginTop:'1rem'}} disabled={busy} type="submit">Add offer</button>
               </form>
@@ -3516,41 +3641,9 @@ export default function OrgAdminPage() {
           >
             <button
               type="button"
-              className="adm-btn adm-btn-ghost adm-btn-sm"
+              className="adm-btn adm-btn-primary adm-btn-sm"
               disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                const r = await apiFetch<{
-                  processed: number;
-                  updated: number;
-                  removed: number;
-                  links: number;
-                  errors: number;
-                }>(`${base}/channels/sync-ical`, {
-                  method: 'POST',
-                  body: '{}',
-                });
-                setBusy(false);
-                if (!r) return;
-                await loadProps();
-                if (r.links === 0) {
-                  notify(
-                    'No calendar feeds yet — save an Airbnb connection above or add a feed under Connect channel, then sync again.',
-                    false,
-                  );
-                  return;
-                }
-                if (r.errors > 0) {
-                  notify(
-                    `Calendar sync finished with ${String(r.errors)} problem(s). ${String(r.updated)} updated, ${String(r.removed)} removed. See Last error—often a copied link expired or needs to be pasted again from Airbnb.`,
-                    false,
-                  );
-                  return;
-                }
-                notify(
-                  `Sync complete: ${r.links} feed(s), ${r.updated} updated, ${r.removed} removed.`,
-                );
-              }}
+              onClick={() => void syncCalendarsNow()}
             >
               Sync calendars now
             </button>

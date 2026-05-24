@@ -1,4 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
+
+import { landingOfferActiveOnDateClause, utcTodayDateOnly } from '../lib/landing-offer-calendar.js';
 import { RentableUnitMatrixRole } from '@prisma/client';
 import { conflictingUnitFootprint, detectAvailabilityConflicts } from './availability.js';
 
@@ -174,14 +176,16 @@ export async function publishedOffersForLandingUnit(
   prisma: PrismaClient,
   organizationId: string,
   unitId: string,
-): Promise<{ id: string; label: string }[]> {
+): Promise<{ id: string; code: string; label: string }[]> {
+  const today = utcTodayDateOnly();
   return prisma.landingOffer.findMany({
     where: {
       organizationId,
       published: true,
       OR: [{ rentableUnitId: null }, { rentableUnitId: unitId }],
+      ...landingOfferActiveOnDateClause(today),
     },
     orderBy: { sortOrder: 'asc' },
-    select: { id: true, label: true },
+    select: { id: true, code: true, label: true },
   });
 }

@@ -18,7 +18,7 @@ import { AvailabilitySearch } from '@/components/landing/availability-search';
 import { LandingSectionHead } from '@/components/landing/landing-section-head';
 import { HeroReveal } from '@/components/landing/hero-reveal';
 import { FeatureGlyph, WhoGlyph } from '@/components/landing/landing-glyphs';
-import { OffersTicker } from '@/components/landing/offers-ticker';
+import { HeroOfferTickerBand } from '@/components/landing/hero-offer-ticker-band';
 import { LandingJsonLd } from '@/components/landing/landing-json-ld';
 import { GalleryCategoryGroups } from '@/components/landing/gallery-category-groups';
 import { NearFarmCarousel } from '@/components/landing/near-farm-carousel';
@@ -153,8 +153,6 @@ export async function LandingView({ path }: { path: Path }) {
           </div>
         </header>
 
-        <OffersTicker offers={landingOffers} />
-
         <section className="md-hero-premium" aria-labelledby="hero-heading">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -197,6 +195,8 @@ export async function LandingView({ path }: { path: Path }) {
             </HeroReveal>
           </div>
         </section>
+
+        <HeroOfferTickerBand offers={landingOffers} />
 
         <div className="md-feature-strip" id="about">
           <div className="md-feature-strip-inner">

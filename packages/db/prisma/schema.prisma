@@ -440,12 +440,23 @@ model GuestReview {
   @@index([organizationId, pinnedOrder, rating])
 }
 
-/// Promo lines: homepage ticker uses rows with rentableUnitId=null; scoped rows show only for that unit at booking time.
+/// Promo offers: public ticker (when showOnHomeTicker + in date range), availability column hints, optional booking selections.
 model LandingOffer {
   id               String         @id @default(uuid())
   organizationId   String
   rentableUnitId   String?
+  /// Guest-facing promo code, unique per org (A–Z, 0–9, underscore, hyphen). Stored uppercase.
+  code             String         @db.VarChar(48)
+  /// Short line in the marquee / marketing.
   label            String         @db.VarChar(500)
+  /// Optional terms, redemption notes, or internal copy (shown in admin; may be used on site later).
+  detailMarkdown   String?
+  /// First calendar day the offer is active (UTC date); null = no start bound.
+  validFrom        DateTime?      @db.Date
+  /// Last calendar day the offer is active (UTC date); null = no end bound.
+  validTo          DateTime?      @db.Date
+  /// When false, offer is hidden from the homepage ticker but can still apply to a unit in booking tools.
+  showOnHomeTicker Boolean        @default(true)
   sortOrder        Int            @default(0)
   published        Boolean        @default(true)
 
@@ -456,6 +467,7 @@ model LandingOffer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, code])
   @@index([organizationId, published, sortOrder])
   @@index([organizationId, published, rentableUnitId])
 }

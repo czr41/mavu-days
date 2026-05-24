@@ -83,7 +83,12 @@ export type PublicSitePayloadDto = {
   sections: SiteSection[];
   media: MediaAsset[];
   reviews: ReturnType<typeof toPublicGuestReviewDto>[];
-  offers: { id: string; label: string }[];
+  offers: {
+    id: string;
+    code: string;
+    label: string;
+    unitLabel: string | null;
+  }[];
 };
 
 function jsonStringArray(v: unknown): string[] {
@@ -196,6 +201,18 @@ function mapUnit(
   };
 }
 
+function rentableUnitNameById(
+  properties: (Property & { units: (RentableUnit & { listingProfile: RentableUnitListing | null })[] })[],
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const p of properties) {
+    for (const u of p.units) {
+      m.set(u.id, u.name);
+    }
+  }
+  return m;
+}
+
 /** Full public marketing payload (inventory + CMS + reviews + ticker offers). */
 export function buildPublicSitePayload(args: {
   organization: Organization;
@@ -204,10 +221,11 @@ export function buildPublicSitePayload(args: {
   sections: SiteSection[];
   media: MediaAssetWithListingLinks[];
   guestReviews: GuestReview[];
-  tickerOffers: Pick<LandingOffer, 'id' | 'label'>[];
+  tickerOffers: Pick<LandingOffer, 'id' | 'code' | 'label' | 'rentableUnitId'>[];
 }): PublicSitePayloadDto {
   const homepageKind: OrgHomepageKind = args.siteSettings?.homepageKind ?? OrgHomepageKind.LISTING_GRID;
   const galleryExtrasByUnitId = listingUrlsFromLinkedMedia(args.media);
+  const unitNames = rentableUnitNameById(args.properties);
 
   return {
     organization: { slug: args.organization.slug, name: args.organization.name },
@@ -229,6 +247,11 @@ export function buildPublicSitePayload(args: {
       publicUrl: normalizePublicImageUrl(row.publicUrl) ?? '',
     })),
     reviews: args.guestReviews.map(toPublicGuestReviewDto),
-    offers: args.tickerOffers.map((o) => ({ id: o.id, label: o.label })),
+    offers: args.tickerOffers.map((o) => ({
+      id: o.id,
+      code: o.code,
+      label: o.label,
+      unitLabel: o.rentableUnitId ? (unitNames.get(o.rentableUnitId) ?? null) : null,
+    })),
   };
 }

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { LandingSectionHead } from '@/components/landing/landing-section-head';
-import { OffersTicker } from '@/components/landing/offers-ticker';
+import { HeroOfferTickerBand } from '@/components/landing/hero-offer-ticker-band';
 import {
   groupGalleryByCategory,
   representativesPerCategory,
@@ -182,7 +182,7 @@ export function GalleryFullView({
         </div>
       </header>
 
-      <OffersTicker offers={[...offers]} />
+      <HeroOfferTickerBand offers={[...offers]} />
 
       <section className="md-section md-section-cream md-gallery-full-page" aria-labelledby="gallery-page-heading">
         <div className="md-wrap">

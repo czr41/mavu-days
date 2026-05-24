@@ -1,4 +1,4 @@
-import * as ic from 'node-ical';
+import nodeIcal from 'node-ical';
 import type { CalendarEvent } from '@mavu/contracts';
 
 type FetchFn = (input: string, init?: unknown) => Promise<{
@@ -15,6 +15,17 @@ function globalFetch(): FetchFn {
 
 type RawEvent = Record<string, unknown>;
 
+/** Resolve parseICS across default export / namespace interop (Node ESM + CJS). */
+function parseICSFromNodeIcal(body: string): Record<string, unknown> {
+  const m = nodeIcal as unknown as {
+    parseICS?: (data: string) => Record<string, unknown>;
+    sync?: { parseICS?: (data: string) => Record<string, unknown> };
+  };
+  if (typeof m.parseICS === 'function') return m.parseICS(body);
+  if (typeof m.sync?.parseICS === 'function') return m.sync.parseICS(body);
+  throw new Error('node-ical: parseICS is not available');
+}
+
 function asDate(val: unknown): Date | undefined {
   if (!val) return undefined;
   if (val instanceof Date) return val;
@@ -30,7 +41,7 @@ function asDate(val: unknown): Date | undefined {
 
 /** Parse ICS text body into canonical events.m */
 export function parseIcs(body: string): CalendarEvent[] {
-  const parsed = ic.parseICS(body) as RawEvent;
+  const parsed = parseICSFromNodeIcal(body) as RawEvent;
   const events: CalendarEvent[] = [];
 
   for (const key of Object.keys(parsed)) {

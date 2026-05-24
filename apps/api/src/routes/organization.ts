@@ -19,11 +19,22 @@ import { syncInboundIcals } from '../services/ical-sync.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { fetchAirbnbListingImageCandidates } from '../services/airbnb-listing-images.js';
 import { pickAllPublishedAirbnbListingUrls, syncExternalGuestReviews } from '../services/external-reviews-sync.js';
+import { normalizeOfferCode } from '../lib/landing-offer-code.js';
 import {
   stayGalleryMergeAppend,
   stayGalleryToJson,
   type StayGallerySlot,
 } from '@mavu/contracts';
+
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `YYYY-MM-DD` → UTC midnight Date for `@db.Date`; empty string → null. */
+function landingOfferDateFromBody(v: string | null | undefined): Date | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  if (!ISO_DATE_ONLY.test(v)) return undefined;
+  return new Date(`${v}T00:00:00.000Z`);
+}
 
 type PropertyWithUnitsForListings = Prisma.PropertyGetPayload<{
   include: {
@@ -1216,13 +1227,25 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     if (!m) return;
     const body = z
       .object({
+        code: z.string().min(1).max(64),
         label: z.string().min(1).max(500),
+        detailMarkdown: z.union([z.string().max(20000), z.null()]).optional(),
+        validFrom: z.union([z.string().regex(ISO_DATE_ONLY), z.literal(''), z.null()]).optional(),
+        validTo: z.union([z.string().regex(ISO_DATE_ONLY), z.literal(''), z.null()]).optional(),
+        showOnHomeTicker: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
         published: z.boolean().optional(),
         rentableUnitId: z.union([z.string().uuid(), z.null()]).optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const code = normalizeOfferCode(body.data.code);
+    if (code.length < 2) {
+      return reply.status(400).send({
+        error: 'Code must be at least 2 characters (letters, digits, hyphen, or underscore) after normalizing.',
+      });
+    }
 
     const unitRef = body.data.rentableUnitId;
     if (unitRef) {
@@ -1232,10 +1255,47 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       if (!okUnit) return reply.status(400).send({ error: 'Unit not found' });
     }
 
+    const parseDate = (v: string | null | undefined | ''): Date | null => {
+      if (v === undefined || v === null || v === '') return null;
+      const d = landingOfferDateFromBody(v);
+      if (d === undefined) throw new Error('bad_date');
+      return d;
+    };
+
+    let validFrom: Date | null;
+    let validTo: Date | null;
+    try {
+      validFrom = parseDate(body.data.validFrom);
+      validTo = parseDate(body.data.validTo);
+    } catch {
+      return reply.status(400).send({ error: 'validFrom and validTo must be YYYY-MM-DD when set.' });
+    }
+    if (validFrom && validTo && validFrom.getTime() > validTo.getTime()) {
+      return reply.status(400).send({ error: 'validFrom must be on or before validTo.' });
+    }
+
+    const clash = await app.prisma.landingOffer.findFirst({
+      where: { organizationId: m.organizationId, code },
+      select: { id: true },
+    });
+    if (clash) return reply.status(400).send({ error: 'An offer with this code already exists in your organization.' });
+
+    const detail =
+      body.data.detailMarkdown === undefined
+        ? null
+        : body.data.detailMarkdown === null
+          ? null
+          : body.data.detailMarkdown.trim() || null;
+
     const row = await app.prisma.landingOffer.create({
       data: {
         organizationId: m.organizationId,
+        code,
         label: body.data.label.trim(),
+        detailMarkdown: detail,
+        validFrom,
+        validTo,
+        showOnHomeTicker: body.data.showOnHomeTicker ?? true,
         sortOrder: body.data.sortOrder ?? 0,
         published: body.data.published ?? true,
         rentableUnitId: unitRef === undefined ? null : unitRef,
@@ -1250,7 +1310,12 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     const offerId = (req.params as { offerId: string }).offerId;
     const patch = z
       .object({
+        code: z.string().min(1).max(64).optional(),
         label: z.string().min(1).max(500).optional(),
+        detailMarkdown: z.union([z.string().max(20000), z.null()]).optional(),
+        validFrom: z.union([z.string().regex(ISO_DATE_ONLY), z.literal(''), z.null()]).optional(),
+        validTo: z.union([z.string().regex(ISO_DATE_ONLY), z.literal(''), z.null()]).optional(),
+        showOnHomeTicker: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
         published: z.boolean().optional(),
         rentableUnitId: z.union([z.string().uuid(), z.null()]).optional(),
@@ -1269,11 +1334,66 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       if (!okUnit) return reply.status(400).send({ error: 'Unit not found' });
     }
 
+    let nextCode = exists.code;
+    if (patch.data.code != null) {
+      nextCode = normalizeOfferCode(patch.data.code);
+      if (nextCode.length < 2) {
+        return reply.status(400).send({
+          error: 'Code must be at least 2 characters (letters, digits, hyphen, or underscore) after normalizing.',
+        });
+      }
+      if (nextCode !== exists.code) {
+        const clash = await app.prisma.landingOffer.findFirst({
+          where: { organizationId: m.organizationId, code: nextCode, NOT: { id: offerId } },
+          select: { id: true },
+        });
+        if (clash) return reply.status(400).send({ error: 'An offer with this code already exists in your organization.' });
+      }
+    }
+
+    const parseDatePatch = (
+      v: string | null | undefined | '',
+    ): Date | null | undefined => {
+      if (v === undefined) return undefined;
+      if (v === null || v === '') return null;
+      const d = landingOfferDateFromBody(v);
+      if (d === undefined) return undefined;
+      return d;
+    };
+
+    const nextValidFrom =
+      patch.data.validFrom === undefined ? undefined : parseDatePatch(patch.data.validFrom);
+    const nextValidTo = patch.data.validTo === undefined ? undefined : parseDatePatch(patch.data.validTo);
+    if (nextValidFrom === undefined && patch.data.validFrom !== undefined && patch.data.validFrom !== null && patch.data.validFrom !== '') {
+      return reply.status(400).send({ error: 'validFrom must be YYYY-MM-DD when set.' });
+    }
+    if (nextValidTo === undefined && patch.data.validTo !== undefined && patch.data.validTo !== null && patch.data.validTo !== '') {
+      return reply.status(400).send({ error: 'validTo must be YYYY-MM-DD when set.' });
+    }
+
+    const mergedFrom = nextValidFrom !== undefined ? nextValidFrom : exists.validFrom;
+    const mergedTo = nextValidTo !== undefined ? nextValidTo : exists.validTo;
+    if (mergedFrom && mergedTo && mergedFrom.getTime() > mergedTo.getTime()) {
+      return reply.status(400).send({ error: 'validFrom must be on or before validTo.' });
+    }
+
     const nextLabel = patch.data.label != null ? patch.data.label.trim() : undefined;
+    const nextDetail =
+      patch.data.detailMarkdown === undefined
+        ? undefined
+        : patch.data.detailMarkdown === null
+          ? null
+          : patch.data.detailMarkdown.trim() || null;
+
     const offer = await app.prisma.landingOffer.update({
       where: { id: offerId },
       data: {
+        ...(patch.data.code != null ? { code: nextCode } : {}),
         ...(nextLabel != null ? { label: nextLabel } : {}),
+        ...(nextDetail !== undefined ? { detailMarkdown: nextDetail } : {}),
+        ...(nextValidFrom !== undefined ? { validFrom: nextValidFrom } : {}),
+        ...(nextValidTo !== undefined ? { validTo: nextValidTo } : {}),
+        ...(patch.data.showOnHomeTicker !== undefined ? { showOnHomeTicker: patch.data.showOnHomeTicker } : {}),
         ...(patch.data.sortOrder !== undefined ? { sortOrder: patch.data.sortOrder } : {}),
         ...(patch.data.published !== undefined ? { published: patch.data.published } : {}),
         ...(patch.data.rentableUnitId !== undefined ? { rentableUnitId: patch.data.rentableUnitId } : {}),

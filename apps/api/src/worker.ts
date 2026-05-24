@@ -15,6 +15,9 @@ if (!redisUrl) {
   console.error(
     'REDIS_URL is required for the worker/BullMQ. Start docker compose Redis or export REDIS_URL.',
   );
+  console.error(
+    'Tip: the main API server can pull iCal on its own every ICAL_SYNC_INTERVAL_MS (default 15m) without this worker — set ICAL_SYNC_INTERVAL_MS=0 on the API if you use this worker to avoid duplicate pulls.',
+  );
   process.exit(1);
 }
 

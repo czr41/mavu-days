@@ -4,6 +4,16 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().optional(),
+  /** Milliseconds between automatic inbound iCal pulls inside the API process. 0 = disabled. Default 15m. */
+  ICAL_SYNC_INTERVAL_MS: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (v === undefined || v === '') return 900_000;
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 900_000;
+      return Math.max(0, Math.floor(n));
+    }),
   API_HOST: z.string().default('0.0.0.0'),
   API_PORT: z.coerce.number().default(3001),
   JWT_SECRET: z.string().min(32),
