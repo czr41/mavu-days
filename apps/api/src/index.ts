@@ -43,6 +43,8 @@ registerPublicRoutes(app);
 registerHooksRoutes(app);
 registerOrganizationRoutes(app);
 
+/** Must run before `listen` — registers `onClose` to clear the iCal interval. */
+scheduleInProcessIcalSync(app, env.ICAL_SYNC_INTERVAL_MS);
+
 const address = await app.listen({ host: env.API_HOST, port: env.API_PORT });
 app.log.info(`Listening on ${address}`);
-scheduleInProcessIcalSync(app, env.ICAL_SYNC_INTERVAL_MS);
