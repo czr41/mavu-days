@@ -1255,7 +1255,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       if (!okUnit) return reply.status(400).send({ error: 'Unit not found' });
     }
 
-    const parseDate = (v: string | null | undefined | ''): Date | null => {
+    const parseDate = (v: string | null | undefined): Date | null => {
       if (v === undefined || v === null || v === '') return null;
       const d = landingOfferDateFromBody(v);
       if (d === undefined) throw new Error('bad_date');
@@ -1351,9 +1351,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       }
     }
 
-    const parseDatePatch = (
-      v: string | null | undefined | '',
-    ): Date | null | undefined => {
+    const parseDatePatch = (v: string | null | undefined): Date | null | undefined => {
       if (v === undefined) return undefined;
       if (v === null || v === '') return null;
       const d = landingOfferDateFromBody(v);

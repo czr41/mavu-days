@@ -26,7 +26,7 @@ export function scheduleInProcessIcalSync(app: FastifyInstance, intervalMs: numb
     void run();
   }, intervalMs);
 
-  app.addHook('onClose', async () => {
+  app.addHook('onClose', () => {
     clearInterval(id);
   });
 

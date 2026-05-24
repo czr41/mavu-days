@@ -1134,7 +1134,11 @@ export default function OrgAdminPage() {
   }, []);
 
   const apiFetch = useCallback(
-    async <T,>(path: string, opts?: RequestInit): Promise<T | null> => {
+    async <T,>(
+      path: string,
+      opts?: RequestInit,
+      meta?: { silentNetwork?: boolean },
+    ): Promise<T | null> => {
       let res: Response;
       try {
         res = await fetch(`${api}${path}`, { ...opts, headers: { ...ah(), ...(opts?.headers as Record<string, string> ?? {}) } });
@@ -1153,7 +1157,9 @@ export default function OrgAdminPage() {
           msg =
             `${raw} — Check your connection, try another browser or window without extensions, and confirm your booking server is reachable.`;
         }
-        notify(msg, false);
+        if (!meta?.silentNetwork) {
+          notify(`${msg} (API base: ${api})`, false);
+        }
         return null;
       }
       if (res.status === 401) { router.push('/login'); return null; }
@@ -1193,22 +1199,56 @@ export default function OrgAdminPage() {
 
   const base = `/orgs/${encodeURIComponent(slug)}`;
 
-  const loadDash  = useCallback(async () => { const d = await apiFetch<DashStats>(`${base}/dashboard`); if (d) setDash(d); }, [apiFetch, base]);
-  const loadProps = useCallback(async () => {
-    const generation = ++propsFetchGenRef.current;
-    const d = await apiFetch<{ properties?: Property[] | null }>(`${base}/properties`);
-    if (generation !== propsFetchGenRef.current) return;
-    if (!d) return;
-    if (!Array.isArray(d.properties)) return;
-    setProps(d.properties);
-  }, [apiFetch, base]);
-  const loadBk    = useCallback(async () => { const d = await apiFetch<{ bookings: Booking[] }>(`${base}/bookings`); if (d) setBookings(d.bookings); }, [apiFetch, base]);
-  const loadRev   = useCallback(async () => {
-    const d = await apiFetch<{ reviews: GuestReview[]; lastExternalReviewsSyncAt?: string | null }>(`${base}/cms/reviews`);
-    if (!d) return;
-    setReviews(Array.isArray(d.reviews) ? d.reviews : []);
-    setReviewsMeta({ lastExternalReviewsSyncAt: d.lastExternalReviewsSyncAt ?? null });
-  }, [apiFetch, base]);
+  const loadDash = useCallback(
+    async (silentNetwork?: boolean): Promise<boolean> => {
+      const d = await apiFetch<DashStats>(`${base}/dashboard`, undefined, { silentNetwork: !!silentNetwork });
+      if (d) setDash(d);
+      return d != null;
+    },
+    [apiFetch, base],
+  );
+  const loadProps = useCallback(
+    async (silentNetwork?: boolean): Promise<boolean> => {
+      const generation = ++propsFetchGenRef.current;
+      const d = await apiFetch<{ properties?: Property[] | null }>(
+        `${base}/properties`,
+        undefined,
+        { silentNetwork: !!silentNetwork },
+      );
+      if (generation !== propsFetchGenRef.current) return false;
+      if (!d) return false;
+      if (!Array.isArray(d.properties)) return false;
+      setProps(d.properties);
+      return true;
+    },
+    [apiFetch, base],
+  );
+  const loadBk = useCallback(
+    async (silentNetwork?: boolean): Promise<boolean> => {
+      const d = await apiFetch<{ bookings: Booking[] }>(
+        `${base}/bookings`,
+        undefined,
+        { silentNetwork: !!silentNetwork },
+      );
+      if (d) setBookings(d.bookings);
+      return d != null;
+    },
+    [apiFetch, base],
+  );
+  const loadRev = useCallback(
+    async (silentNetwork?: boolean): Promise<boolean> => {
+      const d = await apiFetch<{ reviews: GuestReview[]; lastExternalReviewsSyncAt?: string | null }>(
+        `${base}/cms/reviews`,
+        undefined,
+        { silentNetwork: !!silentNetwork },
+      );
+      if (!d) return false;
+      setReviews(Array.isArray(d.reviews) ? d.reviews : []);
+      setReviewsMeta({ lastExternalReviewsSyncAt: d.lastExternalReviewsSyncAt ?? null });
+      return true;
+    },
+    [apiFetch, base],
+  );
   const loadCms   = useCallback(async () => {
     const [s, m, o] = await Promise.all([
       apiFetch<{ sections: SiteSection[] }>(`${base}/cms/sections`),
@@ -1301,14 +1341,40 @@ export default function OrgAdminPage() {
   // Overview + sidebar need only dash / properties / reviews. Other tabs load their own routes
   // when opened so one missing or older API endpoint does not toast on every page load.
   useEffect(() => {
-    if (!tok()) { router.push('/login'); return; }
-    // Wait for dynamic [orgSlug] — first paint can have an empty slug and would call /orgs//… (404).
+    if (!tok()) {
+      router.push('/login');
+      return;
+    }
     if (!slug) return;
-    void loadDash();
-    void loadProps();
-    void loadRev();
-    void loadBk();
-  }, [slug, router, tok, loadDash, loadProps, loadRev, loadBk]);
+    let cancelled = false;
+    void (async () => {
+      const [okDash, okProps, okRev, okBk] = await Promise.all([
+        loadDash(true),
+        loadProps(true),
+        loadRev(true),
+        loadBk(true),
+      ]);
+      if (cancelled || !tok()) return;
+      if (!okDash && !okProps && !okRev && !okBk) {
+        const isHttpsSite = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const apiLooksLocal = /\b(localhost|127\.0\.0\.1)\b/i.test(api) || /^http:\/\//i.test(api);
+        if (isHttpsSite && apiLooksLocal) {
+          notify(
+            `This admin page (HTTPS) cannot call your configured API at ${api}. Set NEXT_PUBLIC_API_URL on your web host to your public booking API (https://…), redeploy, and ensure the API is running with CORS enabled.`,
+            false,
+          );
+        } else {
+          notify(
+            `Could not reach the booking API (${api}). Confirm the API is up, DNS/HTTPS is correct, and NEXT_PUBLIC_API_URL on the web host matches that host (not the marketing site URL).`,
+            false,
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, router, tok, loadDash, loadProps, loadRev, loadBk, api, notify]);
 
   useEffect(() => {
     if (!slug) return;
