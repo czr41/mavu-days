@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AvailabilityBlock, Booking } from '@prisma/client';
 import { AvailabilityBlockReason, BookingStatus } from '@prisma/client';
 import { buildIcsFeed, type OutboundEvent } from '@mavu/channels-ical';
+import { refreshCompoundAvailabilityBlocksForOrg } from '../services/booking-flow.js';
 
 export function registerFeedsRoutes(app: FastifyInstance) {
   app.get('/feeds/:slug', async (req, reply) => {
@@ -21,6 +22,8 @@ export function registerFeedsRoutes(app: FastifyInstance) {
     const unitId = link.rentableUnitId;
     const now = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
 
+    await refreshCompoundAvailabilityBlocksForOrg(app.prisma, organizationId);
+
     const bookings = await app.prisma.booking.findMany({
       where: {
         organizationId,
@@ -37,6 +40,7 @@ export function registerFeedsRoutes(app: FastifyInstance) {
         reason: AvailabilityBlockReason.BOOKING,
         bookingId: { not: null },
         endsAtUtc: { gt: now },
+        booking: { status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] } },
       },
       include: { booking: { select: { id: true, guestName: true, rentableUnitId: true } } },
     });
@@ -64,9 +68,8 @@ export function registerFeedsRoutes(app: FastifyInstance) {
           uid: `mavu-compound-${lb.id}`,
           startUtc: lb.startsAtUtc,
           endUtc: lb.endsAtUtc,
-          summary: lb.booking?.guestName?.trim()
-            ? `Unavailable (${lb.booking.guestName.trim()})`
-            : 'Unavailable (compound listing)',
+          /** Airbnb / OTAs treat any export event as blocked — keep summary generic. */
+          summary: 'Not available',
         })),
       ...holds.map((h: AvailabilityBlock) => ({
         uid: `mavu-block-${h.id}`,

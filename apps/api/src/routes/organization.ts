@@ -681,6 +681,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     // Wide overlap window for admin calendar — past stays must load for history view.
     const horizonPast = new Date(Date.now() - 1825 * 24 * 60 * 60 * 1000); // ~5 years
     const horizonFuture = new Date(Date.now() + 540 * 24 * 60 * 60 * 1000); // ~18 months ahead
+    await refreshCompoundAvailabilityBlocksForOrg(app.prisma, m.organizationId);
     const rows = await app.prisma.booking.findMany({
       where: {
         organizationId: m.organizationId,
@@ -694,7 +695,39 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         offerSelections: { include: { landingOffer: { select: { id: true, label: true } } } },
       },
     });
-    return reply.send({ bookings: rows });
+    const blockRows = await app.prisma.availabilityBlock.findMany({
+      where: {
+        organizationId: m.organizationId,
+        reason: AvailabilityBlockReason.BOOKING,
+        bookingId: { not: null },
+        startsAtUtc: { lt: horizonFuture },
+        endsAtUtc: { gt: horizonPast },
+        booking: { status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] } },
+      },
+      include: {
+        rentableUnit: { select: { id: true, name: true, slug: true } },
+        booking: {
+          include: {
+            rentableUnit: { select: { id: true, name: true, slug: true } },
+            offerSelections: { include: { landingOffer: { select: { id: true, label: true } } } },
+          },
+        },
+      },
+    });
+    const compoundBlocks = blockRows
+      .filter(
+        (row) =>
+          row.booking &&
+          row.rentableUnitId !== row.booking.rentableUnitId,
+      )
+      .map((row) => ({
+        id: row.id,
+        startsAtUtc: row.startsAtUtc,
+        endsAtUtc: row.endsAtUtc,
+        rentableUnit: row.rentableUnit,
+        booking: row.booking,
+      }));
+    return reply.send({ bookings: rows, compoundBlocks });
   });
 
   app.post('/orgs/:orgSlug/bookings', async (req, reply) => {

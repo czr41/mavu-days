@@ -756,9 +756,44 @@ function BookingSourceGlyph({ b, size = 18 }: { b: Booking; size?: number }) {
   );
 }
 
+type CompoundBlock = {
+  id: string;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  rentableUnit: { id: string; name: string; slug: string };
+  booking: Booking;
+};
+
+/** Night is occupied when block start <= night < block end (checkout morning free). */
+function compoundBlockOccupiesNight(block: CompoundBlock, day: Date): boolean {
+  const night = localDateKey(day);
+  const checkIn = isoToLocalDateKey(block.startsAtUtc);
+  const checkOut = isoToLocalDateKey(block.endsAtUtc);
+  return night >= checkIn && night < checkOut;
+}
+
+type CalDayEntry =
+  | { kind: 'booking'; key: string; booking: Booking }
+  | { kind: 'compound'; key: string; block: CompoundBlock };
+
+function CompoundBlockGlyph({ size = 14 }: { size?: number }) {
+  return (
+    <span
+      className="adm-cal-compound-lock"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label="Blocked by compound listing rule"
+      title="Blocked (another unit booked)"
+    >
+      🔒
+    </span>
+  );
+}
+
 type OverviewCalendarProps = {
   units: { id: string; name: string; slug: string; propertyName: string }[];
   bookings: Booking[];
+  compoundBlocks: CompoundBlock[];
   selectedUnitIds: string[];
   onSelectedUnitIds: (ids: string[]) => void;
   viewMonth: Date;
@@ -769,6 +804,7 @@ type OverviewCalendarProps = {
 function OverviewBookingCalendar({
   units,
   bookings,
+  compoundBlocks,
   selectedUnitIds,
   onSelectedUnitIds,
   viewMonth,
@@ -809,6 +845,41 @@ function OverviewBookingCalendar({
   const unitBookings = bookings.filter(
     (b) => b.rentableUnit?.id && selectedSet.has(b.rentableUnit.id) && b.status !== 'CANCELLED',
   );
+  const unitCompoundBlocks = compoundBlocks.filter(
+    (cb) => cb.rentableUnit?.id && selectedSet.has(cb.rentableUnit.id),
+  );
+
+  const entriesForDay = (dayNum: number): CalDayEntry[] => {
+    const day = new Date(year, month, dayNum);
+    const bookingEntries: CalDayEntry[] = unitBookings
+      .filter((b) => bookingOccupiesNight(b, day))
+      .map((b) => ({ kind: 'booking' as const, key: `b-${b.id}`, booking: b }));
+    const bookedIds = new Set(
+      bookingEntries.map((e) => (e.kind === 'booking' ? e.booking.id : '')),
+    );
+    const compoundEntries: CalDayEntry[] = unitCompoundBlocks
+      .filter((cb) => compoundBlockOccupiesNight(cb, day) && !bookedIds.has(cb.booking.id))
+      .map((cb) => ({ kind: 'compound' as const, key: `c-${cb.id}`, block: cb }));
+    const merged = [...bookingEntries, ...compoundEntries];
+    if (!showMultipleUnits || merged.length < 2) return merged;
+    return [...merged].sort((a, b) => {
+      const unitA =
+        a.kind === 'booking' ? a.booking.rentableUnit?.name ?? '' : a.block.rentableUnit?.name ?? '';
+      const unitB =
+        b.kind === 'booking' ? b.booking.rentableUnit?.name ?? '' : b.block.rentableUnit?.name ?? '';
+      return unitA.localeCompare(unitB);
+    });
+  };
+
+  const pickEntry = (entry: CalDayEntry) => {
+    onPickBooking(entry.kind === 'booking' ? entry.booking : entry.block.booking);
+  };
+
+  const entryLabel = (entry: CalDayEntry): string => {
+    if (entry.kind === 'booking') return formatBookingGuestDisplay(entry.booking);
+    const src = entry.block.booking.rentableUnit?.name ?? 'another unit';
+    return `Blocked — ${src} booked`;
+  };
 
   const toggleUnit = (id: string, checked: boolean) => {
     if (checked) {
@@ -830,16 +901,7 @@ function OverviewBookingCalendar({
 
   const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const bookingsForDay = (dayNum: number) => {
-    const day = new Date(year, month, dayNum);
-    const list = unitBookings.filter((b) => bookingOccupiesNight(b, day));
-    if (!showMultipleUnits || list.length < 2) return list;
-    return [...list].sort(
-      (a, b) =>
-        (a.rentableUnit?.name ?? '').localeCompare(b.rentableUnit?.name ?? '') ||
-        new Date(a.checkInUtc).getTime() - new Date(b.checkInUtc).getTime(),
-    );
-  };
+  const bookingsForDay = (dayNum: number) => entriesForDay(dayNum);
 
   const monthTitle = viewMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
@@ -849,7 +911,8 @@ function OverviewBookingCalendar({
         <div>
           <h2 className="adm-card-title">Units calendar</h2>
           <p className="adm-cal-sub">
-            Compact source icons per day — hover for a booking list; click a row for full details. One booking on a day opens details directly when you click the icons.
+            Compact source icons per day — hover for a booking list; click a row for full details.{' '}
+            <span className="adm-cal-compound-hint">🔒</span> = blocked because another compound unit is booked (Full Farm ↔ villa).
           </p>
         </div>
       </div>
@@ -954,7 +1017,7 @@ function OverviewBookingCalendar({
                           <>
                             <button
                               type="button"
-                              className={`adm-cal-day-trigger${list.length === 0 ? ' adm-cal-day-trigger--empty' : ''}`}
+                              className={`adm-cal-day-trigger${list.length === 0 ? ' adm-cal-day-trigger--empty' : list.every((e) => e.kind === 'compound') ? ' adm-cal-day-trigger--compound' : ''}`}
                               disabled={list.length === 0}
                               aria-haspopup={list.length > 1 ? 'menu' : undefined}
                               aria-expanded={list.length > 1 ? pinned : undefined}
@@ -963,14 +1026,14 @@ function OverviewBookingCalendar({
                                 list.length === 0
                                   ? `${ariaDay}: no bookings`
                                   : list.length === 1
-                                    ? `${ariaDay}: ${formatBookingGuestDisplay(list[0])}, open booking details`
-                                    : `${ariaDay}: ${list.length} bookings — hover or tap for list; tap again to close`
+                                    ? `${ariaDay}: ${entryLabel(list[0])}, open details`
+                                    : `${ariaDay}: ${list.length} items — hover or tap for list; tap again to close`
                               }
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (list.length === 0) return;
                                 if (list.length === 1) {
-                                  onPickBooking(list[0]);
+                                  pickEntry(list[0]);
                                   setPinnedDayKey(null);
                                   return;
                                 }
@@ -984,9 +1047,13 @@ function OverviewBookingCalendar({
                               ) : (
                                 <>
                                   <span className="adm-cal-day-trigger-icons" aria-hidden>
-                                    {list.slice(0, 3).map((b, i) => (
-                                      <span key={b.id} className="adm-cal-day-trigger-icon" style={{ zIndex: 3 - i }}>
-                                        <BookingSourceGlyph b={b} size={14} />
+                                    {list.slice(0, 3).map((entry, i) => (
+                                      <span key={entry.key} className="adm-cal-day-trigger-icon" style={{ zIndex: 3 - i }}>
+                                        {entry.kind === 'booking' ? (
+                                          <BookingSourceGlyph b={entry.booking} size={14} />
+                                        ) : (
+                                          <CompoundBlockGlyph size={14} />
+                                        )}
                                       </span>
                                     ))}
                                   </span>
@@ -1005,35 +1072,69 @@ function OverviewBookingCalendar({
                                 <div className="adm-cal-day-panel-head">
                                   {viewMonth.toLocaleDateString('en-IN', { month: 'short' })} {c.dayNum}
                                 </div>
-                                {list.map((b) => {
-                                  const unitLabel = b.rentableUnit?.name ?? '';
+                                {list.map((entry) => {
+                                  if (entry.kind === 'booking') {
+                                    const b = entry.booking;
+                                    const unitLabel = b.rentableUnit?.name ?? '';
+                                    return (
+                                      <button
+                                        key={entry.key}
+                                        type="button"
+                                        role={list.length > 1 ? 'menuitem' : undefined}
+                                        className="adm-cal-day-panel-row"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          pickEntry(entry);
+                                          setPinnedDayKey(null);
+                                        }}
+                                      >
+                                        <span className="adm-cal-day-panel-row-icon">
+                                          <BookingSourceGlyph b={b} size={16} />
+                                        </span>
+                                        <span className="adm-cal-day-panel-row-text">
+                                          <span className="adm-cal-day-panel-guest">{formatBookingGuestDisplay(b)}</span>
+                                          {showMultipleUnits && unitLabel ? (
+                                            <span className="adm-cal-day-panel-unit">{unitLabel}</span>
+                                          ) : null}
+                                          <span className="adm-cal-day-panel-dates">
+                                            {fmtDay(b.checkInUtc)} → {fmtDay(b.checkOutUtc)}
+                                          </span>
+                                        </span>
+                                        {b.status === 'PENDING' ? (
+                                          <span className="adm-cal-day-panel-pending">Pending</span>
+                                        ) : null}
+                                      </button>
+                                    );
+                                  }
+                                  const cb = entry.block;
+                                  const srcUnit = cb.booking.rentableUnit?.name ?? 'Another unit';
+                                  const unitLabel = cb.rentableUnit?.name ?? '';
                                   return (
                                     <button
-                                      key={b.id}
+                                      key={entry.key}
                                       type="button"
                                       role={list.length > 1 ? 'menuitem' : undefined}
-                                      className="adm-cal-day-panel-row"
+                                      className="adm-cal-day-panel-row adm-cal-day-panel-row--compound"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        onPickBooking(b);
+                                        pickEntry(entry);
                                         setPinnedDayKey(null);
                                       }}
                                     >
                                       <span className="adm-cal-day-panel-row-icon">
-                                        <BookingSourceGlyph b={b} size={16} />
+                                        <CompoundBlockGlyph size={16} />
                                       </span>
                                       <span className="adm-cal-day-panel-row-text">
-                                        <span className="adm-cal-day-panel-guest">{formatBookingGuestDisplay(b)}</span>
+                                        <span className="adm-cal-day-panel-guest adm-cal-day-panel-compound-label">
+                                          Blocked — {srcUnit} booked
+                                        </span>
                                         {showMultipleUnits && unitLabel ? (
                                           <span className="adm-cal-day-panel-unit">{unitLabel}</span>
                                         ) : null}
                                         <span className="adm-cal-day-panel-dates">
-                                          {fmtDay(b.checkInUtc)} → {fmtDay(b.checkOutUtc)}
+                                          {formatBookingGuestDisplay(cb.booking)} · {fmtDay(cb.startsAtUtc)} → {fmtDay(cb.endsAtUtc)}
                                         </span>
                                       </span>
-                                      {b.status === 'PENDING' ? (
-                                        <span className="adm-cal-day-panel-pending">Pending</span>
-                                      ) : null}
                                     </button>
                                   );
                                 })}
@@ -1106,6 +1207,7 @@ export default function OrgAdminPage() {
   const [dash, setDash]           = useState<DashStats | null>(null);
   const [properties, setProps]    = useState<Property[]>([]);
   const [bookings, setBookings]   = useState<Booking[]>([]);
+  const [compoundBlocks, setCompoundBlocks] = useState<CompoundBlock[]>([]);
   const [reviews, setReviews]     = useState<GuestReview[]>([]);
   const [reviewsMeta, setReviewsMeta] = useState<{ lastExternalReviewsSyncAt: string | null }>({
     lastExternalReviewsSyncAt: null,
@@ -1271,12 +1373,15 @@ export default function OrgAdminPage() {
   );
   const loadBk = useCallback(
     async (silentNetwork?: boolean): Promise<boolean> => {
-      const d = await apiFetch<{ bookings: Booking[] }>(
+      const d = await apiFetch<{ bookings: Booking[]; compoundBlocks?: CompoundBlock[] }>(
         `${base}/bookings`,
         undefined,
         { silentNetwork: !!silentNetwork },
       );
-      if (d) setBookings(d.bookings);
+      if (d) {
+        setBookings(d.bookings);
+        setCompoundBlocks(Array.isArray(d.compoundBlocks) ? d.compoundBlocks : []);
+      }
       return d != null;
     },
     [apiFetch, base],
@@ -1689,6 +1794,7 @@ export default function OrgAdminPage() {
       <OverviewBookingCalendar
         units={allUnits.map((u) => ({ id: u.id, name: u.name, slug: u.slug, propertyName: u.propertyName }))}
         bookings={bookings}
+        compoundBlocks={compoundBlocks}
         selectedUnitIds={overviewCalUnitIds}
         onSelectedUnitIds={setOverviewCalUnitIds}
         viewMonth={overviewCalMonth}

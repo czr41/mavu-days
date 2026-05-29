@@ -5355,6 +5355,35 @@ img { max-width: 100%; }
   opacity: 0.35;
 }
 
+.adm-cal-day-trigger--compound {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fcd34d;
+}
+
+.adm-cal-compound-lock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+.adm-cal-compound-hint {
+  font-size: 0.82em;
+}
+
+.adm-cal-day-panel-row--compound {
+  background: #fffbeb;
+}
+
+.adm-cal-day-panel-compound-label {
+  color: #92400e;
+  font-weight: 700;
+}
+
 .adm-cal-day-trigger-placeholder {
   font-size: 0.68rem;
   color: #d1d5db;
