@@ -1056,7 +1056,10 @@ function OverviewBookingCalendar({
 
 function alertDisplayText(a: Alert): string {
   const t = (a.message ?? a.summary ?? '').trim();
-  return t.length > 0 ? t : 'Calendar or booking conflict — review Bookings and Host & Airbnb.';
+  if (t.length > 0) {
+    return `${t} — Usually from an old calendar import overlapping another unit (Full Farm ↔ villa). Safe to dismiss if your bookings look correct.`;
+  }
+  return 'Calendar or booking conflict — review Bookings and Host & Airbnb.';
 }
 
 function fmtDate(d: string) {
@@ -1140,9 +1143,13 @@ export default function OrgAdminPage() {
     guestEmail: '',
   });
   const [bookingGuestSaving, setBookingGuestSaving] = useState(false);
+  const [bookingGuestSaveNote, setBookingGuestSaveNote] = useState<{ ok: boolean; text: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!overviewBookingDetail) return;
+    setBookingGuestSaveNote(null);
     setBookingGuestEdit({
       guestName: overviewBookingDetail.guestName ?? '',
       guestPhone: overviewBookingDetail.guestPhone ?? '',
@@ -1527,6 +1534,7 @@ export default function OrgAdminPage() {
       links: number;
       errors: number;
       sharedInboundFeeds?: { unitNames: string[] }[];
+      staleAlertsDismissed?: number;
     }>(`${base}/channels/sync-ical`, { method: 'POST', body: '{}' });
     setBusy(false);
     if (!r) return;
@@ -1551,7 +1559,11 @@ export default function OrgAdminPage() {
       );
       return;
     }
-    notify(`Sync complete: ${r.links} feed(s), ${r.updated} updated, ${r.removed} removed.`);
+    const cleared =
+      'staleAlertsDismissed' in r && typeof r.staleAlertsDismissed === 'number' && r.staleAlertsDismissed > 0
+        ? ` Cleared ${String(r.staleAlertsDismissed)} old clash alert(s).`
+        : '';
+    notify(`Sync complete: ${r.links} feed(s), ${r.updated} updated, ${r.removed} removed.${cleared}`);
   }, [base, apiFetch, loadProps, notify]);
 
   /* ─── Overview ─── */
@@ -1610,9 +1622,15 @@ export default function OrgAdminPage() {
             type="button"
             className="adm-btn adm-btn-ghost adm-btn-sm"
             onClick={async () => {
-              await apiFetch(`${base}/conflict-alerts/dismiss-all`, { method: 'POST' });
+              const r = await apiFetch<{ dismissed?: number }>(`${base}/conflict-alerts/dismiss-all`, {
+                method: 'POST',
+              });
               await loadDash();
-              notify('All alerts dismissed.');
+              notify(
+                r?.dismissed != null
+                  ? `Dismissed ${String(r.dismissed)} alert(s).`
+                  : 'All alerts dismissed.',
+              );
             }}
           >
             Dismiss all alerts
@@ -4186,6 +4204,15 @@ export default function OrgAdminPage() {
                     />
                   </div>
                 </div>
+                {bookingGuestSaveNote ? (
+                  <p
+                    className={`adm-alert ${bookingGuestSaveNote.ok ? 'adm-alert-success' : 'adm-alert-error'}`}
+                    style={{ marginTop: '0.75rem', marginBottom: 0 }}
+                    role="status"
+                  >
+                    {bookingGuestSaveNote.text}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   className="adm-btn adm-btn-primary adm-btn-sm"
@@ -4193,6 +4220,7 @@ export default function OrgAdminPage() {
                   disabled={bookingGuestSaving}
                   onClick={async () => {
                     setBookingGuestSaving(true);
+                    setBookingGuestSaveNote(null);
                     const r = await apiFetch<{ booking: Booking }>(
                       `${base}/bookings/${overviewBookingDetail.id}`,
                       {
@@ -4205,14 +4233,22 @@ export default function OrgAdminPage() {
                       },
                     );
                     setBookingGuestSaving(false);
-                    if (!r) return;
+                    if (!r) {
+                      setBookingGuestSaveNote({
+                        ok: false,
+                        text: 'Could not save — check your connection or try again.',
+                      });
+                      return;
+                    }
                     setOverviewBookingDetail(r.booking);
                     setBookings((prev) => prev.map((x) => (x.id === r.booking.id ? { ...x, ...r.booking } : x)));
                     await loadDash();
+                    await loadBk();
+                    setBookingGuestSaveNote({ ok: true, text: 'Guest details saved.' });
                     notify('Guest details saved.');
                   }}
                 >
-                  Save guest details
+                  {bookingGuestSaving ? 'Saving…' : 'Save guest details'}
                 </button>
               </div>
               {overviewBookingDetail.note ? (

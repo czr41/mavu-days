@@ -78,9 +78,9 @@ export async function upsertConfirmedBooking(
   });
 
   if (clash.hasConflict) {
+    /** iCal import clashes on compound SKUs (1BHK vs Full Farm) are expected — do not spam alerts. */
     const isIcalIngest = params.externalProvider === ICAL_INGEST_PROVIDER;
-    const compoundMirrorOnly = isIcalIngest && clash.bookingCount === 0 && clash.blockCount > 0;
-    if (!compoundMirrorOnly) {
+    if (!isIcalIngest) {
       await prisma.conflictAlert.create({
         data: {
           organizationId: params.organizationId,

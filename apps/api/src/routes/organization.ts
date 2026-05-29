@@ -660,7 +660,19 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       app.prisma,
       m.organizationId,
     );
-    return reply.send({ ...result, compoundBlocksRefreshed });
+    const staleAlertsDismissed = await app.prisma.conflictAlert.updateMany({
+      where: {
+        organizationId: m.organizationId,
+        dismissedAt: null,
+        summary: 'Booking clashes with existing hold or reservation',
+      },
+      data: { dismissedAt: new Date() },
+    });
+    return reply.send({
+      ...result,
+      compoundBlocksRefreshed,
+      staleAlertsDismissed: staleAlertsDismissed.count,
+    });
   });
 
   app.get('/orgs/:orgSlug/bookings', async (req, reply) => {
@@ -742,13 +754,13 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   });
 
   app.patch('/orgs/:orgSlug/bookings/:bookingId', async (req, reply) => {
-    const m = await membershipForRoles(app, req, reply, opsRoles);
+    const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const bookingId = (req.params as { bookingId: string }).bookingId;
     const body = z
       .object({
         guestName: z.string().max(200).nullable().optional(),
-        guestEmail: z.string().email().nullable().optional(),
+        guestEmail: z.union([z.string().email(), z.literal(''), z.null()]).optional(),
         guestPhone: z.string().max(40).nullable().optional(),
         note: z.string().max(4000).nullable().optional(),
         travellingWithPets: z.boolean().nullable().optional(),
@@ -767,7 +779,10 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     if (body.data.guestName !== undefined) {
       data.guestName = body.data.guestName === null ? null : body.data.guestName.trim() || null;
     }
-    if (body.data.guestEmail !== undefined) data.guestEmail = body.data.guestEmail;
+    if (body.data.guestEmail !== undefined) {
+      data.guestEmail =
+        body.data.guestEmail === null || body.data.guestEmail === '' ? null : body.data.guestEmail;
+    }
     if (body.data.guestPhone !== undefined) {
       data.guestPhone = body.data.guestPhone === null ? null : body.data.guestPhone.trim() || null;
     }
@@ -835,7 +850,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   });
 
   app.post('/orgs/:orgSlug/conflict-alerts/:alertId/dismiss', async (req, reply) => {
-    const m = await membershipForRoles(app, req, reply, opsRoles);
+    const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const alertId = (req.params as { alertId: string }).alertId;
     await app.prisma.conflictAlert.updateMany({
@@ -846,7 +861,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
   });
 
   app.post('/orgs/:orgSlug/conflict-alerts/dismiss-all', async (req, reply) => {
-    const m = await membershipForRoles(app, req, reply, opsRoles);
+    const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const r = await app.prisma.conflictAlert.updateMany({
       where: { organizationId: m.organizationId, dismissedAt: null },
