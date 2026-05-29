@@ -9,6 +9,7 @@ import {
 import type { NotificationPublisher } from '../notifications/publisher.js';
 import { compoundMirrorBlockUnitIds } from '../services/landing-availability-matrix.js';
 import { conflictingUnitFootprint, detectAvailabilityConflicts } from '../services/availability.js';
+import { ICAL_INGEST_PROVIDER } from '../lib/ical-ingest.js';
 
 /** BOOKING blocks on the booked SKU plus compound mirrors (Full Farm ↔ villas, not 1BHK ↔ 2BHK). */
 async function upsertBookingAvailabilityBlocks(
@@ -77,15 +78,19 @@ export async function upsertConfirmedBooking(
   });
 
   if (clash.hasConflict) {
-    await prisma.conflictAlert.create({
-      data: {
-        organizationId: params.organizationId,
-        summary: 'Booking clashes with existing hold or reservation',
-        rentableUnitId: params.rentableUnitId,
-        severity: 'blocking',
-        detailJson: clash,
-      },
-    });
+    const isIcalIngest = params.externalProvider === ICAL_INGEST_PROVIDER;
+    const compoundMirrorOnly = isIcalIngest && clash.bookingCount === 0 && clash.blockCount > 0;
+    if (!compoundMirrorOnly) {
+      await prisma.conflictAlert.create({
+        data: {
+          organizationId: params.organizationId,
+          summary: 'Booking clashes with existing hold or reservation',
+          rentableUnitId: params.rentableUnitId,
+          severity: 'blocking',
+          detailJson: clash,
+        },
+      });
+    }
     return { ok: false as const, clash };
   }
 
@@ -96,7 +101,9 @@ export async function upsertConfirmedBooking(
           data: {
             checkInUtc: params.checkInUtc,
             checkOutUtc: params.checkOutUtc,
-            guestName: params.guestName,
+            ...(params.guestName != null && params.guestName !== ''
+              ? { guestName: params.guestName }
+              : {}),
             guestEmail: params.guestEmail,
             guestPhone: params.guestPhone,
             note: params.note,

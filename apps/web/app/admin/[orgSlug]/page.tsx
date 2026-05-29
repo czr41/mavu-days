@@ -562,13 +562,24 @@ function startOfLocalDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-function bookingOverlapsLocalDay(b: Booking, day: Date): boolean {
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function isoToLocalDateKey(iso: string): string {
+  return localDateKey(new Date(iso));
+}
+
+/** Night is occupied when check-in <= night < check-out (checkout morning is free). */
+function bookingOccupiesNight(b: Booking, day: Date): boolean {
   if (b.status === 'CANCELLED') return false;
-  const ci = new Date(b.checkInUtc).getTime();
-  const co = new Date(b.checkOutUtc).getTime();
-  const s = startOfLocalDay(day).getTime();
-  const e = s + 86400000;
-  return ci < e && co > s;
+  const night = localDateKey(day);
+  const checkIn = isoToLocalDateKey(b.checkInUtc);
+  const checkOut = isoToLocalDateKey(b.checkOutUtc);
+  return night >= checkIn && night < checkOut;
 }
 
 /** First colon-delimited segment of `externalId`: `CHANNEL:linkId:eventUid`. */
@@ -821,7 +832,7 @@ function OverviewBookingCalendar({
 
   const bookingsForDay = (dayNum: number) => {
     const day = new Date(year, month, dayNum);
-    const list = unitBookings.filter((b) => bookingOverlapsLocalDay(b, day));
+    const list = unitBookings.filter((b) => bookingOccupiesNight(b, day));
     if (!showMultipleUnits || list.length < 2) return list;
     return [...list].sort(
       (a, b) =>
@@ -1123,6 +1134,21 @@ export default function OrgAdminPage() {
   const [overviewCalUnitIds, setOverviewCalUnitIds] = useState<string[]>([]);
   const overviewCalInitRef = useRef(false);
   const [overviewBookingDetail, setOverviewBookingDetail] = useState<Booking | null>(null);
+  const [bookingGuestEdit, setBookingGuestEdit] = useState({
+    guestName: '',
+    guestPhone: '',
+    guestEmail: '',
+  });
+  const [bookingGuestSaving, setBookingGuestSaving] = useState(false);
+
+  useEffect(() => {
+    if (!overviewBookingDetail) return;
+    setBookingGuestEdit({
+      guestName: overviewBookingDetail.guestName ?? '',
+      guestPhone: overviewBookingDetail.guestPhone ?? '',
+      guestEmail: overviewBookingDetail.guestEmail ?? '',
+    });
+  }, [overviewBookingDetail?.id, overviewBookingDetail?.guestName, overviewBookingDetail?.guestPhone, overviewBookingDetail?.guestEmail]);
 
   const tok = useCallback(() => localStorage.getItem('mavu_token') ?? '', []);
   const ah = useCallback(
@@ -1883,7 +1909,7 @@ export default function OrgAdminPage() {
                 <thead><tr><th>Guest</th><th>Unit</th><th>Check-in</th><th>Check-out</th><th>Source</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                   {bookings.map(b=>(
-                    <tr key={b.id}>
+                    <tr key={b.id} onClick={() => setOverviewBookingDetail(b)} style={{ cursor: 'pointer' }}>
                       <td>
                         <strong>{formatBookingGuestDisplay(b)}</strong>
                         {b.guestEmail ? <><br/><span style={{fontSize:'0.78rem',color:'#6B7280'}}>{b.guestEmail}</span></> : null}
@@ -1898,7 +1924,7 @@ export default function OrgAdminPage() {
                       <td>{fmtDate(b.checkOutUtc)}</td>
                       <td><span className="adm-badge adm-badge-blue">{b.source}</span></td>
                       <td><StatusBadge s={b.status}/></td>
-                      <td>{b.status==='PENDING'&&<ConfirmBtn id={b.id} base={base} apiFetch={apiFetch} reload={async()=>{await loadDash();await loadBk();}} notify={notify}/>}</td>
+                      <td>{b.status==='PENDING'&&<span onClick={(e) => e.stopPropagation()}><ConfirmBtn id={b.id} base={base} apiFetch={apiFetch} reload={async()=>{await loadDash();await loadBk();}} notify={notify}/></span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -4118,21 +4144,77 @@ export default function OrgAdminPage() {
                   <BookingSourceGlyph b={overviewBookingDetail} size={18} /> {bookingChannelLabel(overviewBookingDetail)}
                 </span>
               </p>
-              {overviewBookingDetail.guestEmail ? (
-                <p style={{ margin: '0 0 0.35rem', fontSize: '0.875rem' }}>
-                  <strong>Email</strong> — {overviewBookingDetail.guestEmail}
-                </p>
-              ) : null}
-              {overviewBookingDetail.guestPhone ? (
-                <p style={{ margin: '0 0 0.35rem', fontSize: '0.875rem' }}>
-                  <strong>Phone</strong> — {overviewBookingDetail.guestPhone}
-                </p>
-              ) : null}
               {overviewBookingDetail.guestCount != null ? (
-                <p style={{ margin: '0 0 0.35rem', fontSize: '0.875rem' }}>
+                <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem' }}>
                   <strong>Guests</strong> — {overviewBookingDetail.guestCount}
                 </p>
               ) : null}
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  paddingTop: '0.75rem',
+                  borderTop: '1px solid #E5E7EB',
+                }}
+              >
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.84rem', color: '#6B7280' }}>
+                  Guest details (Airbnb exports often hide names — add or correct here).
+                </p>
+                <div className="adm-form-grid">
+                  <div className="adm-field adm-field-full">
+                    <label className="adm-label">Guest name</label>
+                    <input
+                      className="adm-input"
+                      value={bookingGuestEdit.guestName}
+                      onChange={(e) => setBookingGuestEdit((s) => ({ ...s, guestName: e.target.value }))}
+                    />
+                  </div>
+                  <div className="adm-field">
+                    <label className="adm-label">Phone</label>
+                    <input
+                      className="adm-input"
+                      value={bookingGuestEdit.guestPhone}
+                      onChange={(e) => setBookingGuestEdit((s) => ({ ...s, guestPhone: e.target.value }))}
+                    />
+                  </div>
+                  <div className="adm-field">
+                    <label className="adm-label">Email</label>
+                    <input
+                      className="adm-input"
+                      type="email"
+                      value={bookingGuestEdit.guestEmail}
+                      onChange={(e) => setBookingGuestEdit((s) => ({ ...s, guestEmail: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="adm-btn adm-btn-primary adm-btn-sm"
+                  style={{ marginTop: '0.75rem' }}
+                  disabled={bookingGuestSaving}
+                  onClick={async () => {
+                    setBookingGuestSaving(true);
+                    const r = await apiFetch<{ booking: Booking }>(
+                      `${base}/bookings/${overviewBookingDetail.id}`,
+                      {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                          guestName: bookingGuestEdit.guestName.trim() || null,
+                          guestPhone: bookingGuestEdit.guestPhone.trim() || null,
+                          guestEmail: bookingGuestEdit.guestEmail.trim() || null,
+                        }),
+                      },
+                    );
+                    setBookingGuestSaving(false);
+                    if (!r) return;
+                    setOverviewBookingDetail(r.booking);
+                    setBookings((prev) => prev.map((x) => (x.id === r.booking.id ? { ...x, ...r.booking } : x)));
+                    await loadDash();
+                    notify('Guest details saved.');
+                  }}
+                >
+                  Save guest details
+                </button>
+              </div>
               {overviewBookingDetail.note ? (
                 <p style={{ margin: '0.75rem 0 0', fontSize: '0.84rem', color: '#4B5563', whiteSpace: 'pre-wrap' }}>
                   <strong>Note</strong> — {overviewBookingDetail.note}

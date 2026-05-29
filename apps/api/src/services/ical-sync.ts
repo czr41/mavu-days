@@ -3,8 +3,7 @@ import { IcalChannelConnector } from '@mavu/channels-ical';
 import type { NotificationPublisher } from '../notifications/publisher.js';
 import { upsertConfirmedBooking } from '../services/booking-flow.js';
 
-/** Bookings created from inbound `.ics` pulls (Airbnb export, Booking.com export, …). */
-export const ICAL_INGEST_PROVIDER = 'ical-ingest';
+import { ICAL_INGEST_PROVIDER } from '../lib/ical-ingest.js';
 
 const connector = new IcalChannelConnector();
 
@@ -23,14 +22,26 @@ function extractGuestFromIcsDescription(desc: string | undefined): string | null
   return null;
 }
 
-function guestNameFromIcalEvent(ev: { summary?: string; description?: string }): string {
+function parseAirbnbSummaryName(summary: string): string | null {
+  const t = summary.trim();
+  const plus = t.match(/^(.+?)\s+\+\s*\d+\s*$/);
+  if (plus) {
+    const name = plus[1]!.trim();
+    if (name.length >= 2 && !/^reserved$/i.test(name)) return name;
+  }
+  return null;
+}
+
+function guestNameFromIcalEvent(ev: { summary?: string; description?: string }): string | null {
   const fromDesc = extractGuestFromIcsDescription(ev.description);
   if (fromDesc) return fromDesc;
   const s = (ev.summary ?? '').trim();
-  if (!s) return 'Guest (calendar import)';
-  if (/^reserved$/i.test(s)) return 'Guest (Airbnb — name not in export)';
-  if (/airbnb/i.test(s) && /not\s*available/i.test(s)) return 'Guest (Airbnb — name not in export)';
-  if (/not\s*available/i.test(s)) return 'Guest (calendar — name not in export)';
+  const fromSummary = s ? parseAirbnbSummaryName(s) : null;
+  if (fromSummary) return fromSummary;
+  if (!s) return null;
+  if (/^reserved$/i.test(s)) return null;
+  if (/airbnb/i.test(s) && /not\s*available/i.test(s)) return null;
+  if (/not\s*available/i.test(s)) return null;
   return s;
 }
 

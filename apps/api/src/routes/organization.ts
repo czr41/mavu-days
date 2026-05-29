@@ -741,6 +741,49 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     return reply.send({ booking: row });
   });
 
+  app.patch('/orgs/:orgSlug/bookings/:bookingId', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const bookingId = (req.params as { bookingId: string }).bookingId;
+    const body = z
+      .object({
+        guestName: z.string().max(200).nullable().optional(),
+        guestEmail: z.string().email().nullable().optional(),
+        guestPhone: z.string().max(40).nullable().optional(),
+        note: z.string().max(4000).nullable().optional(),
+        travellingWithPets: z.boolean().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    if (Object.keys(body.data).length === 0) {
+      return reply.status(400).send({ error: 'No fields to update' });
+    }
+    const exists = await app.prisma.booking.findFirst({
+      where: { id: bookingId, organizationId: m.organizationId },
+    });
+    if (!exists) return reply.status(404).send({ error: 'Booking not found' });
+
+    const data: Prisma.BookingUpdateInput = {};
+    if (body.data.guestName !== undefined) {
+      data.guestName = body.data.guestName === null ? null : body.data.guestName.trim() || null;
+    }
+    if (body.data.guestEmail !== undefined) data.guestEmail = body.data.guestEmail;
+    if (body.data.guestPhone !== undefined) {
+      data.guestPhone = body.data.guestPhone === null ? null : body.data.guestPhone.trim() || null;
+    }
+    if (body.data.note !== undefined) {
+      data.note = body.data.note === null ? null : body.data.note.trim() || null;
+    }
+    if (body.data.travellingWithPets !== undefined) data.travellingWithPets = body.data.travellingWithPets;
+
+    const booking = await app.prisma.booking.update({
+      where: { id: bookingId },
+      data,
+      include: { rentableUnit: true },
+    });
+    return reply.send({ booking });
+  });
+
   app.post('/orgs/:orgSlug/availability-blocks', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, [
       MembershipRole.OWNER,
