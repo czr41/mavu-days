@@ -15,7 +15,7 @@ import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-plat
 import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
 import { stayGallerySlotsFromUnknown, stayGalleryUrlsFromUnknown } from '@mavu/contracts';
 import { formatBookingGuestDisplay } from '@/lib/booking-display';
-import { mergeCompoundBlocks } from '@/lib/compound-calendar';
+import { mergeCompoundBlocks, type CompoundBlock } from '@/lib/compound-calendar';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -757,22 +757,14 @@ function BookingSourceGlyph({ b, size = 18 }: { b: Booking; size?: number }) {
   );
 }
 
-type CompoundBlock = {
-  id: string;
-  startsAtUtc: string;
-  endsAtUtc: string;
-  rentableUnit: { id: string; name: string; slug: string };
-  booking: Booking;
-};
-
-/** Night is occupied when block start <= night < block end (checkout morning free). */
-function compoundBlockOccupiesNight(block: CompoundBlock, day: Date): boolean {
-  return bookingOccupiesNight(block.booking, day);
-}
-
 type CalDayEntry =
   | { kind: 'booking'; key: string; booking: Booking }
-  | { kind: 'compound'; key: string; block: CompoundBlock };
+  | { kind: 'compound'; key: string; block: CompoundBlock<Booking> };
+
+/** Night is occupied when block start <= night < block end (checkout morning free). */
+function compoundBlockOccupiesNight(block: CompoundBlock<Booking>, day: Date): boolean {
+  return bookingOccupiesNight(block.booking, day);
+}
 
 function CompoundBlockGlyph({ size = 14 }: { size?: number }) {
   return (
@@ -791,7 +783,7 @@ function CompoundBlockGlyph({ size = 14 }: { size?: number }) {
 type OverviewCalendarProps = {
   units: { id: string; name: string; slug: string; propertyName: string; matrixRole?: string }[];
   bookings: Booking[];
-  compoundBlocks: CompoundBlock[];
+  compoundBlocks: CompoundBlock<Booking>[];
   selectedUnitIds: string[];
   onSelectedUnitIds: (ids: string[]) => void;
   viewMonth: Date;
@@ -859,9 +851,12 @@ function OverviewBookingCalendar({
     const compoundEntries: CalDayEntry[] = unitCompoundBlocks
       .filter((cb) => {
         if (!compoundBlockOccupiesNight(cb, day)) return false;
-        /** Skip mirror row only when this unit already shows the same booking directly. */
+        /** Skip only when this mirror unit already has the same booking row (not sibling units). */
         return !bookingEntries.some(
-          (e) => e.kind === 'booking' && e.booking.id === cb.booking.id,
+          (e) =>
+            e.kind === 'booking' &&
+            e.booking.id === cb.booking.id &&
+            e.booking.rentableUnit?.id === cb.rentableUnit.id,
         );
       })
       .map((cb) => ({ kind: 'compound' as const, key: `c-${cb.id}`, block: cb }));
@@ -1212,7 +1207,7 @@ export default function OrgAdminPage() {
   const [dash, setDash]           = useState<DashStats | null>(null);
   const [properties, setProps]    = useState<Property[]>([]);
   const [bookings, setBookings]   = useState<Booking[]>([]);
-  const [compoundBlocks, setCompoundBlocks] = useState<CompoundBlock[]>([]);
+  const [compoundBlocks, setCompoundBlocks] = useState<CompoundBlock<Booking>[]>([]);
   const [reviews, setReviews]     = useState<GuestReview[]>([]);
   const [reviewsMeta, setReviewsMeta] = useState<{ lastExternalReviewsSyncAt: string | null }>({
     lastExternalReviewsSyncAt: null,
@@ -1378,7 +1373,7 @@ export default function OrgAdminPage() {
   );
   const loadBk = useCallback(
     async (silentNetwork?: boolean): Promise<boolean> => {
-      const d = await apiFetch<{ bookings: Booking[]; compoundBlocks?: CompoundBlock[] }>(
+      const d = await apiFetch<{ bookings: Booking[]; compoundBlocks?: CompoundBlock<Booking>[] }>(
         `${base}/bookings`,
         undefined,
         { silentNetwork: !!silentNetwork },
@@ -1548,6 +1543,10 @@ export default function OrgAdminPage() {
 
   useEffect(() => {
     if (!slug) return;
+    if (tab === 'overview') {
+      void loadUnitListings();
+      return;
+    }
     if (tab === 'cms') {
       void loadCms();
       void loadSiteSettings();

@@ -12,23 +12,23 @@ export type CompoundCalendarBooking = {
   checkInUtc: string;
   checkOutUtc: string;
   status: string;
+  source: string;
   guestName: string | null;
-  guestEmail?: string | null;
-  guestPhone?: string | null;
-  guestCount?: number | null;
-  note?: string | null;
-  source?: string;
+  guestEmail: string | null;
+  guestPhone: string | null;
+  guestCount: number | null;
+  note: string | null;
   externalProvider?: string | null;
   externalId?: string | null;
   rentableUnit: { id: string; name: string; slug: string } | null;
 };
 
-export type CompoundBlock = {
+export type CompoundBlock<TBooking extends CompoundCalendarBooking = CompoundCalendarBooking> = {
   id: string;
   startsAtUtc: string;
   endsAtUtc: string;
   rentableUnit: { id: string; name: string; slug: string };
-  booking: CompoundCalendarBooking;
+  booking: TBooking;
 };
 
 const FULL_FARM_SLUGS = ['full-farm', 'full-farm-stay', 'fullfarm', 'mavu-full-farm'];
@@ -71,13 +71,13 @@ export function mirrorUnitIdsForBooking(
 }
 
 /** Build compound mirror blocks from active bookings (fallback if API omits them). */
-export function synthesizeCompoundBlocks(
-  bookings: CompoundCalendarBooking[],
+export function synthesizeCompoundBlocks<T extends CompoundCalendarBooking>(
+  bookings: T[],
   units: CompoundCalendarUnit[],
-): CompoundBlock[] {
+): CompoundBlock<T>[] {
   const matrix = resolveCompoundMatrixIds(units);
   const unitById = new Map(units.map((u) => [u.id, u]));
-  const out: CompoundBlock[] = [];
+  const out: CompoundBlock<T>[] = [];
 
   for (const b of bookings) {
     if (b.status === 'CANCELLED' || !b.rentableUnit?.id) continue;
@@ -97,10 +97,14 @@ export function synthesizeCompoundBlocks(
 }
 
 /** Merge API compound blocks with client synthesis; API rows win on id collision. */
-export function mergeCompoundBlocks(apiBlocks: CompoundBlock[], bookings: CompoundCalendarBooking[], units: CompoundCalendarUnit[]): CompoundBlock[] {
+export function mergeCompoundBlocks<T extends CompoundCalendarBooking>(
+  apiBlocks: CompoundBlock<T>[],
+  bookings: T[],
+  units: CompoundCalendarUnit[],
+): CompoundBlock<T>[] {
   const synthesized = synthesizeCompoundBlocks(bookings, units);
-  const key = (cb: CompoundBlock) => `${cb.booking.id}:${cb.rentableUnit.id}`;
-  const byKey = new Map<string, CompoundBlock>();
+  const key = (cb: CompoundBlock<T>) => `${cb.booking.id}:${cb.rentableUnit.id}`;
+  const byKey = new Map<string, CompoundBlock<T>>();
   for (const cb of synthesized) byKey.set(key(cb), cb);
   for (const cb of apiBlocks) byKey.set(key(cb), cb);
   return [...byKey.values()];
