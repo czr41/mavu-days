@@ -26,8 +26,8 @@ function parseAirbnbSummaryName(summary: string): string | null {
   const t = summary.trim();
   const plus = t.match(/^(.+?)\s+\+\s*\d+\s*$/);
   if (plus) {
-    const name = plus[1]!.trim();
-    if (name.length >= 2 && !/^reserved$/i.test(name)) return name;
+    const name = plus[1]?.trim();
+    if (name && name.length >= 2 && !/^reserved$/i.test(name)) return name;
   }
   return null;
 }
