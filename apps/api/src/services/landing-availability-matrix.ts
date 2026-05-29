@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 
 import { landingOfferActiveOnDateClause, utcTodayDateOnly } from '../lib/landing-offer-calendar.js';
 import { RentableUnitMatrixRole } from '@prisma/client';
@@ -46,8 +46,11 @@ function legacySlugResolve(units: { id: string; slug: string }[]) {
   };
 }
 
+/** Prisma client or interactive transaction — both expose the same model delegates. */
+type DbClient = PrismaClient | Prisma.TransactionClient;
+
 /** Resolve matrix SKU ids: prefer `RentableUnitListing.matrixRole`, then slug aliases. */
-export async function resolveLandingUnitIds(prisma: PrismaClient, organizationId: string) {
+export async function resolveLandingUnitIds(prisma: DbClient, organizationId: string) {
   const units = await prisma.rentableUnit.findMany({
     where: { property: { organizationId } },
     select: {
@@ -86,7 +89,7 @@ export async function resolveLandingUnitIds(prisma: PrismaClient, organizationId
  * — Full Farm booked → block 1BHK and 2BHK.
  */
 export async function compoundMirrorBlockUnitIds(
-  prisma: PrismaClient,
+  prisma: DbClient,
   organizationId: string,
   primaryUnitId: string,
 ): Promise<string[]> {

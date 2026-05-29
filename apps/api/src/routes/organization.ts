@@ -849,22 +849,22 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  app.post('/orgs/:orgSlug/conflict-alerts/:alertId/dismiss', async (req, reply) => {
-    const m = await membershipForRoles(app, req, reply, careRoles);
-    if (!m) return;
-    const alertId = (req.params as { alertId: string }).alertId;
-    await app.prisma.conflictAlert.updateMany({
-      where: { id: alertId, organizationId: m.organizationId },
-      data: { dismissedAt: new Date() },
-    });
-    return reply.send({ ok: true });
-  });
-
   app.post('/orgs/:orgSlug/conflict-alerts/dismiss-all', async (req, reply) => {
     const m = await membershipForRoles(app, req, reply, careRoles);
     if (!m) return;
     const r = await app.prisma.conflictAlert.updateMany({
       where: { organizationId: m.organizationId, dismissedAt: null },
+      data: { dismissedAt: new Date() },
+    });
+    return reply.send({ ok: true, dismissed: r.count });
+  });
+
+  app.post('/orgs/:orgSlug/conflict-alerts/:alertId/dismiss', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, careRoles);
+    if (!m) return;
+    const alertId = (req.params as { alertId: string }).alertId;
+    const r = await app.prisma.conflictAlert.updateMany({
+      where: { id: alertId, organizationId: m.organizationId, dismissedAt: null },
       data: { dismissedAt: new Date() },
     });
     return reply.send({ ok: true, dismissed: r.count });

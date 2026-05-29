@@ -1159,9 +1159,9 @@ export default function OrgAdminPage() {
 
   const tok = useCallback(() => localStorage.getItem('mavu_token') ?? '', []);
   const ah = useCallback(
-    (extra?: Record<string, string>) => ({
+    (extra?: Record<string, string>, opts?: { jsonBody?: boolean }) => ({
       Authorization: `Bearer ${tok()}`,
-      'Content-Type': 'application/json',
+      ...(opts?.jsonBody ? { 'Content-Type': 'application/json' } : {}),
       ...extra,
     }),
     [tok],
@@ -1180,7 +1180,14 @@ export default function OrgAdminPage() {
     ): Promise<T | null> => {
       let res: Response;
       try {
-        res = await fetch(`${api}${path}`, { ...opts, headers: { ...ah(), ...(opts?.headers as Record<string, string> ?? {}) } });
+        const hasJsonBody = opts?.body != null && opts.body !== '';
+        res = await fetch(`${api}${path}`, {
+          ...opts,
+          headers: {
+            ...ah(undefined, { jsonBody: hasJsonBody }),
+            ...(opts?.headers as Record<string, string> ?? {}),
+          },
+        });
       } catch (err) {
         const raw = err instanceof Error ? err.message : 'Network error';
         const msgLc = raw.toLowerCase();
@@ -1625,9 +1632,11 @@ export default function OrgAdminPage() {
               const r = await apiFetch<{ dismissed?: number }>(`${base}/conflict-alerts/dismiss-all`, {
                 method: 'POST',
               });
+              if (!r) return;
+              setDash((prev) => (prev ? { ...prev, alerts: [] } : prev));
               await loadDash();
               notify(
-                r?.dismissed != null
+                r.dismissed != null && r.dismissed > 0
                   ? `Dismissed ${String(r.dismissed)} alert(s).`
                   : 'All alerts dismissed.',
               );
@@ -1642,8 +1651,13 @@ export default function OrgAdminPage() {
         <div key={a.id} className="adm-alert adm-alert-error" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <span>⚠️ {alertDisplayText(a)}</span>
           <button className="adm-btn adm-btn-ghost adm-btn-sm" onClick={async () => {
-            await apiFetch(`${base}/conflict-alerts/${a.id}/dismiss`, { method:'POST' });
-            await loadDash(); notify('Alert dismissed.');
+            const r = await apiFetch<{ ok?: boolean }>(`${base}/conflict-alerts/${a.id}/dismiss`, { method:'POST' });
+            if (!r?.ok) return;
+            setDash((prev) =>
+              prev ? { ...prev, alerts: prev.alerts?.filter((x) => x.id !== a.id) ?? [] } : prev,
+            );
+            await loadDash();
+            notify('Alert dismissed.');
           }} type="button">Dismiss</button>
         </div>
       ))}
