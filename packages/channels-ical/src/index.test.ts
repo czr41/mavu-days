@@ -29,4 +29,22 @@ describe('channels-ical', () => {
     expect(ics.includes('BEGIN:VCALENDAR')).toBe(true);
     expect(parseIcs(ics).length).toBeGreaterThanOrEqual(1);
   });
+
+  test('parses DESCRIPTION on VEVENT', () => {
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'BEGIN:VEVENT',
+      'UID:evt-desc-1',
+      'DTSTART:20300201T000000Z',
+      'DTEND:20300203T000000Z',
+      'SUMMARY:Reserved',
+      'DESCRIPTION:Guest name: Sally Visitor',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+    const evs = parseIcs(ics);
+    expect(evs).toHaveLength(1);
+    expect(evs[0]?.summary).toBe('Reserved');
+    expect(evs[0]?.description).toContain('Sally');
+  });
 });

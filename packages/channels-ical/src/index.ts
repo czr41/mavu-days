@@ -26,6 +26,20 @@ function parseICSFromNodeIcal(body: string): Record<string, unknown> {
   throw new Error('node-ical: parseICS is not available');
 }
 
+/** node-ical often exposes text fields as plain strings or `{ val: string }`. */
+function icsTextField(val: unknown): string | undefined {
+  if (typeof val === 'string') return val;
+  if (
+    val &&
+    typeof val === 'object' &&
+    'val' in val &&
+    typeof (val as { val: unknown }).val === 'string'
+  ) {
+    return (val as { val: string }).val;
+  }
+  return undefined;
+}
+
 function asDate(val: unknown): Date | undefined {
   if (!val) return undefined;
   if (val instanceof Date) return val;
@@ -49,7 +63,8 @@ export function parseIcs(body: string): CalendarEvent[] {
     if (!raw || raw.type !== 'VEVENT') continue;
 
     const uid = typeof raw.uid === 'string' ? raw.uid : String(raw.uid);
-    const summary = typeof raw.summary === 'string' ? raw.summary : undefined;
+    const summary = icsTextField(raw.summary);
+    const description = icsTextField(raw.description);
     const startUtc = asDate(raw.start);
     let endUtc = asDate(raw.end);
     const duration = raw.duration as { seconds?: number } | undefined;
@@ -57,7 +72,7 @@ export function parseIcs(body: string): CalendarEvent[] {
       endUtc = new Date(startUtc.getTime() + duration.seconds * 1000);
     }
     if (!(startUtc instanceof Date && endUtc instanceof Date)) continue;
-    events.push({ uid, startUtc, endUtc, summary });
+    events.push({ uid, startUtc, endUtc, summary, description });
   }
   return events;
 }

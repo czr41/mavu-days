@@ -2,7 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import { landingOfferActiveOnDateClause, utcTodayDateOnly } from '../lib/landing-offer-calendar.js';
 import { RentableUnitMatrixRole } from '@prisma/client';
-import { conflictingUnitFootprint, detectAvailabilityConflicts } from './availability.js';
+import { collectDescendantUnitIds, conflictingUnitFootprint, detectAvailabilityConflicts } from './availability.js';
 
 /** Recognized unit slugs for the landing availability matrix (fallback if matrix roles unset). */
 export const FULL_FARM_SLUGCandidates = [
@@ -78,6 +78,32 @@ export async function resolveLandingUnitIds(prisma: PrismaClient, organizationId
     bhk1,
     bhk2,
   };
+}
+
+/**
+ * Compound SKU mirroring (not sibling villas):
+ * — 1BHK or 2BHK booked → block Full Farm only.
+ * — Full Farm booked → block 1BHK and 2BHK.
+ */
+export async function compoundMirrorBlockUnitIds(
+  prisma: PrismaClient,
+  organizationId: string,
+  primaryUnitId: string,
+): Promise<string[]> {
+  const matrix = await resolveLandingUnitIds(prisma, organizationId);
+
+  if (matrix.configured && matrix.fullFarm && matrix.bhk1 && matrix.bhk2) {
+    if (primaryUnitId === matrix.fullFarm) return [matrix.bhk1, matrix.bhk2];
+    if (primaryUnitId === matrix.bhk1 || primaryUnitId === matrix.bhk2) return [matrix.fullFarm];
+  }
+
+  const unit = await prisma.rentableUnit.findUnique({
+    where: { id: primaryUnitId },
+    select: { parentRentableUnitId: true },
+  });
+  if (!unit) return [];
+  if (unit.parentRentableUnitId) return [unit.parentRentableUnitId];
+  return collectDescendantUnitIds(prisma, primaryUnitId);
 }
 
 async function rawOverlap(

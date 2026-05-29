@@ -7,27 +7,33 @@ import {
   type PrismaClient,
 } from '@prisma/client';
 import type { NotificationPublisher } from '../notifications/publisher.js';
+import { compoundMirrorBlockUnitIds } from '../services/landing-availability-matrix.js';
 import { conflictingUnitFootprint, detectAvailabilityConflicts } from '../services/availability.js';
 
-async function upsertBookingBlock(
+/** BOOKING blocks on the booked SKU plus compound mirrors (Full Farm ↔ villas, not 1BHK ↔ 2BHK). */
+async function upsertBookingAvailabilityBlocks(
   tx: Prisma.TransactionClient,
   bookingId: string,
   organizationId: string,
-  rentableUnitId: string,
+  primaryRentableUnitId: string,
   checkInUtc: Date,
   checkOutUtc: Date,
 ) {
+  const mirrorIds = await compoundMirrorBlockUnitIds(tx, organizationId, primaryRentableUnitId);
+  const blockUnitIds = [primaryRentableUnitId, ...mirrorIds];
   await tx.availabilityBlock.deleteMany({ where: { bookingId } });
-  await tx.availabilityBlock.create({
-    data: {
-      organizationId,
-      rentableUnitId,
-      bookingId,
-      reason: AvailabilityBlockReason.BOOKING,
-      startsAtUtc: checkInUtc,
-      endsAtUtc: checkOutUtc,
-    },
-  });
+  for (const rentableUnitId of blockUnitIds) {
+    await tx.availabilityBlock.create({
+      data: {
+        organizationId,
+        rentableUnitId,
+        bookingId,
+        reason: AvailabilityBlockReason.BOOKING,
+        startsAtUtc: checkInUtc,
+        endsAtUtc: checkOutUtc,
+      },
+    });
+  }
 }
 
 export async function upsertConfirmedBooking(
@@ -115,7 +121,7 @@ export async function upsertConfirmedBooking(
           },
         });
 
-    await upsertBookingBlock(tx, b.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
+    await upsertBookingAvailabilityBlocks(tx, b.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
 
     if (!existingBooking && params.landingOfferIds?.length) {
       await tx.bookingOfferSelection.createMany({
@@ -170,7 +176,7 @@ export async function createPendingBooking(
       },
     });
 
-    await upsertBookingBlock(tx, b.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
+    await upsertBookingAvailabilityBlocks(tx, b.id, params.organizationId, params.rentableUnitId, params.checkInUtc, params.checkOutUtc);
 
     if (params.landingOfferIds?.length) {
       await tx.bookingOfferSelection.createMany({
@@ -228,7 +234,7 @@ export async function confirmPendingBooking(
       data: { status: BookingStatus.CONFIRMED },
     });
 
-    await upsertBookingBlock(
+    await upsertBookingAvailabilityBlocks(
       tx,
       bookingId,
       booking.organizationId,
@@ -241,4 +247,39 @@ export async function confirmPendingBooking(
   await notifyCaretakersBooking(prisma, notify, booking.organizationId, bookingId);
 
   return prisma.booking.findUnique({ where: { id: bookingId } });
+}
+
+/** Re-apply Full Farm ↔ villa compound blocks for all active bookings (e.g. after rule change or deploy). */
+export async function refreshCompoundAvailabilityBlocksForOrg(
+  prisma: PrismaClient,
+  organizationId: string,
+): Promise<number> {
+  const now = new Date();
+  const bookings = await prisma.booking.findMany({
+    where: {
+      organizationId,
+      status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
+      checkOutUtc: { gt: now },
+    },
+    select: {
+      id: true,
+      organizationId: true,
+      rentableUnitId: true,
+      checkInUtc: true,
+      checkOutUtc: true,
+    },
+  });
+  for (const b of bookings) {
+    await prisma.$transaction(async (tx) => {
+      await upsertBookingAvailabilityBlocks(
+        tx,
+        b.id,
+        b.organizationId,
+        b.rentableUnitId,
+        b.checkInUtc,
+        b.checkOutUtc,
+      );
+    });
+  }
+  return bookings.length;
 }

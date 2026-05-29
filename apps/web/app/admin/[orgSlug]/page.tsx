@@ -14,6 +14,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactEle
 import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-platform-badge';
 import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
 import { stayGallerySlotsFromUnknown, stayGalleryUrlsFromUnknown } from '@mavu/contracts';
+import { formatBookingGuestDisplay } from '@/lib/booking-display';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -133,7 +134,7 @@ type UnitListingBundle = {
   unit: { id: string; name: string; slug: string; kind: string; listingLinks?: ListingLink[] };
   listingProfile: ListingProfileDto | null;
 };
-type Alert       = { id: string; message: string; severity: string };
+type Alert       = { id: string; message?: string; summary?: string; severity: string };
 type DashStats   = { upcoming: Booking[]; alerts: Alert[]; listingLinks: ListingLink[] };
 
 const MAX_STAY_GALLERY_URLS = 24;
@@ -951,7 +952,7 @@ function OverviewBookingCalendar({
                                 list.length === 0
                                   ? `${ariaDay}: no bookings`
                                   : list.length === 1
-                                    ? `${ariaDay}: ${list[0].guestName ?? 'Guest'}, open booking details`
+                                    ? `${ariaDay}: ${formatBookingGuestDisplay(list[0])}, open booking details`
                                     : `${ariaDay}: ${list.length} bookings — hover or tap for list; tap again to close`
                               }
                               onClick={(e) => {
@@ -1011,7 +1012,7 @@ function OverviewBookingCalendar({
                                         <BookingSourceGlyph b={b} size={16} />
                                       </span>
                                       <span className="adm-cal-day-panel-row-text">
-                                        <span className="adm-cal-day-panel-guest">{b.guestName ?? 'Guest'}</span>
+                                        <span className="adm-cal-day-panel-guest">{formatBookingGuestDisplay(b)}</span>
                                         {showMultipleUnits && unitLabel ? (
                                           <span className="adm-cal-day-panel-unit">{unitLabel}</span>
                                         ) : null}
@@ -1040,6 +1041,11 @@ function OverviewBookingCalendar({
       </div>
     </div>
   );
+}
+
+function alertDisplayText(a: Alert): string {
+  const t = (a.message ?? a.summary ?? '').trim();
+  return t.length > 0 ? t : 'Calendar or booking conflict — review Bookings and Host & Airbnb.';
 }
 
 function fmtDate(d: string) {
@@ -1494,10 +1500,17 @@ export default function OrgAdminPage() {
       removed: number;
       links: number;
       errors: number;
+      sharedInboundFeeds?: { unitNames: string[] }[];
     }>(`${base}/channels/sync-ical`, { method: 'POST', body: '{}' });
     setBusy(false);
     if (!r) return;
     await loadProps();
+    if (r.sharedInboundFeeds?.length) {
+      notify(
+        `Same Airbnb/Booking import URL is attached to more than one unit — every reservation is copied to each unit. Remove the URL from any unit that should not show those stays (e.g. only the listing that owns the calendar). Affected units: ${r.sharedInboundFeeds.map((g) => g.unitNames.join(', ')).join(' | ')}.`,
+        false,
+      );
+    }
     if (r.links === 0) {
       notify(
         'No calendar feeds yet — save an Airbnb connection under Host & Airbnb (or add a feed under Connect channel), then sync again.',
@@ -1565,9 +1578,25 @@ export default function OrgAdminPage() {
         </div>
       </div>
 
-      {dash?.alerts?.filter(a => a).map(a => (
+      {dash?.alerts?.filter((a) => a).length ? (
+        <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="adm-btn adm-btn-ghost adm-btn-sm"
+            onClick={async () => {
+              await apiFetch(`${base}/conflict-alerts/dismiss-all`, { method: 'POST' });
+              await loadDash();
+              notify('All alerts dismissed.');
+            }}
+          >
+            Dismiss all alerts
+          </button>
+        </div>
+      ) : null}
+
+      {dash?.alerts?.filter((a) => a).map((a) => (
         <div key={a.id} className="adm-alert adm-alert-error" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span>⚠️ {a.message}</span>
+          <span>⚠️ {alertDisplayText(a)}</span>
           <button className="adm-btn adm-btn-ghost adm-btn-sm" onClick={async () => {
             await apiFetch(`${base}/conflict-alerts/${a.id}/dismiss`, { method:'POST' });
             await loadDash(); notify('Alert dismissed.');
@@ -1586,7 +1615,7 @@ export default function OrgAdminPage() {
             <tbody>
               {dash.upcoming.map(b => (
                 <tr key={b.id}>
-                  <td><strong>{b.guestName ?? 'Guest'}</strong>{b.guestCount ? ` · ${b.guestCount} pax` : ''}</td>
+                  <td><strong>{formatBookingGuestDisplay(b)}</strong>{b.guestCount ? ` · ${b.guestCount} pax` : ''}</td>
                   <td>{fmtDate(b.checkInUtc)}</td>
                   <td>{fmtDate(b.checkOutUtc)}</td>
                   <td><span className="adm-badge adm-badge-gray">{b.rentableUnit?.name ?? '—'}</span></td>
@@ -1817,6 +1846,22 @@ export default function OrgAdminPage() {
   const [blkForm, setBlkForm] = useState({ unitId:'', start:'', end:'', reason:'PERSONAL_HOLD', note:'' });
   const [bkSubTab, setBkSubTab] = useState<'list'|'add'|'block'>('list');
 
+  const openManualBlockForBooking = useCallback((b: Booking) => {
+    const start = b.checkInUtc.slice(0, 10);
+    const end = b.checkOutUtc.slice(0, 10);
+    const unitLabel = b.rentableUnit?.name ?? 'another unit';
+    setBlkForm({
+      unitId: '',
+      start,
+      end,
+      reason: 'PERSONAL_HOLD',
+      note: `Manual block while ${unitLabel} is booked`,
+    });
+    setBkSubTab('block');
+    setTab('bookings');
+    setOverviewBookingDetail(null);
+  }, []);
+
   useEffect(() => {
     setBkOfferIds([]);
   }, [bkForm.unitId]);
@@ -1840,7 +1885,7 @@ export default function OrgAdminPage() {
                   {bookings.map(b=>(
                     <tr key={b.id}>
                       <td>
-                        <strong>{b.guestName??'Guest'}</strong>
+                        <strong>{formatBookingGuestDisplay(b)}</strong>
                         {b.guestEmail ? <><br/><span style={{fontSize:'0.78rem',color:'#6B7280'}}>{b.guestEmail}</span></> : null}
                         {b.offerSelections?.length ? (
                           <><br/><span style={{fontSize:'0.75rem',color:'#059669'}}>
@@ -1949,7 +1994,9 @@ export default function OrgAdminPage() {
         <div className="adm-card">
           <div className="adm-card-header"><h2 className="adm-card-title">Block Dates</h2></div>
           <div className="adm-card-body">
-            <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>Block dates for maintenance, personal use, or other reasons. Blocked periods show as unavailable in the booking flow.</p>
+            <p style={{fontSize:'0.84rem',color:'#6B7280',marginTop:0}}>
+              Extra holds for maintenance or personal use. Full Farm ↔ 1BHK/2BHK blocking is applied automatically when a booking is created or synced — 1BHK and 2BHK do not block each other.
+            </p>
             {allUnits.length===0 && <div className="adm-alert adm-alert-error">Set up at least one property and unit first.</div>}
             <form onSubmit={async e=>{
               e.preventDefault(); if(!blkForm.unitId){notify('Select a unit.',false);return;} setBusy(true);
@@ -1984,9 +2031,8 @@ export default function OrgAdminPage() {
                 <div className="adm-field">
                   <label className="adm-label">Reason</label>
                   <select className="adm-select" value={blkForm.reason} onChange={e=>setBlkForm(s=>({...s,reason:e.target.value}))}>
-                    <option value="PERSONAL_HOLD">Personal Hold</option>
+                    <option value="PERSONAL_HOLD">Personal Hold / linked listing block</option>
                     <option value="MAINTENANCE">Maintenance</option>
-                    <option value="OTHER">Other</option>
                   </select>
                 </div>
                 <div className="adm-field adm-field-full">
@@ -4042,7 +4088,7 @@ export default function OrgAdminPage() {
           >
             <div className="adm-modal-header">
               <h2 id="adm-booking-modal-title" className="adm-modal-title">
-                {overviewBookingDetail.guestName ?? 'Booking'}
+                {formatBookingGuestDisplay(overviewBookingDetail)}
               </h2>
               <button
                 type="button"
@@ -4100,6 +4146,13 @@ export default function OrgAdminPage() {
                 onClick={() => setOverviewBookingDetail(null)}
               >
                 Close
+              </button>
+              <button
+                type="button"
+                className="adm-btn adm-btn-yellow adm-btn-sm"
+                onClick={() => openManualBlockForBooking(overviewBookingDetail)}
+              >
+                Block dates on another unit…
               </button>
               <button
                 type="button"

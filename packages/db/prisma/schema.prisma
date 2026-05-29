@@ -277,6 +277,15 @@ model Booking {
 
   note String?
 
+  /// null = unknown; true/false from host or guest.
+  travellingWithPets Boolean?
+
+  /// JSON array of `{ url, caption?, receivedAt, source: 'admin' | 'whatsapp' }` — ID proof (not Aadhaar per policy).
+  idProofDocuments Json @default("[]")
+
+  /// When we first sent the “please send ID proof” WhatsApp (avoid duplicate sends).
+  guestIdReminderSentAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

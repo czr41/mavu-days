@@ -7,7 +7,7 @@ import { FormEvent, useState } from 'react';
 function apiBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_API_URL;
   const trimmed = typeof raw === 'string' ? raw.trim() : '';
-  return trimmed || 'http://localhost:3001';
+  return trimmed.replace(/\/+$/, '') || 'http://localhost:3001';
 }
 
 export default function LoginPage() {
@@ -20,7 +20,7 @@ export default function LoginPage() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const loginUrl = `${api.replace(/\/$/, '')}/auth/login`;
+    const loginUrl = `${api}/auth/login`;
     let res: Response;
     try {
       res = await fetch(loginUrl, {
@@ -29,9 +29,17 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
     } catch {
-      setError(
-        'Cannot reach the sign-in server. Check your connection and try again. If this keeps happening, ask your administrator to confirm the web app is configured with the correct booking server address.',
-      );
+      const isHttpsSite = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      const apiLooksLocal = /\b(localhost|127\.0\.0\.1)\b/i.test(api) || /^http:\/\//i.test(api);
+      if (isHttpsSite && apiLooksLocal) {
+        setError(
+          `This page (HTTPS) cannot call your configured API at ${api}. Set NEXT_PUBLIC_API_URL on your web host to your public booking API (https://…), redeploy the site, then try again.`,
+        );
+      } else {
+        setError(
+          `Cannot reach the sign-in server at ${api}. Check your connection, confirm the API is running, and set NEXT_PUBLIC_API_URL on the web host to that API’s public URL (not the marketing site URL).`,
+        );
+      }
       return;
     }
     const json = await res.json().catch(() => ({}));
@@ -39,7 +47,7 @@ export default function LoginPage() {
     localStorage.setItem('mavu_token', (json as { token: string }).token);
     let meRes: Response;
     try {
-      meRes = await fetch(`${api.replace(/\/$/, '')}/me`, {
+      meRes = await fetch(`${api}/me`, {
         headers: { Authorization: `Bearer ${(json as { token: string }).token}` },
       });
     } catch {

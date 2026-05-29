@@ -23,6 +23,8 @@ export interface CalendarEvent {
   startUtc: Date;
   endUtc: Date;
   summary?: string;
+  /** VEVENT DESCRIPTION — sometimes contains guest hints when SUMMARY is a privacy placeholder. */
+  description?: string;
 }
 
 export interface ChannelConnector {

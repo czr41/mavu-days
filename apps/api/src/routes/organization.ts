@@ -14,7 +14,7 @@ import {
 } from '@prisma/client';
 import type { Prisma } from '@mavu/db';
 import { getMembership, requireUser } from '../lib/org-access.js';
-import { confirmPendingBooking, upsertConfirmedBooking } from '../services/booking-flow.js';
+import { confirmPendingBooking, refreshCompoundAvailabilityBlocksForOrg, upsertConfirmedBooking } from '../services/booking-flow.js';
 import { syncInboundIcals } from '../services/ical-sync.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { fetchAirbnbListingImageCandidates } from '../services/airbnb-listing-images.js';
@@ -200,7 +200,16 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         take: 100,
       }),
     ]);
-    return reply.send({ upcoming, alerts, listingLinks: links });
+    return reply.send({
+      upcoming,
+      alerts: alerts.map((a) => ({
+        id: a.id,
+        message: a.summary,
+        severity: a.severity,
+        createdAt: a.createdAt,
+      })),
+      listingLinks: links,
+    });
   });
 
   app.post('/orgs/:orgSlug/invites', async (req, reply) => {
@@ -647,7 +656,11 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     const m = await membershipForRoles(app, req, reply, opsRoles);
     if (!m) return;
     const result = await syncInboundIcals(app.prisma, app.notify, { organizationId: m.organizationId });
-    return reply.send(result);
+    const compoundBlocksRefreshed = await refreshCompoundAvailabilityBlocksForOrg(
+      app.prisma,
+      m.organizationId,
+    );
+    return reply.send({ ...result, compoundBlocksRefreshed });
   });
 
   app.get('/orgs/:orgSlug/bookings', async (req, reply) => {
@@ -787,6 +800,16 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
       data: { dismissedAt: new Date() },
     });
     return reply.send({ ok: true });
+  });
+
+  app.post('/orgs/:orgSlug/conflict-alerts/dismiss-all', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, opsRoles);
+    if (!m) return;
+    const r = await app.prisma.conflictAlert.updateMany({
+      where: { organizationId: m.organizationId, dismissedAt: null },
+      data: { dismissedAt: new Date() },
+    });
+    return reply.send({ ok: true, dismissed: r.count });
   });
 
   /* --- CMS --- */

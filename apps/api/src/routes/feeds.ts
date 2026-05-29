@@ -30,6 +30,17 @@ export function registerFeedsRoutes(app: FastifyInstance) {
       },
     });
 
+    const mirroredBookingBlocks = await app.prisma.availabilityBlock.findMany({
+      where: {
+        organizationId,
+        rentableUnitId: unitId,
+        reason: AvailabilityBlockReason.BOOKING,
+        bookingId: { not: null },
+        endsAtUtc: { gt: now },
+      },
+      include: { booking: { select: { id: true, guestName: true, rentableUnitId: true } } },
+    });
+
     const holds = await app.prisma.availabilityBlock.findMany({
       where: {
         organizationId,
@@ -47,6 +58,16 @@ export function registerFeedsRoutes(app: FastifyInstance) {
         endUtc: b.checkOutUtc,
         summary: b.guestName ? `Booking: ${b.guestName}` : 'Blocked (booking)',
       })),
+      ...mirroredBookingBlocks
+        .filter((lb) => lb.booking && lb.booking.rentableUnitId !== unitId)
+        .map((lb) => ({
+          uid: `mavu-compound-${lb.id}`,
+          startUtc: lb.startsAtUtc,
+          endUtc: lb.endsAtUtc,
+          summary: lb.booking?.guestName?.trim()
+            ? `Unavailable (${lb.booking.guestName.trim()})`
+            : 'Unavailable (compound listing)',
+        })),
       ...holds.map((h: AvailabilityBlock) => ({
         uid: `mavu-block-${h.id}`,
         startUtc: h.startsAtUtc,

@@ -8,6 +8,32 @@ export const ICAL_INGEST_PROVIDER = 'ical-ingest';
 
 const connector = new IcalChannelConnector();
 
+/** Airbnb / Booking exports often hide the real name in SUMMARY. */
+function extractGuestFromIcsDescription(desc: string | undefined): string | null {
+  if (!desc) return null;
+  const lines = desc.split(/\r?\n/);
+  for (const line of lines) {
+    const m =
+      line.match(/^\s*Guest(?:'s)?\s+name\s*:\s*(.+)$/i) ??
+      line.match(/^\s*Guest\s*:\s*(.+)$/i) ??
+      line.match(/^\s*Reservation\s+for\s+(.+)$/i);
+    const name = m?.[1]?.trim();
+    if (name && name.length > 0 && name.length <= 200) return name;
+  }
+  return null;
+}
+
+function guestNameFromIcalEvent(ev: { summary?: string; description?: string }): string {
+  const fromDesc = extractGuestFromIcsDescription(ev.description);
+  if (fromDesc) return fromDesc;
+  const s = (ev.summary ?? '').trim();
+  if (!s) return 'Guest (calendar import)';
+  if (/^reserved$/i.test(s)) return 'Guest (Airbnb — name not in export)';
+  if (/airbnb/i.test(s) && /not\s*available/i.test(s)) return 'Guest (Airbnb — name not in export)';
+  if (/not\s*available/i.test(s)) return 'Guest (calendar — name not in export)';
+  return s;
+}
+
 function externalIdForEvent(link: { channel: string; id: string }, uid: string): string {
   return `${link.channel}:${link.id}:${uid}`;
 }
@@ -62,6 +88,8 @@ export type InboundIcalSyncResult = {
   removed: number;
   links: number;
   errors: number;
+  /** Same inbound URL on multiple units — each stay is mirrored on every linked unit. */
+  sharedInboundFeeds: { unitNames: string[] }[];
 };
 
 /**
@@ -93,6 +121,19 @@ export async function syncInboundIcals(
   let removed = 0;
   let errors = 0;
 
+  const urlToUnitNames = new Map<string, string[]>();
+  for (const link of links) {
+    if (!link.inboundIcalUrl) continue;
+    const key = link.inboundIcalUrl.trim();
+    const unitName = link.rentableUnit.name;
+    const arr = urlToUnitNames.get(key) ?? [];
+    arr.push(unitName);
+    urlToUnitNames.set(key, arr);
+  }
+  const sharedInboundFeeds = [...urlToUnitNames.values()]
+    .filter((names) => names.length > 1)
+    .map((names) => ({ unitNames: [...new Set(names)] }));
+
   for (const link of links) {
     if (!link.inboundIcalUrl) continue;
     const orgId = link.rentableUnit.property.organizationId;
@@ -121,7 +162,7 @@ export async function syncInboundIcals(
           source: BookingSource.PLATFORM,
           externalProvider: ICAL_INGEST_PROVIDER,
           externalId,
-          guestName: ev.summary ?? 'Calendar import',
+          guestName: guestNameFromIcalEvent(ev),
           sendCaretakerNotifications: !existing,
         });
 
@@ -141,7 +182,7 @@ export async function syncInboundIcals(
     }
   }
 
-  return { processed, updated, removed, links: links.length, errors };
+  return { processed, updated, removed, links: links.length, errors, sharedInboundFeeds };
 }
 
 /** Sync all orgs’ inbound links (used by BullMQ worker). */

@@ -6,8 +6,11 @@ export function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date
   return aStart < bEnd && aEnd > bStart;
 }
 
-/** BFS descendant rentable-unit ids beneath a SKU. */
-export async function collectDescendantUnitIds(prisma: PrismaClient, rootId: string): Promise<string[]> {
+/** BFS descendant rentable-unit ids beneath a SKU (excludes the root id). */
+export async function collectDescendantUnitIds(
+  prisma: Pick<PrismaClient, 'rentableUnit'>,
+  rootId: string,
+): Promise<string[]> {
   const out: string[] = [];
   const queue = [rootId];
   while (queue.length > 0) {
