@@ -15,6 +15,7 @@ import { GuestReviewPlatformBadge } from '@/components/landing/guest-review-plat
 import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
 import { stayGallerySlotsFromUnknown, stayGalleryUrlsFromUnknown } from '@mavu/contracts';
 import { formatBookingGuestDisplay } from '@/lib/booking-display';
+import { mergeCompoundBlocks } from '@/lib/compound-calendar';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -766,10 +767,7 @@ type CompoundBlock = {
 
 /** Night is occupied when block start <= night < block end (checkout morning free). */
 function compoundBlockOccupiesNight(block: CompoundBlock, day: Date): boolean {
-  const night = localDateKey(day);
-  const checkIn = isoToLocalDateKey(block.startsAtUtc);
-  const checkOut = isoToLocalDateKey(block.endsAtUtc);
-  return night >= checkIn && night < checkOut;
+  return bookingOccupiesNight(block.booking, day);
 }
 
 type CalDayEntry =
@@ -791,7 +789,7 @@ function CompoundBlockGlyph({ size = 14 }: { size?: number }) {
 }
 
 type OverviewCalendarProps = {
-  units: { id: string; name: string; slug: string; propertyName: string }[];
+  units: { id: string; name: string; slug: string; propertyName: string; matrixRole?: string }[];
   bookings: Booking[];
   compoundBlocks: CompoundBlock[];
   selectedUnitIds: string[];
@@ -804,7 +802,7 @@ type OverviewCalendarProps = {
 function OverviewBookingCalendar({
   units,
   bookings,
-  compoundBlocks,
+  compoundBlocks: apiCompoundBlocks,
   selectedUnitIds,
   onSelectedUnitIds,
   viewMonth,
@@ -842,6 +840,10 @@ function OverviewBookingCalendar({
 
   const selectedSet = new Set(selectedUnitIds);
   const showMultipleUnits = selectedUnitIds.length > 1;
+  const compoundBlocks = useMemo(
+    () => mergeCompoundBlocks(apiCompoundBlocks, bookings, units),
+    [apiCompoundBlocks, bookings, units],
+  );
   const unitBookings = bookings.filter(
     (b) => b.rentableUnit?.id && selectedSet.has(b.rentableUnit.id) && b.status !== 'CANCELLED',
   );
@@ -854,11 +856,14 @@ function OverviewBookingCalendar({
     const bookingEntries: CalDayEntry[] = unitBookings
       .filter((b) => bookingOccupiesNight(b, day))
       .map((b) => ({ kind: 'booking' as const, key: `b-${b.id}`, booking: b }));
-    const bookedIds = new Set(
-      bookingEntries.map((e) => (e.kind === 'booking' ? e.booking.id : '')),
-    );
     const compoundEntries: CalDayEntry[] = unitCompoundBlocks
-      .filter((cb) => compoundBlockOccupiesNight(cb, day) && !bookedIds.has(cb.booking.id))
+      .filter((cb) => {
+        if (!compoundBlockOccupiesNight(cb, day)) return false;
+        /** Skip mirror row only when this unit already shows the same booking directly. */
+        return !bookingEntries.some(
+          (e) => e.kind === 'booking' && e.booking.id === cb.booking.id,
+        );
+      })
       .map((cb) => ({ kind: 'compound' as const, key: `c-${cb.id}`, block: cb }));
     const merged = [...bookingEntries, ...compoundEntries];
     if (!showMultipleUnits || merged.length < 2) return merged;
@@ -1792,7 +1797,14 @@ export default function OrgAdminPage() {
       </div>
 
       <OverviewBookingCalendar
-        units={allUnits.map((u) => ({ id: u.id, name: u.name, slug: u.slug, propertyName: u.propertyName }))}
+        units={allUnits.map((u) => ({
+          id: u.id,
+          name: u.name,
+          slug: u.slug,
+          propertyName: u.propertyName,
+          matrixRole:
+            unitBundles.find((b) => b.unit.id === u.id)?.listingProfile?.matrixRole ?? undefined,
+        }))}
         bookings={bookings}
         compoundBlocks={compoundBlocks}
         selectedUnitIds={overviewCalUnitIds}
