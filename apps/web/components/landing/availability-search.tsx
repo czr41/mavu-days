@@ -8,6 +8,7 @@ import { UnitAvailabilityCalendarDialog } from '@/components/landing/unit-availa
 import { publicApiBaseUrl } from '@/lib/public-api-base';
 import { publicOrgSlugCandidates } from '@/lib/public-org-slug';
 import type { StayFilter } from '@/lib/whatsapp';
+import { guestFacingOfferCode } from '@mavu/contracts';
 import { formatStayPreference, whatsappBookingMessage, whatsappHref } from '@/lib/whatsapp';
 
 export type StayOption = { value: string; label: string };
@@ -480,18 +481,27 @@ export function AvailabilitySearch({
                           <tr key={c.key} className={!c.available ? 'md-booking-price-row-muted' : undefined}>
                             <td className="md-booking-col-stay">
                               <div>{c.title}</div>
-                              {c.offers.length > 0 ? (
-                                <p className="md-booking-offer-codes" style={{ margin: '0.35rem 0 0', fontSize: '0.76rem', opacity: 0.88, lineHeight: 1.35 }}>
-                                  <span style={{ fontWeight: 600 }}>Offers</span>
-                                  {': '}
-                                  {c.offers.map((o, oi) => (
-                                    <span key={o.id}>
-                                      <kbd style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.74rem' }}>{o.code}</kbd>
-                                      {oi < c.offers.length - 1 ? ' · ' : ''}
-                                    </span>
-                                  ))}
-                                </p>
-                              ) : null}
+                              {(() => {
+                                const guestCodes = c.offers
+                                  .map((o) => {
+                                    const code = guestFacingOfferCode(o.code);
+                                    return code ? { id: o.id, code } : null;
+                                  })
+                                  .filter((o): o is { id: string; code: string } => o != null);
+                                if (guestCodes.length === 0) return null;
+                                return (
+                                  <p className="md-booking-offer-codes" style={{ margin: '0.35rem 0 0', fontSize: '0.76rem', opacity: 0.88, lineHeight: 1.35 }}>
+                                    <span style={{ fontWeight: 600 }}>Offers</span>
+                                    {': '}
+                                    {guestCodes.map((o, oi) => (
+                                      <span key={o.id}>
+                                        <kbd style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.74rem' }}>{o.code}</kbd>
+                                        {oi < guestCodes.length - 1 ? ' · ' : ''}
+                                      </span>
+                                    ))}
+                                  </p>
+                                );
+                              })()}
                             </td>
                             <td>{maxGuests}</td>
                             <td>

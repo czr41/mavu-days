@@ -1,4 +1,10 @@
 export {
+  isLegacyAutoOfferCode,
+  guestFacingOfferCode,
+  formatOfferTickerLine,
+} from './landing-offer.js';
+
+export {
   type StayGalleryCategoryStored,
   type StayGalleryJsonEntry,
   type StayGallerySlot,

@@ -1,10 +1,5 @@
+import { formatOfferTickerLine } from '@mavu/contracts';
 import type { PublicLandingOfferDto } from '@/lib/public-types';
-
-function offerTickerSegment(o: PublicLandingOfferDto): string {
-  const unit = o.unitLabel?.trim();
-  const prefix = unit ? `${unit}: ` : '';
-  return `${prefix}${o.code} — ${o.label.trim()}`.trim();
-}
 
 /** Horizontal marquee of promo lines — only rendered when there is at least one offer */
 export function OffersTicker({
@@ -16,7 +11,7 @@ export function OffersTicker({
 }) {
   if (!offers.length) return null;
   const sep = ' · ';
-  const strip = offers.map((o) => offerTickerSegment(o)).filter(Boolean).join(sep);
+  const strip = offers.map((o) => formatOfferTickerLine(o)).filter(Boolean).join(sep);
   if (!strip) return null;
   const loop = `${strip}${sep}`;
   const rootClass =
