@@ -1,4 +1,4 @@
-CREATE TABLE "SitePageView" (
+CREATE TABLE IF NOT EXISTS "SitePageView" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "path" VARCHAR(500) NOT NULL,
@@ -10,7 +10,10 @@ CREATE TABLE "SitePageView" (
     CONSTRAINT "SitePageView_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "SitePageView_organizationId_createdAt_idx" ON "SitePageView"("organizationId", "createdAt");
-CREATE INDEX "SitePageView_organizationId_path_createdAt_idx" ON "SitePageView"("organizationId", "path", "createdAt");
+CREATE INDEX IF NOT EXISTS "SitePageView_organizationId_createdAt_idx" ON "SitePageView"("organizationId", "createdAt");
+CREATE INDEX IF NOT EXISTS "SitePageView_organizationId_path_createdAt_idx" ON "SitePageView"("organizationId", "path", "createdAt");
 
-ALTER TABLE "SitePageView" ADD CONSTRAINT "SitePageView_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "SitePageView" ADD CONSTRAINT "SitePageView_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
