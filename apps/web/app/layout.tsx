@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Cormorant_Garamond, Inter } from 'next/font/google';
 
 import { resolveSiteOrigin } from '@/lib/site-url';
+import { SiteAnalyticsBeacon } from '@/components/site-analytics-beacon';
 import './globals.css';
 
 const display = Cormorant_Garamond({
@@ -32,7 +33,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
-      <body className={sans.className}>{children}</body>
+      <body className={sans.className}>
+        <SiteAnalyticsBeacon />
+        {children}
+      </body>
     </html>
   );
 }

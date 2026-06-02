@@ -16,6 +16,12 @@ import { PLT_LABEL } from '@/lib/guest-review-platform-labels';
 import { stayGallerySlotsFromUnknown, stayGalleryUrlsFromUnknown } from '@mavu/contracts';
 import { formatBookingGuestDisplay } from '@/lib/booking-display';
 import { mergeCompoundBlocks, type CompoundBlock } from '@/lib/compound-calendar';
+import {
+  SiteInsightsOverview,
+  SiteVisitorsTab,
+  type SiteAnalyticsSummary,
+  type SiteVisitRow,
+} from '@/components/admin/site-insights';
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type ListingLink = {
@@ -136,7 +142,12 @@ type UnitListingBundle = {
   listingProfile: ListingProfileDto | null;
 };
 type Alert       = { id: string; message?: string; summary?: string; severity: string };
-type DashStats   = { upcoming: Booking[]; alerts: Alert[]; listingLinks: ListingLink[] };
+type DashStats   = {
+  upcoming: Booking[];
+  alerts: Alert[];
+  listingLinks: ListingLink[];
+  analytics?: SiteAnalyticsSummary | null;
+};
 
 const MAX_STAY_GALLERY_URLS = 24;
 type StayGalleryDraftRow = { url: string; categoryId: GalleryCategoryId | '' };
@@ -500,6 +511,7 @@ type HostDraftRow = {
 const PLATFORMS  = ['AIRBNB', 'GOOGLE', 'BOOKING_COM', 'DIRECT', 'OTHER'] as const;
 const NAV = [
   { key: 'overview',    label: 'Overview',       icon: GridI },
+  { key: 'visitors',    label: 'Visitors',       icon: ChartI },
   { key: 'properties',  label: 'Properties',     icon: HomeI },
   { key: 'bookings',    label: 'Bookings',        icon: CalI },
   { key: 'reviews',     label: 'Guest Reviews',  icon: StarI },
@@ -1221,6 +1233,10 @@ export default function OrgAdminPage() {
   const [reviewSyncBusy, setReviewSyncBusy] = useState(false);
   const [propertyGooglePlaces, setPropertyGooglePlaces] = useState<Record<string, string>>({});
   const [unitBundles, setUnitBundles] = useState<UnitListingBundle[]>([]);
+  const [siteVisits, setSiteVisits] = useState<SiteVisitRow[]>([]);
+  const [siteVisitsTotal, setSiteVisitsTotal] = useState(0);
+  const [siteVisitsDays, setSiteVisitsDays] = useState(7);
+  const [siteVisitsLoading, setSiteVisitsLoading] = useState(false);
   const [listingEditUnitId, setListingEditUnitId] = useState<string | null>(null);
   const [listingDraft, setListingDraft] = useState<ListingDraftState | null>(null);
   const [airbnbPickSession, setAirbnbPickSession] = useState<{
@@ -1346,6 +1362,28 @@ export default function OrgAdminPage() {
   );
 
   const base = `/orgs/${encodeURIComponent(slug)}`;
+
+  const loadVisits = useCallback(
+    async (days: number, silentNetwork?: boolean) => {
+      setSiteVisitsLoading(true);
+      try {
+        const d = await apiFetch<{ visits: SiteVisitRow[]; total: number; days: number }>(
+          `${base}/analytics/visits?days=${String(days)}&limit=100`,
+          undefined,
+          { silentNetwork: !!silentNetwork },
+        );
+        if (d) {
+          setSiteVisits(d.visits);
+          setSiteVisitsTotal(d.total);
+          setSiteVisitsDays(d.days);
+        }
+        return d != null;
+      } finally {
+        setSiteVisitsLoading(false);
+      }
+    },
+    [apiFetch, base],
+  );
 
   const loadDash = useCallback(
     async (silentNetwork?: boolean): Promise<boolean> => {
@@ -1535,11 +1573,15 @@ export default function OrgAdminPage() {
 
   useEffect(() => {
     if (!slug) return;
+    if (tab !== 'visitors') return;
+    void loadVisits(siteVisitsDays);
+  }, [slug, tab, siteVisitsDays, loadVisits]);
+
+  useEffect(() => {
+    if (!slug) return;
     if (tab !== 'bookings') return;
     void loadBk();
   }, [slug, tab, loadBk]);
-
-
 
   useEffect(() => {
     if (!slug) return;
@@ -1700,6 +1742,8 @@ export default function OrgAdminPage() {
         ))}
       </div>
 
+      <SiteInsightsOverview analytics={dash?.analytics} onViewAll={() => setTab('visitors')} />
+
       <div className="adm-card" style={{ marginBottom: '1.25rem' }}>
         <div className="adm-card-header">
           <h2 className="adm-card-title">Calendars (Airbnb / Booking)</h2>
@@ -1813,6 +1857,20 @@ export default function OrgAdminPage() {
         onPickBooking={setOverviewBookingDetail}
       />
     </>
+  );
+
+  const TabVisitors = (
+    <SiteVisitorsTab
+      visits={siteVisits}
+      total={siteVisitsTotal}
+      days={siteVisitsDays}
+      loading={siteVisitsLoading}
+      onDaysChange={(d) => {
+        setSiteVisitsDays(d);
+        void loadVisits(d);
+      }}
+      onOpenOverview={() => setTab('overview')}
+    />
   );
 
   /* ─── Properties ─── */
@@ -4194,7 +4252,7 @@ export default function OrgAdminPage() {
     </div>
   );
 
-  const TAB_TITLES: Record<string, string> = { overview:'Overview', properties:'Properties & Units', bookings:'Bookings', reviews:'Guest Reviews', cms:'Site content', host:'Host & Airbnb', team:'Team' };
+  const TAB_TITLES: Record<string, string> = { overview:'Overview', visitors:'Site visitors', properties:'Properties & Units', bookings:'Bookings', reviews:'Guest Reviews', cms:'Site content', host:'Host & Airbnb', team:'Team' };
 
   return (
     <div className="adm-root">
@@ -4237,6 +4295,7 @@ export default function OrgAdminPage() {
         <div className="adm-content">
           {toast && <div className={`adm-alert ${toast.ok?'adm-alert-success':'adm-alert-error'}`}>{toToastMessage(toast.msg)}</div>}
           {tab==='overview'   && TabOverview}
+          {tab==='visitors'   && TabVisitors}
           {tab==='properties' && TabProperties}
           {tab==='bookings'   && TabBookings}
           {tab==='reviews'    && TabReviews}
@@ -4444,6 +4503,7 @@ function StatusBadge({ s }: { s: string }) {
 
 /* ─────────────────── Icons ─────────────────── */
 function GridI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>; }
+function ChartI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-3"/></svg>; }
 function HomeI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>; }
 function CalI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>; }
 function StarI({ size=20 }:{size?:number}) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }

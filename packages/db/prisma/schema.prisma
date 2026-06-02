@@ -43,6 +43,7 @@ model Organization {
   landingOffers LandingOffer[]
   siteSettings OrgSiteSettings?
   airbnbHostAccounts AirbnbHostAccount[]
+  sitePageViews SitePageView[]
 }
 
 /// Airbnb host profile: group one or more listing iCal links under one “account”.
@@ -493,4 +494,20 @@ model BookingOfferSelection {
 
   @@unique([bookingId, landingOfferId])
   @@index([bookingId])
+}
+
+/// First-party marketing site pageviews (public beacon — no PII).
+model SitePageView {
+  id             String   @id @default(uuid())
+  organizationId String
+  path           String   @db.VarChar(500)
+  referrerHost   String?  @db.VarChar(200)
+  visitorKey     String?  @db.VarChar(64)
+  deviceClass    String?  @db.VarChar(16)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, path, createdAt])
 }

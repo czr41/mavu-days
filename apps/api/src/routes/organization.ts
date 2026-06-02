@@ -16,6 +16,7 @@ import type { Prisma } from '@mavu/db';
 import { getMembership, requireUser } from '../lib/org-access.js';
 import { confirmPendingBooking, refreshCompoundAvailabilityBlocksForOrg, upsertConfirmedBooking } from '../services/booking-flow.js';
 import { syncInboundIcals } from '../services/ical-sync.js';
+import { getSiteAnalyticsSummary, listRecentSiteVisits } from '../services/site-analytics.js';
 import { validateOffersForBookingUnit } from '../services/booking-offers.js';
 import { fetchAirbnbListingImageCandidates } from '../services/airbnb-listing-images.js';
 import { pickAllPublishedAirbnbListingUrls, syncExternalGuestReviews } from '../services/external-reviews-sync.js';
@@ -174,7 +175,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
     if (!m) return;
     const now = new Date();
     const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const [upcoming, alerts, links] = await Promise.all([
+    const [upcoming, alerts, links, analytics] = await Promise.all([
       app.prisma.booking.findMany({
         where: {
           organizationId: m.organizationId,
@@ -199,6 +200,7 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         },
         take: 100,
       }),
+      getSiteAnalyticsSummary(app.prisma, m.organizationId),
     ]);
     return reply.send({
       upcoming,
@@ -209,7 +211,23 @@ export function registerOrganizationRoutes(app: FastifyInstance) {
         createdAt: a.createdAt,
       })),
       listingLinks: links,
+      analytics,
     });
+  });
+
+  app.get('/orgs/:orgSlug/analytics/visits', async (req, reply) => {
+    const m = await membershipForRoles(app, req, reply, careRoles);
+    if (!m) return;
+    const q = z
+      .object({
+        days: z.coerce.number().int().min(1).max(90).optional(),
+        limit: z.coerce.number().int().min(1).max(200).optional(),
+        offset: z.coerce.number().int().min(0).optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return reply.status(400).send({ error: q.error.flatten() });
+    const data = await listRecentSiteVisits(app.prisma, m.organizationId, q.data);
+    return reply.send(data);
   });
 
   app.post('/orgs/:orgSlug/invites', async (req, reply) => {

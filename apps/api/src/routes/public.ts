@@ -17,6 +17,7 @@ import { buildPublicSitePayload } from '../lib/public-site-dto.js';
 import { landingOfferActiveOnDateClause, utcTodayDateOnly } from '../lib/landing-offer-calendar.js';
 import { PUBLIC_GUEST_REVIEWS_PAGE_LIMIT, PUBLIC_LANDING_REVIEWS_LIMIT } from '../lib/landing-review-limits.js';
 import { toPublicGuestReviewDto } from '../lib/guest-review-dto.js';
+import { recordSitePageView } from '../services/site-analytics.js';
 
 type OrgInventoryPayload = Prisma.OrganizationGetPayload<{
   include: {
@@ -558,5 +559,39 @@ export function registerPublicRoutes(app: FastifyInstance) {
       message:
         'Booking is pending confirmation. Flip MOCK_PAYMENTS=true for local demos, or wire a payment webhook to confirm.',
     });
+  });
+
+  /** Lightweight pageview beacon from the marketing site (first-party analytics). */
+  app.post('/public/orgs/:orgSlug/analytics/pageview', async (req, reply) => {
+    const slug = normalizeOrgSlugParam((req.params as { orgSlug: string }).orgSlug);
+    const body = z
+      .object({
+        path: z.string().min(1).max(500),
+        referrer: z.string().max(2000).optional(),
+        visitorKey: z.string().max(64).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const org = await app.prisma.organization.findFirst({
+      where: whereOrgSlugParam(slug),
+      select: { id: true },
+    });
+    if (!org) return reply.status(404).send({ error: 'Organization not found' });
+
+    const path = body.data.path.trim();
+    if (path.startsWith('/admin') || path.startsWith('/login')) {
+      return reply.send({ ok: true, recorded: false });
+    }
+
+    const ua = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined;
+    const result = await recordSitePageView(app.prisma, {
+      organizationId: org.id,
+      path,
+      referrer: body.data.referrer,
+      visitorKey: body.data.visitorKey,
+      userAgent: ua,
+    });
+    return reply.send({ ok: true, ...result });
   });
 }
