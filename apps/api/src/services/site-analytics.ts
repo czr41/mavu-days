@@ -154,7 +154,7 @@ export async function listRecentSiteVisits(
   const offset = Math.max(opts.offset ?? 0, 0);
   const since = daysAgoUtc(days - 1);
 
-  const [rows, total] = await Promise.all([
+  const [rows, total, uniqueRows] = await Promise.all([
     prisma.sitePageView.findMany({
       where: { organizationId, createdAt: { gte: since } },
       orderBy: { createdAt: 'desc' },
@@ -172,11 +172,20 @@ export async function listRecentSiteVisits(
     prisma.sitePageView.count({
       where: { organizationId, createdAt: { gte: since } },
     }),
+    prisma.sitePageView.groupBy({
+      by: ['visitorKey'],
+      where: {
+        organizationId,
+        createdAt: { gte: since },
+        visitorKey: { not: null },
+      },
+    }),
   ]);
 
   return {
     days,
     total,
+    uniqueVisitors: uniqueRows.length,
     visits: rows.map((r) => ({
       id: r.id,
       createdAt: r.createdAt.toISOString(),

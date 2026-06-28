@@ -1235,6 +1235,7 @@ export default function OrgAdminPage() {
   const [unitBundles, setUnitBundles] = useState<UnitListingBundle[]>([]);
   const [siteVisits, setSiteVisits] = useState<SiteVisitRow[]>([]);
   const [siteVisitsTotal, setSiteVisitsTotal] = useState(0);
+  const [siteVisitsUnique, setSiteVisitsUnique] = useState(0);
   const [siteVisitsDays, setSiteVisitsDays] = useState(7);
   const [siteVisitsLoading, setSiteVisitsLoading] = useState(false);
   const [listingEditUnitId, setListingEditUnitId] = useState<string | null>(null);
@@ -1367,7 +1368,7 @@ export default function OrgAdminPage() {
     async (days: number, silentNetwork?: boolean) => {
       setSiteVisitsLoading(true);
       try {
-        const d = await apiFetch<{ visits: SiteVisitRow[]; total: number; days: number }>(
+        const d = await apiFetch<{ visits: SiteVisitRow[]; total: number; uniqueVisitors?: number; days: number }>(
           `${base}/analytics/visits?days=${String(days)}&limit=100`,
           undefined,
           { silentNetwork: !!silentNetwork },
@@ -1375,6 +1376,7 @@ export default function OrgAdminPage() {
         if (d) {
           setSiteVisits(d.visits);
           setSiteVisitsTotal(d.total);
+          setSiteVisitsUnique(d.uniqueVisitors ?? 0);
           setSiteVisitsDays(d.days);
         }
         return d != null;
@@ -1863,11 +1865,16 @@ export default function OrgAdminPage() {
     <SiteVisitorsTab
       visits={siteVisits}
       total={siteVisitsTotal}
+      uniqueVisitors={siteVisitsUnique}
       days={siteVisitsDays}
       loading={siteVisitsLoading}
       onDaysChange={(d) => {
         setSiteVisitsDays(d);
         void loadVisits(d);
+      }}
+      onRefresh={() => {
+        void loadVisits(siteVisitsDays);
+        void loadDash();
       }}
       onOpenOverview={() => setTab('overview')}
     />

@@ -135,24 +135,28 @@ export function SiteInsightsOverview({
 export function SiteVisitorsTab({
   visits,
   total,
+  uniqueVisitors,
   days,
   loading,
   onDaysChange,
+  onRefresh,
   onOpenOverview,
 }: {
   visits: SiteVisitRow[];
   total: number;
+  uniqueVisitors: number;
   days: number;
   loading: boolean;
   onDaysChange: (days: number) => void;
+  onRefresh?: () => void;
   onOpenOverview?: () => void;
 }) {
   return (
     <>
       <div className="adm-stats">
         {[
-          { label: 'Page views', value: total, sub: `last ${days} days` },
-          { label: 'Unique visitors', value: new Set(visits.map((v) => v.visitorLabel).filter(Boolean)).size, sub: 'in this list' },
+          { label: 'Page views', value: total, sub: `last ${days} day${days === 1 ? '' : 's'}` },
+          { label: 'Unique visitors', value: uniqueVisitors, sub: `last ${days} day${days === 1 ? '' : 's'}` },
         ].map((s) => (
           <div key={s.label} className="adm-stat-card adm-stat-accent-purple">
             <span className="adm-stat-label">{s.label}</span>
@@ -177,6 +181,11 @@ export function SiteVisitorsTab({
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
             </select>
+            {onRefresh ? (
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={loading} onClick={onRefresh}>
+                Refresh
+              </button>
+            ) : null}
             {onOpenOverview ? (
               <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={onOpenOverview}>
                 Overview chart →

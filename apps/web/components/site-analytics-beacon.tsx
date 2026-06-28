@@ -7,6 +7,7 @@ import { publicApiBaseUrl } from '@/lib/public-api-base';
 import { publicOrgSlugCandidates } from '@/lib/public-org-slug';
 
 const VISITOR_KEY_STORAGE = 'mavu_visitor_key';
+const PAGEVIEW_DEDUPE_PREFIX = 'mavu_pv_sent:';
 
 function ensureVisitorKey(): string {
   try {
@@ -28,6 +29,20 @@ function shouldTrackPath(pathname: string): boolean {
   return true;
 }
 
+/** Skip duplicate beacons from React strict mode / rapid remounts (same path within 5 min). */
+function shouldSendPageview(pathname: string): boolean {
+  try {
+    const key = `${PAGEVIEW_DEDUPE_PREFIX}${pathname}`;
+    const last = sessionStorage.getItem(key);
+    const now = Date.now();
+    if (last && now - Number(last) < 5 * 60 * 1000) return false;
+    sessionStorage.setItem(key, String(now));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 /** Sends a lightweight pageview to the booking API (first-party site analytics). */
 export function SiteAnalyticsBeacon() {
   const pathname = usePathname();
@@ -36,6 +51,7 @@ export function SiteAnalyticsBeacon() {
   useEffect(() => {
     if (!pathname || !shouldTrackPath(pathname)) return;
     if (lastSentRef.current === pathname) return;
+    if (!shouldSendPageview(pathname)) return;
     lastSentRef.current = pathname;
 
     const envSlug = process.env.NEXT_PUBLIC_ORG_SLUG ?? '';
